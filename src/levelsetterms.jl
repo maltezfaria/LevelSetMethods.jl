@@ -32,7 +32,7 @@ compute_terms(terms::Tuple,ϕ::MeshField,bc::BoundaryCondition) = compute_terms!
 
 Level-set advection term representing  `𝐯 ⋅ ∇ϕ`.
 """
-@Base.kwdef struct AdvectionTerm{V,M} <: LevelSetTerm
+Base.@kwdef struct AdvectionTerm{V,M} <: LevelSetTerm
     velocity::MeshField{V,M}
     scheme::Symbol = :upwind
 end
