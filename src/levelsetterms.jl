@@ -19,12 +19,12 @@ function compute_terms!(buffer::MeshField,terms::Tuple,ϕ::MeshField,bc::Boundar
     # update ϕ with prescribed bc before entering the loop
     applybc!(ϕ,bc)
     for I in interior_indices(grid,bc)
-        for term in terms
-            _update_term!(buffer,term,ϕ,I)
-        end
-    end
-    return buffer
-end
+        map(terms) do term
+            _update_term!(buffer,term,ϕ,I)    
+        end    
+    end   
+    return buffer     
+end    
 compute_terms(terms::Tuple,ϕ::MeshField,bc::BoundaryCondition) = compute_terms!(zero(ϕ),terms::Tuple,ϕ::MeshField,bc::BoundaryCondition)
 
 """
@@ -70,7 +70,7 @@ function _update_term!(buffer,term::CurvatureTerm,ϕ,I)
     b = coefficient(term)
     N = dimension(ϕ)
     κ = curvature(ϕ,I)
-    # compute |∇ϕ|^2
+    # compute |∇ϕ|
     ϕ² = sum(1:N) do dim
         D⁰(ϕ,I,dim)^2
     end
