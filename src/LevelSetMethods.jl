@@ -4,8 +4,8 @@ using LinearAlgebra
 using StaticArrays
 using RecipesBase
 
-export 
-    CartesianGrid, 
+export
+    CartesianGrid,
     meshsize,
     SVector,
     MeshField,
@@ -13,8 +13,11 @@ export
     PeriodicBC,
     AdvectionTerm,
     CurvatureTerm,
-    compute_terms
-    
+    NormalAdvectionTerm,
+    compute_terms,
+    add_circle!,
+    add_rectangle!
+
 include("meshes.jl")
 include("boundaryconditions.jl")
 include("meshfield.jl")
