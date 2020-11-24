@@ -1,6 +1,6 @@
 """
     struct MeshField{V,M}
-    
+
 A field described by its discrete values on a mesh.
 """
 struct MeshField{V,M}
@@ -40,38 +40,50 @@ const LevelSet{V,M} = MeshField{V,M}
 # function Contour.contour(ϕ::LevelSet)
 #     N = dimension(ϕ)
 #     if N == 2
-#         x = xgrid(ϕ.mesh)    
+#         x = xgrid(ϕ.mesh)
 #         y = ygrid(ϕ.mesh)
 #         c = Contour.contour(x,y,transpose(values(ϕ)),0)
 #         pts = SVector{2,Float64}[]
 #         for l in lines(c)
 #             xs,ys = coordinates(l)
 #             for i in 1:length(xs)
-#                 push!(pts,SVector(xs[i],ys[i]))    
-#             end    
+#                 push!(pts,SVector(xs[i],ys[i]))
+#             end
 #         end
 #         return pts
 #     else
-#         notimplemented()        
+#         notimplemented()
 #     end
-# end    
+# end
+
+# helpers to add geometric shapes on the a level set
+function add_circle!(ϕ::MeshField, center, r)
+    rsq = r*r
+    circle = map(x -> sum((x.-center).^2) - r*r, mesh(ϕ))
+    @. ϕ.vals = min(ϕ.vals, circle)
+end
+
+function add_rectangle!(ϕ::MeshField, center, size)
+    sized2 = 0.5*size
+    rectangle = map(x -> maximum(abs.(x.-center) - sized2), mesh(ϕ))
+    @. ϕ.vals = min.(ϕ.vals, rectangle)
+end
 
 # recipes for Plots
 @recipe function f(ϕ::MeshField)
-    N = dimension(ϕ)    
+    N = dimension(ϕ)
     if N == 2 # 2d contour plot
         seriestype := :contour
         levels --> [0,]
         aspect_ratio --> :equal
         colorbar --> false
         seriescolor --> :black
-        m = mesh(ϕ)    
+        m = mesh(ϕ)
         # Note: the values of ϕ need be transposed because contour expects the
         # matrix to have rows representing the x values and columns expecting
-        # the y value. 
+        # the y value.
         return xgrid(m),ygrid(m),transpose(values(ϕ))
     else
         notimplemented()
-    end        
-end    
-
+    end
+end
