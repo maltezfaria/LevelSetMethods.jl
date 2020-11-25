@@ -108,26 +108,27 @@ end
 """
     struct NormalAdvectionTerm{V,M} <: LevelSetTerm
 
-Level-set advection term representing  `v |∇ϕ|`.
+Level-set advection term representing  `v |∇ϕ|`. This `LevelSetTerm` should be
+used for internally generated velocity fields; for externally generated
+velocities you may use `AdvectionTerm` instead.
 """
 @Base.kwdef struct NormalAdvectionTerm{V,M} <: LevelSetTerm
-    velocity::MeshField{V,M}
+    speed::MeshField{V,M}
 end
-velocity(adv::NormalAdvectionTerm) = adv.velocity
+speed(adv::NormalAdvectionTerm) = adv.speed
 
 function _update_term!(buffer,term::NormalAdvectionTerm,ϕ,I)
-    u = velocity(term)
+    u = speed(term)
     N = dimension(ϕ)
     v = u[I]
-
     mA0² = 0.0
     mB0² = 0.0
     for dim in 1:N
         h = meshsize(ϕ,dim)
 
         # eq. (6.22-6.27) generalized for any dimensions
-        A = D⁻(ϕ,I,dim) + 0.5 * h * m(D2⁻⁻(ϕ,I,dim), D2⁰(ϕ,I,dim))
-        B = D⁺(ϕ,I,dim) - 0.5 * h * m(D2⁺⁺(ϕ,I,dim), D2⁰(ϕ,I,dim))
+        A = D⁻(ϕ,I,dim) + 0.5 * h * limiter(D2⁻⁻(ϕ,I,dim), D2⁰(ϕ,I,dim))
+        B = D⁺(ϕ,I,dim) - 0.5 * h * limiter(D2⁺⁺(ϕ,I,dim), D2⁰(ϕ,I,dim))
 
         if v > 0.0
             mA0² += positive(A)^2
@@ -149,7 +150,7 @@ end
 
 function _compute_cfl(buffer,term::NormalAdvectionTerm,ϕ)
     mind = minimum(meshsize(ϕ))
-    norminf = maximum(abs.(velocity(term)))
+    norminf = maximum(abs.(speed(term)))
     return 0.5 * mind / norminf
 end
 
@@ -162,7 +163,7 @@ function g(x, y)
 end
 
 # eq. (6.28)
-function m(x, y)
+function limiter(x, y)
     x*y < zero(x) || return zero(x)
     return abs(x) <= abs(y) ? x : y
 end
