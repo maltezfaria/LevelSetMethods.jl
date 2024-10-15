@@ -4,8 +4,7 @@ using LinearAlgebra
 using StaticArrays
 using RecipesBase
 
-export
-    CartesianGrid,
+export CartesianGrid,
     meshsize,
     SVector,
     MeshField,
@@ -18,7 +17,7 @@ export
     add_circle!,
     add_rectangle!,
     ForwardEuler,
-    RK2, 
+    RK2,
     LevelSetEquation,
     integrate!
 

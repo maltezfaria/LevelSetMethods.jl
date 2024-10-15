@@ -6,12 +6,12 @@ end
 cfl(fe::ForwardEuler) = fe.cfl
 
 Base.@kwdef struct RK2 <: TimeIntegrator
-    cfl::Float64 = 0.5 
+    cfl::Float64 = 0.5
 end
 cfl(rk2::RK2) = rk2.cfl
 
 Base.@kwdef struct RKLM2 <: TimeIntegrator
-    cfl::Float64 = 0.5 
+    cfl::Float64 = 0.5
 end
 cfl(rk2::RKLM2) = rk2.cfl
 
@@ -31,5 +31,3 @@ cfl(rk2::RKLM2) = rk2.cfl
 #     axpy!(-Δt/2,buffer2.vals,ϕ.vals) # ϕ = ϕ - dt/2*buffer2
 #     return ϕ,t+Δt
 # end    
-
-
