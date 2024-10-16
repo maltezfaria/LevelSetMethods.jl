@@ -1,4 +1,3 @@
-using Test
 using LevelSetMethods
 using LinearAlgebra
 using Plots

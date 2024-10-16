@@ -17,11 +17,10 @@ using LevelSetMethods: D⁺, D⁻, D⁰, D2⁰, D2, weno5⁻, weno5⁺
     ∇ϕ     = MeshField(grid) do (x, y)
         return SVector(2x, 2y)
     end
-    # first derivative    
+    # first derivative
     for op in (D⁺, D⁻, D⁰, weno5⁻, weno5⁺)
         for dir in 1:2
             ee = abs(∇ϕ[I][dir] - op(ϕ, I, dir))
-            @info ee
             @test ee < 5 * h[dir]
         end
     end

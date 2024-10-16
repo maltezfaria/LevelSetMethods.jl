@@ -4,6 +4,14 @@ using LinearAlgebra
 using StaticArrays
 using RecipesBase
 
+include("meshes.jl")
+include("boundaryconditions.jl")
+include("meshfield.jl")
+include("derivatives.jl")
+include("levelsetterms.jl")
+include("timestepping.jl")
+include("levelsetequation.jl")
+
 export CartesianGrid,
     meshsize,
     SVector,
@@ -20,13 +28,5 @@ export CartesianGrid,
     RK2,
     LevelSetEquation,
     integrate!
-
-include("meshes.jl")
-include("boundaryconditions.jl")
-include("meshfield.jl")
-include("derivatives.jl")
-include("levelsetterms.jl")
-include("timestepping.jl")
-include("levelsetequation.jl")
 
 end # module

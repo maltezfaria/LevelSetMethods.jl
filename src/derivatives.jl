@@ -50,7 +50,7 @@ function D⁻⁻(ϕ::MeshField, I, dim)
 end
 
 function weno5⁻(ϕ::MeshField, I, dim)
-    # see section 3.4 of Osher-Fedwik    
+    # see section 3.4 of Osher-Fedwik
     Im  = _decrement_index(I, dim)
     Imm = _decrement_index(Im, dim)
     Ip  = _increment_index(I, dim)
@@ -83,7 +83,7 @@ function weno5⁻(ϕ::MeshField, I, dim)
 end
 
 function weno5⁺(ϕ::MeshField, I, dim)
-    # see section 3.4 of Osher-Fedwik    
+    # see section 3.4 of Osher-Fedwik
     Im  = _decrement_index(I, dim)
     Imm = _decrement_index(Im, dim)
     Ip  = _increment_index(I, dim)
@@ -114,8 +114,6 @@ function weno5⁺(ϕ::MeshField, I, dim)
     # WENO approximation
     return ω1 * dϕ1 + ω2 * dϕ2 + ω3 * dϕ3
 end
-
-function weno5⁺(ϕ::MeshField, I, dim) end
 
 """
     D2⁰(ϕ::MeshField,I,dim)

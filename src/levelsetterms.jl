@@ -29,8 +29,8 @@ function _compute_cfl(term::LevelSetTerm, ϕ)
     return dt
     # FIXME: why does the minimum below allocate? It infers the return type as ...
     # minimum(interior_indices(ϕ)) do I
-    #     _compute_cfl(term,ϕ,I)    
-    # end    
+    #     _compute_cfl(term,ϕ,I)
+    # end
 end
 
 """
