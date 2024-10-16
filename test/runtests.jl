@@ -1,10 +1,9 @@
-using SafeTestsets
-using LevelSetMethods
+using Test
 
-@safetestset "Meshes" begin
+@testset "Meshes" begin
     include("meshes_test.jl")
 end
 
-@safetestset "Advection term" begin
+@testset "Derivatives test" begin
     include("derivatives_test.jl")
 end
