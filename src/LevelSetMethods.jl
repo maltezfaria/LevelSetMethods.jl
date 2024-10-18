@@ -2,7 +2,6 @@ module LevelSetMethods
 
 using LinearAlgebra
 using StaticArrays
-using RecipesBase
 
 include("meshes.jl")
 include("boundaryconditions.jl")

@@ -12,7 +12,7 @@ An `N`-dimensional cartesian grid given as the tensor-product of `N` one-dimensi
 `LinRange{T}` objects. The grid spacing is therefore constant per dimension.
 """
 struct CartesianGrid{N,T} <: AbstractMesh{N,T}
-    grid1d::NTuple{N,LinRange{T}}
+    grid1d::NTuple{N,LinRange{T,Int64}}
 end
 
 grid1d(g::CartesianGrid)      = g.grid1d
@@ -26,7 +26,7 @@ zgrid(g::CartesianGrid) = g.grid1d[3]
 
 # allow for arguments to be passed as e.g. (x,y) instead of tuple and promote
 # type if needed
-CartesianGrid(args...) = CartesianGrid(promote(args...))
+CartesianGrid(args...) = CartesianGrid(promote(LinRange.(args)...))
 
 meshsize(g::CartesianGrid)      = step.(grid1d(g))
 meshsize(g::CartesianGrid, dim) = step(grid1d(g, dim))

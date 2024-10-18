@@ -65,22 +65,3 @@ function add_rectangle!(ϕ::MeshField, center, size)
     rectangle = map(x -> maximum(abs.(x .- center) - sized2), mesh(ϕ))
     @. ϕ.vals = min.(ϕ.vals, rectangle)
 end
-
-# recipes for Plots
-@recipe function f(ϕ::MeshField)
-    N = dimension(ϕ)
-    if N == 2 # 2d contour plot
-        seriestype --> :contour
-        levels --> [0]
-        aspect_ratio --> :equal
-        colorbar --> false
-        # seriescolor --> :black
-        m = mesh(ϕ)
-        # Note: the values of ϕ need be transposed because contour expects the
-        # matrix to have rows representing the x values and columns expecting
-        # the y value.
-        return xgrid(m), ygrid(m), transpose(values(ϕ))
-    else
-        notimplemented()
-    end
-end

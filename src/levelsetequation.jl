@@ -55,7 +55,7 @@ related to the `terms` and `integrator` employed.
 """
 function integrate!(ls::LevelSetEquation, tf, Δt = Inf)
     tc = current_time(ls)
-    msg = "final time $(tf) must be larger than the initial time $(tc): 
+    msg = "final time $(tf) must be larger than the initial time $(tc):
            the level-set equation cannot be solved back in time"
     @assert tf >= tc msg
     b          = buffer(ls)
@@ -86,7 +86,7 @@ function _integrate!(
     Δt_cfl = α * compute_cfl(terms, ϕ)
     Δt     = min(Δt, Δt_cfl)
     while tc <= tf - eps(tc)
-        Δt = min(Δt, tf - tc) # if needed, take a smaller time-step to exactly land on tf        
+        Δt = min(Δt, tf - tc) # if needed, take a smaller time-step to exactly land on tf
         applybc!(ϕ)
         grid = mesh(ϕ)
         for I in interior_indices(ϕ)
@@ -107,7 +107,7 @@ function _integrate!(ϕ::LevelSet, buffers, integrator::RK2, terms, tc, tf, Δt)
     Δt_cfl = α * compute_cfl(terms, ϕ)
     Δt = min(Δt, Δt_cfl)
     while tc <= tf - eps(tc)
-        Δt = min(Δt, tf - tc) # if needed, take a smaller time-step to exactly land on tf        
+        Δt = min(Δt, tf - tc) # if needed, take a smaller time-step to exactly land on tf
         applybc!(ϕ)
         grid = mesh(ϕ)
         for I in interior_indices(ϕ)
@@ -133,7 +133,7 @@ function _integrate!(ϕ::LevelSet, buffer::LevelSet, integrator::RKLM2, terms, t
     Δt_cfl = α * compute_cfl(terms, ϕ)
     Δt     = min(Δt, Δt_cfl)
     while tc <= tf - eps(tc)
-        Δt = min(Δt, tf - tc) # if needed, take a smaller time-step to exactly land on tf        
+        Δt = min(Δt, tf - tc) # if needed, take a smaller time-step to exactly land on tf
         applybc!(ϕ)
         grid = mesh(ϕ)
         for I in interior_indices(ϕ)
@@ -157,42 +157,24 @@ function _integrate!(ϕ::LevelSet, buffer::LevelSet, integrator::RKLM2, terms, t
 end
 
 # function evolve!(ϕ,integ::RK2,terms,bc,t,Δtmax=Inf)
-#     α = integ.cfl    
+#     α = integ.cfl
 #     buffer1,buffer2 = integ.buffers[1],integ.buffers[2]
 #     fill!(values(buffer1),0)
 #     fill!(values(buffer2),0)
 #     #
-#     buffer1, Δtˢ = compute_terms!(buffer1,terms,ϕ,bc) 
-#     Δt = min(Δtmax,α*Δtˢ) 
+#     buffer1, Δtˢ = compute_terms!(buffer1,terms,ϕ,bc)
+#     Δt = min(Δtmax,α*Δtˢ)
 #     axpy!(-Δt/2,buffer1.vals,ϕ.vals) # ϕ = ϕ - dt/2*buffer1
 #     #
-#     @. buffer1.vals = ϕ.vals + Δt * buffer1.vals   
-#     buffer2, _   = compute_terms!(buffer2,terms,buffer1,bc)    
-#     #    
+#     @. buffer1.vals = ϕ.vals + Δt * buffer1.vals
+#     buffer2, _   = compute_terms!(buffer2,terms,buffer1,bc)
+#     #
 #     axpy!(-Δt/2,buffer2.vals,ϕ.vals) # ϕ = ϕ - dt/2*buffer2
 #     return ϕ,t+Δt
-# end   
+# end
 
 function _compute_terms(terms, ϕ, I)
     sum(terms) do term
         return _compute_term(term, ϕ, I)
-    end
-end
-
-# recipes for Plots
-@recipe function f(eq::LevelSetEquation)
-    ϕ = current_state(eq)
-    t = current_time(eq)
-    N = dimension(ϕ)
-    if N == 2 # 2d contour plot
-        seriestype --> :contour
-        levels --> [0]
-        aspect_ratio --> :equal
-        colorbar --> false
-        title --> "t = $t"
-        # seriescolor --> :black
-        return ϕ
-    else
-        notimplemented()
     end
 end

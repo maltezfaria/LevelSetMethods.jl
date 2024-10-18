@@ -12,3 +12,6 @@ env
 node_modules
 **.git
 .vscode
+sandbox
+*.gif
+*.mp4
