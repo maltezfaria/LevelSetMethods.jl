@@ -7,6 +7,21 @@ function __init__()
     @info "Loading Makie extension for LevelSetMethods.jl"
 end
 
+# NOTE: Makie recipes currently can't modify the Axis (https://discourse.julialang.org/t/makie-plot-recipe-collections/86434)
+# so we have to set the theme manually
+function LSM.makie_theme()
+    return Theme(;
+        Axis = (
+            xlabel = "x",
+            ylabel = "y",
+            zlabel = "z",
+            # autolimitaspect = 1,
+            aspect = AxisAspect(1),
+        ),
+        fontsize = 20,
+    )
+end
+
 function Makie.plottype(ϕ::LSM.LevelSet)
     N = LSM.dimension(ϕ)
     if N == 2
@@ -18,7 +33,7 @@ function Makie.plottype(ϕ::LSM.LevelSet)
     end
 end
 
-function Makie.convert_arguments(P::Type{<:AbstractPlot}, ϕ::LSM.LevelSet)
+function Makie.convert_arguments(::Type{<:AbstractPlot}, ϕ::LSM.LevelSet)
     N = LSM.dimension(ϕ)
     if N == 2
         _contour_plot(ϕ)
@@ -43,6 +58,46 @@ function _volume_plot(ϕ::LSM.LevelSet)
     # NOTE: volume gives a warning when passed an AbstractVector for x,y,z,
     # and asks for a tuple instead
     return extrema(x), extrema(y), extrema(z), v
+end
+
+Makie.@recipe(LevelSetPlot, eq) do scene
+    return Theme()
+end
+
+function Makie.plot!(p::LevelSetPlot)
+    eq = p.eq
+    ϕ = @lift LSM.current_state($eq)
+    t = @lift LSM.current_time($eq)
+    # TODO: since we can't really modify the axis in a recipe, we set the time
+    # manually. The proper solution is to set the time as a title in the axis...
+    text!(
+        p,
+        1, # x-position
+        1; # y position
+        text = @lift("t = $(round($t, digits = 1))"),
+        fontsize = 20,
+        align = (:right, :top),
+        color = :darkgrey,
+        strokewidth = 1,
+    )
+    plot!(p, ϕ; levels = [0], linewidth = 2, color = :black)
+    return p
+end
+
+Makie.plottype(::LSM.LevelSetEquation) = LevelSetPlot
+
+## Pick correct axis type based on dimension of the level-set
+function Makie.args_preferred_axis(p::LevelSetPlot)
+    eq = p.eq
+    ϕ = @lift LSM.current_state($eq)
+    dim = @lift LSM.dimension($ϕ)
+    if dim == 2
+        return Axis
+    elseif dim == 3
+        return LScene
+    else
+        throw(ArgumentError("Plot of $dim dimensional level-set not supported."))
+    end
 end
 
 end # module
