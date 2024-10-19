@@ -160,7 +160,7 @@ Level-set advection term representing  `v |∇ϕ|`. This `LevelSetTerm` should b
 used for internally generated velocity fields; for externally generated
 velocities you may use `AdvectionTerm` instead.
 """
-Base.@kwdef struct NormalAdvectionTerm{V,M} <: LevelSetTerm
+Base.@kwdef struct NormalMotionTerm{V,M} <: LevelSetTerm
     speed::MeshField{V,M}
 end
 speed(adv::NormalMotionTerm) = adv.speed
