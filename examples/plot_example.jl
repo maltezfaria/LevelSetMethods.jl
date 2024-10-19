@@ -25,17 +25,25 @@ bc = PeriodicBC(1)
     return 0.5^2 - x^2 - y^2 - z^2
 end
 
-volume(ϕ; algorithm = :iso, isovalue = 0, alpha = 0.5)
+plot(ϕ; algorithm = :iso, isovalue = 0, alpha = 0.5)
 
 ## Following a solution over time
 obs = Observable(ϕ)
 
-volume(obs; algorithm = :iso, isovalue = 0, alpha = 0.5)
+fig = Figure()
+ax1 = Axis3(fig[1, 1])
+ax2 = Axis3(fig[1, 2])
+ax3 = Axis3(fig[2, 1:2])
+
+plot!(ax1, obs; algorithm = :iso, isovalue = 0, alpha = 0.5)
+plot!(ax2, obs; algorithm = :iso, isovalue = 0, alpha = 0.3)
+plot!(ax3, obs; algorithm = :iso, isovalue = 0, alpha = 1.0)
+fig
 
 for t in 0:0.01:1
-    sleep(0.01)
+    sleep(0.1)
     ϕ = LevelSet(grid, bc) do (x, y, z)
-        return 0.5^2 - (x - t)^2 - (y - t)^2 - (z - t)^2
+        return 0.5^2 - (x)^2 - (y)^2 - (z - t)^2
     end
     obs[] = ϕ
 end
