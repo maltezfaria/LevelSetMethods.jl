@@ -1,12 +1,7 @@
 using LevelSetMethods
 using Documenter
 
-DocMeta.setdocmeta!(
-    LevelSetMethods,
-    :DocTestSetup,
-    :(using LevelSetMethods);
-    recursive = true,
-)
+DocMeta.setdocmeta!(LevelSetMethods, :DocTestSetup, :(using LevelSetMethods); recursive = true)
 
 const page_rename = Dict("developer.md" => "Developer docs") # Without the numbers
 const numbered_pages = [
@@ -19,9 +14,7 @@ makedocs(;
     authors = "Luiz M. Faria and Nicolas Lebbe",
     repo = "https://github.com/maltezfaria/LevelSetMethods.jl/blob/{commit}{path}#{line}",
     sitename = "LevelSetMethods.jl",
-    format = Documenter.HTML(;
-        canonical = "https://maltezfaria.github.io/LevelSetMethods.jl",
-    ),
+    format = Documenter.HTML(; canonical = "https://maltezfaria.github.io/LevelSetMethods.jl"),
     pages = ["index.md"; numbered_pages],
 )
 
