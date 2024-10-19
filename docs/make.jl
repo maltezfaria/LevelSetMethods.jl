@@ -22,7 +22,8 @@ makedocs(;
     format = Documenter.HTML(;
         canonical = "https://maltezfaria.github.io/LevelSetMethods.jl",
     ),
-    pages = ["index.md"; numbered_pages],
+    pages = ["index.md"; "advection_example.md"; numbered_pages],
+    pagesonly = true, # ignore .md files not in the pages list
 )
 
 deploydocs(; repo = "github.com/maltezfaria/LevelSetMethods.jl")

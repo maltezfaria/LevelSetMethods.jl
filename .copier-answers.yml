@@ -1,12 +1,27 @@
 # Changes here will be overwritten by Copier
-AnswerStrategy: minimum
-Authors: 'Luiz M. Faria and Nicolas Lebbe'
+AddAllcontributors: true
+AddCodeOfConduct: true
+AddContributionDocs: true
+AddCopierCI: true
+AddGitHubTemplates: true
+AddMacToCI: false
+AddPrecommit: true
+AddWinToCI: false
+AnswerStrategy: ask
+Authors: Luiz M. Faria and Nicolas Lebbe
+AutoIncludeTests: true
+CodeOfConductContact: Luiz M. Faria and Nicolas Lebbe
+ConfigIndentation: 2
 JuliaIndentation: 4
+JuliaMinCIVersion: lts
 JuliaMinVersion: '1.10'
 License: MIT
 LicenseCopyrightHolders: Luiz M. Faria and Nicolas Lebbe
+MarkdownIndentation: 2
 PackageName: LevelSetMethods
 PackageOwner: maltezfaria
 PackageUUID: ca3df947-0575-4ae6-b9a3-78df393a7451
+RunJuliaNightlyOnCI: true
+UseCirrusCI: false
 _commit: v0.13.0
 _src_path: https://github.com/JuliaBesties/BestieTemplate.jl

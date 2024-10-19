@@ -2,7 +2,6 @@ module LevelSetMethods
 
 using LinearAlgebra
 using StaticArrays
-using RecipesBase
 
 include("meshes.jl")
 include("boundaryconditions.jl")
@@ -28,5 +27,14 @@ export CartesianGrid,
     RK2,
     LevelSetEquation,
     integrate!
+
+"""
+    makie_theme()
+
+Return a Makie theme for plots of level-set functions.
+"""
+function makie_theme end
+
+function export_mesh end
 
 end # module
