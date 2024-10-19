@@ -17,7 +17,8 @@ using Pkg; Pkg.add("https://github.com/maltezfaria/LevelSetMethods.jl")
 ## Overview
 
 This package provides a set of tools to solve level set equations in Julia. The main features are:
-- ...
+
+- FIXME
 
 ## Basic usage
 

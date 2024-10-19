@@ -34,4 +34,3 @@ jobs:
             os: ubuntu-latest
             arch: x64
             allow_failure: true
-          
