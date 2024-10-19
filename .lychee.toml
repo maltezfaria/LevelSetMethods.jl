@@ -3,7 +3,8 @@ exclude = [
   "^https://github.com/.*/releases/tag/v.*$",
   "^https://doi.org/FIXME$",
   "^https://maltezfaria.github.io/LevelSetMethods.jl/stable$",
-  "zenodo.org/badge/DOI/FIXME$"
+  "zenodo.org/badge/DOI/FIXME$",
+  "**/advection.gif$"
 ]
 
 exclude_path = [
