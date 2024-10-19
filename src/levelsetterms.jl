@@ -141,7 +141,7 @@ function curvature(ϕ::LevelSet, I)
 end
 
 """
-    struct NormalAdvectionTerm{V,M} <: LevelSetTerm
+    struct NormalMotionTerm{V,M} <: LevelSetTerm
 
 Level-set advection term representing  `v |∇ϕ|`. This `LevelSetTerm` should be
 used for internally generated velocity fields; for externally generated
@@ -150,9 +150,9 @@ velocities you may use `AdvectionTerm` instead.
 Base.@kwdef struct NormalAdvectionTerm{V,M} <: LevelSetTerm
     speed::MeshField{V,M}
 end
-speed(adv::NormalAdvectionTerm) = adv.speed
+speed(adv::NormalMotionTerm) = adv.speed
 
-Base.show(io::IO, t::NormalAdvectionTerm) = print(io, "v|∇ϕ|")
+Base.show(io::IO, t::NormalMotionTerm) = print(io, "v|∇ϕ|")
 
 function _compute_term(term::NormalAdvectionTerm, ϕ, I)
     u = speed(term)
