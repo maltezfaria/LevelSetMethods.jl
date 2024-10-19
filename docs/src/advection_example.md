@@ -30,7 +30,7 @@ end
 With `𝐮` defined, we can now create the advection term
 
 ```@example advection
-advection_term = AdvectionTerm(𝐮)
+advection_term = AdvectionTerm(; velocity = 𝐮)
 ```
 
 We can now initialize the level set function
