@@ -4,7 +4,8 @@ exclude = [
   "^https://doi.org/FIXME$",
   "^https://maltezfaria.github.io/LevelSetMethods.jl/stable$",
   "zenodo.org/badge/DOI/FIXME$",
-  "**/advection.gif$"
+  # ignore any file that ends with advection.gif
+  "advection.gif$",
 ]
 
 exclude_path = [
