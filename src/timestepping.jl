@@ -6,17 +6,17 @@ time integrators.
 """
 abstract type TimeIntegrator end
 
-Base.@kwdef struct ForwardEuler <: TimeIntegrator
+@kwdef struct ForwardEuler <: TimeIntegrator
     cfl::Float64 = 0.5
 end
 cfl(fe::ForwardEuler) = fe.cfl
 
-Base.@kwdef struct RK2 <: TimeIntegrator
+@kwdef struct RK2 <: TimeIntegrator
     cfl::Float64 = 0.5
 end
 cfl(rk2::RK2) = rk2.cfl
 
-Base.@kwdef struct RKLM2 <: TimeIntegrator
+@kwdef struct RKLM2 <: TimeIntegrator
     cfl::Float64 = 0.5
 end
 cfl(rk2::RKLM2) = rk2.cfl

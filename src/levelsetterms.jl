@@ -27,7 +27,7 @@ function _compute_cfl(term::LevelSetTerm, ϕ)
         dt = min(dt, cfl)
     end
     return dt
-    # FIXME: why does the minimum below allocate? It infers the return type as ...
+    # FIXME: why does the minimum below allocate? It infers the return type as Any...
     # minimum(interior_indices(ϕ)) do I
     #     _compute_cfl(term,ϕ,I)
     # end
@@ -38,25 +38,38 @@ end
 
 Level-set advection term representing  `𝐯 ⋅ ∇ϕ`.
 """
-Base.@kwdef struct AdvectionTerm{V,M} <: LevelSetTerm
+@kwdef struct AdvectionTerm{V,M,S<:SpatialScheme} <: LevelSetTerm
     velocity::MeshField{V,M}
+    scheme::S = Upwind()
 end
 velocity(adv::AdvectionTerm) = adv.velocity
+scheme(adv::AdvectionTerm) = adv.scheme
 
 Base.show(io::IO, t::AdvectionTerm) = print(io, "𝐮 ⋅ ∇ ϕ")
 
-function _compute_term(term::AdvectionTerm, ϕ, I, dim)
+@inline function _compute_term(term::AdvectionTerm, ϕ, I, dim)
+    sch = scheme(term)
     𝐮 = velocity(term)
     N = dimension(ϕ)
     # for dimension dim, compute the upwind derivative and multiply by the
     # velocity
     v = 𝐮[I][dim]
     if v > 0
-        return v * D⁻(ϕ, I, dim)
-        # return v*weno5⁻(ϕ,I,dim)
+        if sch === Upwind()
+            return v * D⁻(ϕ, I, dim)
+        elseif sch === WENO5()
+            return v * weno5⁻(ϕ, I, dim)
+        else
+            error("scheme $sch not implemented")
+        end
     else
-        return v * D⁺(ϕ, I, dim)
-        # return v*weno5⁺(ϕ,I,dim)
+        if sch === Upwind()
+            return v * D⁺(ϕ, I, dim)
+        elseif sch === WENO5()
+            return v * weno5⁺(ϕ, I, dim)
+        else
+            error("scheme $sch not implemented")
+        end
     end
 end
 
@@ -141,22 +154,21 @@ function curvature(ϕ::LevelSet, I)
 end
 
 """
-    struct NormalAdvectionTerm{V,M} <: LevelSetTerm
+    struct NormalMotionTerm{V,M} <: LevelSetTerm
 
 Level-set advection term representing  `v |∇ϕ|`. This `LevelSetTerm` should be
 used for internally generated velocity fields; for externally generated
 velocities you may use `AdvectionTerm` instead.
 """
-Base.@kwdef struct NormalAdvectionTerm{V,M} <: LevelSetTerm
+@kwdef struct NormalMotionTerm{V,M} <: LevelSetTerm
     speed::MeshField{V,M}
 end
-speed(adv::NormalAdvectionTerm) = adv.speed
+speed(adv::NormalMotionTerm) = adv.speed
 
-Base.show(io::IO, t::NormalAdvectionTerm) = print(io, "v|∇ϕ|")
+Base.show(io::IO, t::NormalMotionTerm) = print(io, "v|∇ϕ|")
 
-function _compute_term(term::NormalAdvectionTerm, ϕ, I)
+function _compute_term(term::NormalMotionTerm, ϕ, I)
     u = speed(term)
-    N = dimension(ϕ)
     v = u[I]
     mA0², mB0² = sum(1:N) do dim
         h = meshsize(ϕ, dim)
@@ -168,11 +180,10 @@ function _compute_term(term::NormalAdvectionTerm, ϕ, I)
             SVector(negative(A)^2, positive(B)^2)
         end
     end
-    ∇ = sqrt(mA0² + mB0²)
-    return ∇ * v
+    return sqrt(mA0² + mB0²)
 end
 
-function _compute_cfl(term::NormalAdvectionTerm, ϕ, I, dim)
+function _compute_cfl(term::NormalMotionTerm, ϕ, I, dim)
     u = speed(term)[I]
     Δx = meshsize(ϕ)[dim]
     return Δx / abs(u)
@@ -198,3 +209,23 @@ function limiter(x, y)
     x * y < zero(x) || return zero(x)
     return abs(x) <= abs(y) ? x : y
 end
+
+"""
+    struct ReinitializationTerm <: LevelSetTerm
+
+Level-set term representing  `sign(ϕ) (|∇ϕ| - 1)`. This `LevelSetTerm` should be
+used for reinitializing the level set into a signed distance function: for a
+sufficiently large number of time steps this term allows one to solve the
+Eikonal equation |∇ϕ| = 1.
+"""
+@kwdef struct ReinitializationTerm <: LevelSetTerm end
+
+Base.show(io::IO, t::ReinitializationTerm) = print(io, "sign(ϕ) (|∇ϕ| - 1)")
+
+function _compute_term(term::ReinitializationTerm, ϕ, I)
+    v = sign(ϕ[I])
+    ∇ = _compute_∇_normal_motion(v, ϕ, I)
+    return (∇ - 1.0) * v
+end
+
+_compute_cfl(term::ReinitializationTerm, ϕ, I, dim) = meshsize(ϕ)[dim]

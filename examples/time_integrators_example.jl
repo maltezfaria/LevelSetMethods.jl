@@ -24,7 +24,7 @@ end
 b = MeshField(grid) do (x, y)
     return -min(hx, hy)
 end
-term1 = NormalAdvectionTerm(v)
+term1 = NormalMotionTerm(v)
 term2 = AdvectionTerm(𝐮)
 term3 = CurvatureTerm(b)
 terms = (term1, term2, term3)

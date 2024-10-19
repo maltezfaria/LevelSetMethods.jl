@@ -19,7 +19,7 @@ plot(ϕ)
 v = MeshField(grid) do (x, y)
     return -1.0
 end
-term1 = NormalAdvectionTerm(v)
+term1 = NormalMotionTerm(v)
 terms = (term1,)
 b = zero(ϕ)
 integrator = ForwardEuler(0.5)

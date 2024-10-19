@@ -12,7 +12,7 @@ modifying in the process its `current_state` and `current_time`.
 Boundary conditions are specified in the field `bc`, and the scheme for the
 time-integration can be set in the `integrator` field.
 """
-Base.@kwdef mutable struct LevelSetEquation
+@kwdef mutable struct LevelSetEquation
     terms::Tuple
     integrator::TimeIntegrator
     state::LevelSet
