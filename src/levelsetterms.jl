@@ -156,7 +156,6 @@ Base.show(io::IO, t::NormalAdvectionTerm) = print(io, "v|∇ϕ|")
 
 function _compute_term(term::NormalAdvectionTerm, ϕ, I)
     u = speed(term)
-    N = dimension(ϕ)
     v = u[I]
     mA0², mB0² = sum(1:N) do dim
         h = meshsize(ϕ, dim)
@@ -168,8 +167,7 @@ function _compute_term(term::NormalAdvectionTerm, ϕ, I)
             SVector(negative(A)^2, positive(B)^2)
         end
     end
-    ∇ = sqrt(mA0² + mB0²)
-    return ∇ * v
+    return sqrt(mA0² + mB0²)
 end
 
 function _compute_cfl(term::NormalAdvectionTerm, ϕ, I, dim)
@@ -198,3 +196,23 @@ function limiter(x, y)
     x * y < zero(x) || return zero(x)
     return abs(x) <= abs(y) ? x : y
 end
+
+"""
+    struct ReinitializationTerm <: LevelSetTerm
+
+Level-set term representing  `sign(ϕ) (|∇ϕ| - 1)`. This `LevelSetTerm` should be
+used for reinitializing the level set into a signed distance function: for a
+sufficiently large number of time steps this term allows one to solve the
+Eikonal equation |∇ϕ| = 1.
+"""
+Base.@kwdef struct ReinitializationTerm <: LevelSetTerm end
+
+Base.show(io::IO, t::ReinitializationTerm) = print(io, "sign(ϕ) (|∇ϕ| - 1)")
+
+function _compute_term(term::ReinitializationTerm, ϕ, I)
+    v = sign(ϕ[I])
+    ∇ = _compute_∇_normal_motion(v, ϕ, I)
+    return (∇ - 1.0) * v
+end
+
+_compute_cfl(term::ReinitializationTerm, ϕ, I, dim) = meshsize(ϕ)[dim]
