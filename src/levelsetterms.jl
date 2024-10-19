@@ -27,7 +27,7 @@ function _compute_cfl(term::LevelSetTerm, ϕ)
         dt = min(dt, cfl)
     end
     return dt
-    # FIXME: why does the minimum below allocate? It infers the return type as ...
+    # FIXME: why does the minimum below allocate? It infers the return type as Any...
     # minimum(interior_indices(ϕ)) do I
     #     _compute_cfl(term,ϕ,I)
     # end
@@ -38,25 +38,38 @@ end
 
 Level-set advection term representing  `𝐯 ⋅ ∇ϕ`.
 """
-Base.@kwdef struct AdvectionTerm{V,M} <: LevelSetTerm
+Base.@kwdef struct AdvectionTerm{V,M,S<:SpatialScheme} <: LevelSetTerm
     velocity::MeshField{V,M}
+    scheme::S = Upwind()
 end
 velocity(adv::AdvectionTerm) = adv.velocity
+scheme(adv::AdvectionTerm) = adv.scheme
 
 Base.show(io::IO, t::AdvectionTerm) = print(io, "𝐮 ⋅ ∇ ϕ")
 
-function _compute_term(term::AdvectionTerm, ϕ, I, dim)
+@inline function _compute_term(term::AdvectionTerm, ϕ, I, dim)
+    sch = scheme(term)
     𝐮 = velocity(term)
     N = dimension(ϕ)
     # for dimension dim, compute the upwind derivative and multiply by the
     # velocity
     v = 𝐮[I][dim]
     if v > 0
-        return v * D⁻(ϕ, I, dim)
-        # return v*weno5⁻(ϕ,I,dim)
+        if sch === Upwind()
+            return v * D⁻(ϕ, I, dim)
+        elseif sch === WENO5()
+            return v * weno5⁻(ϕ, I, dim)
+        else
+            error("scheme $sch not implemented")
+        end
     else
-        return v * D⁺(ϕ, I, dim)
-        # return v*weno5⁺(ϕ,I,dim)
+        if sch === Upwind()
+            return v * D⁺(ϕ, I, dim)
+        elseif sch === WENO5()
+            return v * weno5⁺(ϕ, I, dim)
+        else
+            error("scheme $sch not implemented")
+        end
     end
 end
 

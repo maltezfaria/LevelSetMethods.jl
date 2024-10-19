@@ -1,3 +1,10 @@
+abstract type SpatialScheme end
+
+struct Upwind <: SpatialScheme end
+
+struct WENO5 <: SpatialScheme end
+
+
 """
     D⁰(ϕ::MeshField,I,dim)
 
