@@ -94,7 +94,7 @@ end
 
 number_of_buffers(fe::ForwardEuler) = 1
 
-function _integrate!(ϕ, buffers, integrator::ForwardEuler, terms, tc, tf, Δt)
+@noinline function _integrate!(ϕ, buffers, integrator::ForwardEuler, terms, tc, tf, Δt)
     buffer = buffers[1]
     α      = cfl(integrator)
     Δt_cfl = α * compute_cfl(terms, ϕ)

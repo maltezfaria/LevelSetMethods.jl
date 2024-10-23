@@ -38,8 +38,8 @@ end
 
 Level-set advection term representing  `𝐯 ⋅ ∇ϕ`.
 """
-@kwdef struct AdvectionTerm{V,M,S<:SpatialScheme} <: LevelSetTerm
-    velocity::MeshField{V,M}
+@kwdef struct AdvectionTerm{V,S<:SpatialScheme} <: LevelSetTerm
+    velocity::V
     scheme::S = Upwind()
 end
 velocity(adv::AdvectionTerm) = adv.velocity

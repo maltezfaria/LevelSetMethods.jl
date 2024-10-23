@@ -39,21 +39,37 @@ dimension(f::MeshField) = dimension(mesh(f))
 # overload base methods for convenience
 function Base.getindex(ϕ::MeshField, I::CartesianIndex)
     if has_boundary_conditions(ϕ)
-        I = wrap_index(ϕ, I)
+        _getindex(ϕ, I)
+    else
+        getindex(values(ϕ), I)
     end
-    return getindex(values(ϕ), I)
 end
 function Base.getindex(ϕ::MeshField, I...)
     return ϕ[CartesianIndex(I...)]
 end
 
-function Base.setindex!(ϕ::MeshField, vals, I::CartesianIndex)
-    if has_boundary_conditions(ϕ)
-        I = wrap_index(ϕ, I)
+function _getindex(ϕ::MeshField, I::CartesianIndex{N}) where {N}
+    bcs = boundary_conditions(ϕ)
+    axs = axes(ϕ)
+    # identify the first dimension where the index is out of bounds and use the
+    # corresponding boundary condition
+    for d in 1:N
+        ax = axs[d]
+        i = I[d]
+        if i < first(ax)
+            return _getindex(ϕ, I, bcs[d][1], -d) # left
+        elseif i > last(ax)
+            return _getindex(ϕ, I, bcs[d][2], d) # right
+        end
     end
-    return setindex!(values(ϕ), vals, I)
+    return getindex(values(ϕ), I)
 end
-Base.setindex!(ϕ::MeshField, vals, I...) = setindex!(ϕ, vals, CartesianIndex(I...))
+
+Base.setindex!(ϕ::MeshField, vals, I::CartesianIndex) = setindex!(values(ϕ), vals, I)
+
+function _get_index(ϕ::MeshField, I::CartesianIndex)
+    return axs = axes(ϕ)
+end
 
 function wrap_index(ϕ::MeshField, I::CartesianIndex{N}) where {N}
     bcs = boundary_conditions(ϕ)
@@ -95,3 +111,33 @@ end
 [`MeshField`](@ref) over a [`CartesianGrid`](@ref).
 """
 const CartesianMeshField{V,M<:CartesianGrid} = MeshField{V,M}
+
+# Boundary conditions
+
+function _getindex(ϕ::CartesianMeshField, I::CartesianIndex{N}, ::PeriodicBC, d) where {N}
+    ax = axes(ϕ)[abs(d)]
+    # compute mirror index to I[d]
+    i = I[abs(d)]
+    J = ntuple(N) do dir
+        if dir == abs(d)
+            d < 0 ? (last(ax) - (first(ax) - i)) : (first(ax) + (i - last(ax)))
+        else
+            I[dir]
+        end
+    end
+    return getindex(values(ϕ), CartesianIndex(J))
+end
+
+function _getindex(ϕ::CartesianMeshField, I::CartesianIndex{N}, ::NeumannBC, d) where {N}
+    ax = axes(ϕ)[abs(d)]
+    # compute mirror index to I[d]
+    i = I[abs(d)]
+    J = ntuple(N) do dir
+        if dir == abs(d)
+            d < 0 ? (first(ax) + (first(ax) - i)) : (last(ax) - (i - last(ax)))
+        else
+            I[dir]
+        end
+    end
+    return getindex(values(ϕ), CartesianIndex(J))
+end
