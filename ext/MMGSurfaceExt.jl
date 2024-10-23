@@ -9,28 +9,12 @@ function __init__()
 end
 
 """
-    export_surface_mesh(eq::LevelSetEquation, output::String;
-        hgrad = nothing, hmin = nothing, hmax = nothing, hausd = nothing)
+    export_surface_mesh(eq::LevelSetEquation, args...; kwargs...)
 
-Compute a mesh of the [`LevelSetEquation`](@ref LSM.LevelSetEquation) `eq` contour using MMGs_O3.
-Note: only works for 3 dimensional level-set.
-
-`hgrad` control the growth ratio between two adjacent edges
-
-`hmin` and `hmax` control the edge sizes to be (respectively) greater
-than the `hmin` parameter and lower than the `hmax` one
-
-`hausd` control the maximal distance between the piecewise linear
-representation of the boundary and the reconstructed ideal boundary
+Call [`export_surface_mesh`](@ref LSM.export_surface_mesh(::LSM.LevelSet)) on
+`current_state(eq)`.
 """
-function LSM.export_surface_mesh(
-    eq::LSM.LevelSetEquation,
-    output::String;
-    hgrad = nothing,
-    hmin = nothing,
-    hmax = nothing,
-    hausd = nothing,
-)
+function LSM.export_surface_mesh(eq::LSM.LevelSetEquation, args...; kwargs...)
     return LSM.export_surface_mesh(LSM.current_state(eq), output; hgrad, hmin, hmax, hausd)
 end
 
