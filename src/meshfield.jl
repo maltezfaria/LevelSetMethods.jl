@@ -18,6 +18,11 @@ Base.values(ϕ::MeshField) = ϕ.vals
 has_boundary_conditions(ϕ::MeshField) = !isnothing(ϕ.bcs)
 boundary_conditions(ϕ::MeshField) = ϕ.bcs
 
+meshsize(ϕ::MeshField, args...) = meshsize(mesh(ϕ), args...)
+
+add_boundary_conditions(ϕ::MeshField, bcs) = MeshField(values(ϕ), mesh(ϕ), bcs)
+remove_boundary_conditions(ϕ::MeshField) = MeshField(values(ϕ), mesh(ϕ), nothing)
+
 """
     MeshField(f::Function, m)
 
@@ -25,7 +30,7 @@ Create a `MeshField` by evaluating a function `f` on a mesh `m`.
 """
 function MeshField(f::Function, m)
     vals = map(f, m)
-    return MeshField(vals, m)
+    return MeshField(vals, m, nothing)
 end
 
 # geometric dimension
@@ -70,19 +75,18 @@ wrap_index(ϕ::MeshField, I...) = wrap_index(ϕ, CartesianIndex(I))
 
 Base.axes(ϕ::MeshField) = axes(values(ϕ))
 Base.eltype(ϕ::MeshField) = eltype(values(ϕ))
-Base.zero(ϕ::MeshField) = MeshField(zero(values(ϕ)), mesh(ϕ), boundary_condition(ϕ))
-Base.similar(ϕ::MeshField) = MeshField(similar(values(ϕ)), mesh(ϕ), boundary_condition(ϕ))
+Base.eachindex(ϕ::MeshField) = eachindex(mesh(ϕ))
 
 """
     LevelSet
 
 Alias for [`MeshField`](@ref) with `vals` as an `AbstractArray` of `Real`s.
 """
-const LevelSet{V<:AbstractArray{<:Real},M} = MeshField{V,M,Nothing}
+const LevelSet{V<:AbstractArray{<:Real},M,B} = MeshField{V,M,B}
 
 function LevelSet(f::Function, m)
     vals = map(f, m)
-    return MeshField(vals, m)
+    return MeshField(vals, m, nothing)
 end
 
 """

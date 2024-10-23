@@ -3,6 +3,7 @@ module LevelSetMethods
 using LinearAlgebra
 using StaticArrays
 
+include("utils.jl")
 include("meshes.jl")
 include("boundaryconditions.jl")
 include("meshfield.jl")
