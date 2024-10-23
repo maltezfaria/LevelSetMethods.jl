@@ -25,7 +25,7 @@ grid = CartesianGrid(a, b, n)
 
 # output
 
-LevelSetMethods.CartesianGrid{2, Float64}((LinRange{Float64}(0.0, 1.0, 10), LinRange{Float64}(0.0, 1.0, 4)))
+CartesianGrid{2, Float64}((LinRange{Float64}(0.0, 1.0, 10), LinRange{Float64}(0.0, 1.0, 4)))
 ```
 """
 function CartesianGrid(lc, hc, n)
