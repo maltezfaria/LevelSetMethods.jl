@@ -1,8 +1,8 @@
 """
     abstract type BoundaryCondition
 
-Singleton types used in [`applybc!`](@ref) for dispatch purposes. Subtypes of
-`BoundaryCondition` must implement [`wrap_index`](@ref).
+Singleton types used to specify boundary conditions. Subtypes of `BoundaryCondition` must
+implement [`wrap_index`](@ref).
 """
 abstract type BoundaryCondition end
 
@@ -19,6 +19,9 @@ struct PeriodicBC <: BoundaryCondition end
     wrap_index(ax, i, bc::PeriodicBC)
 
 Map `i` to a valid index in the range of `ax` using periodic boundary conditions.
+
+For example, given an `ax` going from `1` to `N`, this maps e.g. `0` to `N-1` and `N+1` to
+`2`
 """
 function wrap_index(ax, i, ::PeriodicBC)
     if i < first(ax)
@@ -33,8 +36,21 @@ end
 """
     struct NeumannBC <: BoundaryCondition
 
-Neumann boundary condition with a constant value.
+Homogenous Neumann boundary condition.
 """
-struct Neumann <: BoundaryCondition
-    value::Float64
+struct NeumannBC <: BoundaryCondition end
+
+"""
+    wrap_index(ax, i, bc::NeumannBC)
+
+Wrap index by reflecting it at the boundary.
+"""
+function wrap_index(ax, i, ::NeumannBC)
+    if i < first(ax)
+        first(ax) + (first(ax) - i)
+    elseif i > last(ax)
+        last(ax) - (i - last(ax))
+    else
+        i
+    end
 end
