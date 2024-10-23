@@ -11,7 +11,7 @@ DocMeta.setdocmeta!(
 const page_rename = Dict("developer.md" => "Developer docs") # Without the numbers
 const numbered_pages = [
     file for file in readdir(joinpath(@__DIR__, "src")) if
-    file != "index.md" && splitext(file)[2] == ".md"
+    file != "index.md" && splitext(file)[2] == ".md" && occursin(r"^\d", file)
 ]
 
 makedocs(;
