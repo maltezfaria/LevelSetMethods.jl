@@ -65,7 +65,7 @@ function _getindex(ϕ::MeshField, I::CartesianIndex{N}) where {N}
     return getindex(values(ϕ), I)
 end
 
-Base.setindex!(ϕ::MeshField, vals, I::CartesianIndex) = setindex!(values(ϕ), vals, I)
+Base.setindex!(ϕ::MeshField, vals, I...) = setindex!(values(ϕ), vals, I...)
 
 function _get_index(ϕ::MeshField, I::CartesianIndex)
     return axs = axes(ϕ)
