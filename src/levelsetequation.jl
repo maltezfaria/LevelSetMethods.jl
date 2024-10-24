@@ -7,25 +7,48 @@ mutable struct LevelSetEquation
 end
 
 """
-    LevelSetEquation(; terms, state, boundary_conditions, t = 0, integrator = ForwardEuler())
+    LevelSetEquation(; terms, levelset, boundary_conditions, t = 0, integrator = ForwardEuler())
 
 Create a of a level-set equation of the form `ϕₜ + sum(terms) = 0`, where each `t ∈ terms`
-is a [`LevelSetTerm`](@ref) and `ϕ` is a [`LevelSet`](@ref) object with initial value given
-by `state`.
+is a [`LevelSetTerm`](@ref) and `levelset` is the initial [`LevelSet`](@ref).
 
-Calling [`integrate!(ls, tf)`](@ref) will evolve the level-set equation up to time `tf`, modifying
-the `current_state(eq)` and `current_time(eq)` of the object `eq` in the process.
+Calling [`integrate!(ls, tf)`](@ref) will evolve the level-set equation up to time `tf`,
+modifying the `current_state(eq)` and `current_time(eq)` of the object `eq` in the process
+(and therefore the original `levelset`).
 
-Boundary conditions can be specified in the following ways. If a single `BoundaryCondition`
-is passed, it will be applied to all boundaries of the domain. To apply different boundary
-conditions, pass a vector of the form `((xleft,xright), (yleft,yright), ...)` where each
-element is a `BoundaryCondition`, and there are as many elements as dimensions in the
-domain.
+Boundary conditions can be specified in two ways. If a single `BoundaryCondition` is
+provided, it will be applied uniformly to all boundaries of the domain. To apply different
+boundary conditions to each boundary, pass a tuple of the form `(bc_x, bc_y, ...)` with as
+many elements as dimensions in the domain. If `bc_x` is a `BoundaryCondition`, it will be
+applied to both boundaries in the `x` direction. If `bc_x` is a tuple of two
+`BoundaryCondition`s, the first will be applied to the left boundary and the second to the
+right boundary. The same logic applies to the other dimensions.
+
+The optional parameter `t` specifies the initial time of the simulation, and `integrator` is
+the [`TimeIntegrator`](@ref) used to evolve the level-set equation.
+
+```jldoctest
+using StaticArrays
+grid = CartesianGrid((-1, -1), (1, 1), (50, 50))    # define the grid
+ϕ = LevelSet(x -> x[1]^2 + x[2]^2 - 0.5^2, grid)    # initial shape
+𝐮 = MeshField(x -> SVector(1, 0), grid)             # advection velocity
+terms = (AdvectionTerm(; velocity = 𝐮),)            # advection and curvature terms
+bc = PeriodicBC()                                   # periodic boundary conditions
+eq = LevelSetEquation(; terms, levelset = ϕ, bc)    # level-set equation
+
+# output
+
+Level-set equation given by
+
+         ϕₜ + 𝐮 ⋅ ∇ ϕ = 0
+
+ Current time 0.0
+```
 """
-function LevelSetEquation(; terms, integrator, levelset, t, bc)
+function LevelSetEquation(; terms, integrator = ForwardEuler(), levelset, t = 0, bc)
     N = dimension(levelset)
     bc = _normalize_bc(bc, N)
-    _check_valid_bc(bc, N) || throw(ArgumentError("Invalid format of boundary conditions"))
+    _check_valid_bc(bc, N) || throw(ArgumentError("invalid format of boundary conditions"))
     # append boundary conditions to the state
     state = add_boundary_conditions(levelset, bc)
     # create buffers for the time-integrator
@@ -36,9 +59,27 @@ end
 
 function _normalize_bc(bc, N)
     if isa(bc, BoundaryCondition)
-        return ntuple(_ -> bc, N)
+        return ntuple(_ -> (bc, bc), N)
+    else
+        length(bc) == N || throw(ArgumentError("invalid number of boundary conditions"))
+        return ntuple(N) do i
+            if isa(bc[i], BoundaryCondition)
+                return (bc[i], bc[i])
+            else
+                length(bc[i]) == 2 && all(isa(bc[i][n], BoundaryCondition) for n in 1:2) ||
+                    throw(ArgumentError("invalid boundary condition for dimension $i"))
+                # check that periodic boundary conditions are not mixed with others
+                if any(isa(bc[i][n], PeriodicBC) for n in 1:2)
+                    all(isa(bc[i][n], PeriodicBC) for n in 1:2) || throw(
+                        ArgumentError(
+                            "periodic boundary conditions cannot be mixed with others in dimension $i",
+                        ),
+                    )
+                end
+                return (bc[i][1], bc[i][2])
+            end
+        end
     end
-    return bc
 end
 
 function _check_valid_bc(bc, N)

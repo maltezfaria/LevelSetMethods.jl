@@ -49,23 +49,7 @@ function Base.getindex(ϕ::MeshField, I...)
 end
 
 function _getindex(ϕ::MeshField, I::CartesianIndex{N}) where {N}
-    # identify the first dimension where the index is out of bounds and use the
-    # corresponding boundary condition
-    # FIXME: the code would probably fail if the index is out of bounds in more than one
-    # dimension, but is this a valid use case?
     return _getindexrec(ϕ, I, N)
-    # bcs = boundary_conditions(ϕ)
-    # axs = axes(ϕ)
-    # for dim in 1:N
-    #     ax = axs[dim]
-    #     i = I[dim]
-    #     if i < first(ax)
-    #         return _getindex(ϕ, I, bcs[dim][1], -dim) # left
-    #     elseif i > last(ax)
-    #         return _getindex(ϕ, I, bcs[dim][2], dim) # right
-    #     end
-    # end
-    # return getindex(values(ϕ), I)
 end
 
 function _getindexrec(ϕ, I, dim)
