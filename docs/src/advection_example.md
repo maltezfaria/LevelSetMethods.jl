@@ -12,11 +12,10 @@ Let's start by defining the grid
 
 ```@example advection
 using LevelSetMethods
-nx, ny = 100, 100
-x = range(-1, 1, nx)
-y = range(-1, 1, ny)
-hx, hy = step(x), step(y)
-grid = CartesianGrid(x, y)
+a = (-1,-1)
+b = (1,1)
+n = (100, 100)
+grid = CartesianGrid(a, b, n)
 ```
 
 Next we define the velocity field on the grid
@@ -36,8 +35,7 @@ advection_term = AdvectionTerm(; velocity = 𝐮)
 We can now initialize the level set function
 
 ```@example advection
-bc = PeriodicBC(3)
-ϕ = LevelSet(grid, bc) do (x, y)
+ϕ = LevelSet(grid) do (x, y)
     return 0.5^2 - x^2 - y^2
 end
 ```
@@ -45,9 +43,10 @@ end
 We now have all ingredients to create our level set equation:
 
 ```@example advection
-b = zero(ϕ)
+b = deepcopy(ϕ)
 integrator = ForwardEuler(0.5)
-eq = LevelSetEquation(; terms = (advection_term,), integrator, state = ϕ, t = 0, buffer = b)
+bc = PeriodicBC()
+eq = LevelSetEquation(; terms = (advection_term,), integrator, levelset = ϕ, t = 0, bc)
 ```
 
 Finally, we can integrate the equation in time and visualize the results. For that we will need to have a `Makie` backend installed. If you don't have it, you can install it by running e.g. `]add GLMakie`.

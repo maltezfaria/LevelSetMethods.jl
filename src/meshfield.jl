@@ -1,22 +1,33 @@
 """
-    struct MeshField{V,M}
+    struct MeshField{V,M,B}
 
 A field described by its discrete values on a mesh.
+
+`Base.getindex` of an `MeshField` is overloaded to handle indices that lie outside the
+`CartesianIndices` of its `MeshField` by using.
 """
 struct MeshField{V,M,B}
     vals::V
     mesh::M
-    bc::B
+    bcs::B
 end
 
 # getters
 mesh(ϕ::MeshField) = ϕ.mesh
 Base.values(ϕ::MeshField) = ϕ.vals
-grid1d(mf::MeshField, args...) = grid1d(mesh(mf), args...)
+has_boundary_conditions(ϕ::MeshField) = !isnothing(ϕ.bcs)
+boundary_conditions(ϕ::MeshField) = ϕ.bcs
 
-has_boundary_condition(mf::MeshField) = (mf.bc !== nothing)
-boundary_condition(mf) = mf.bc
+meshsize(ϕ::MeshField, args...) = meshsize(mesh(ϕ), args...)
 
+add_boundary_conditions(ϕ::MeshField, bcs) = MeshField(values(ϕ), mesh(ϕ), bcs)
+remove_boundary_conditions(ϕ::MeshField) = MeshField(values(ϕ), mesh(ϕ), nothing)
+
+"""
+    MeshField(f::Function, m)
+
+Create a `MeshField` by evaluating a function `f` on a mesh `m`.
+"""
 function MeshField(f::Function, m)
     vals = map(f, m)
     return MeshField(vals, m, nothing)
@@ -25,67 +36,105 @@ end
 # geometric dimension
 dimension(f::MeshField) = dimension(mesh(f))
 
-meshsize(f::MeshField, args...) = meshsize(mesh(f), args...)
-
 # overload base methods for convenience
-Base.getindex(ϕ::MeshField, I...) = getindex(values(ϕ), I...)
+function Base.getindex(ϕ::MeshField, I::CartesianIndex)
+    if has_boundary_conditions(ϕ)
+        _getindex(ϕ, I)
+    else
+        getindex(values(ϕ), I)
+    end
+end
+function Base.getindex(ϕ::MeshField, I...)
+    return ϕ[CartesianIndex(I...)]
+end
+
+function _getindex(ϕ::MeshField, I::CartesianIndex{N}) where {N}
+    bcs = boundary_conditions(ϕ)
+    axs = axes(ϕ)
+    # identify the first dimension where the index is out of bounds and use the
+    # corresponding boundary condition
+    # FIXME: the code would probably fail if the index is out of bounds in more than one
+    # dimension, but is this a valid use case?
+    for d in 1:N
+        ax = axs[d]
+        i = I[d]
+        if i < first(ax)
+            return _getindex(ϕ, I, bcs[d][1], -d) # left
+        elseif i > last(ax)
+            return _getindex(ϕ, I, bcs[d][2], d) # right
+        end
+    end
+    return getindex(values(ϕ), I)
+end
+
 Base.setindex!(ϕ::MeshField, vals, I...) = setindex!(values(ϕ), vals, I...)
-Base.size(ϕ::MeshField) = size(values(ϕ))
+
+function _get_index(ϕ::MeshField, I::CartesianIndex)
+    return axs = axes(ϕ)
+end
+
+Base.axes(ϕ::MeshField) = axes(values(ϕ))
 Base.eltype(ϕ::MeshField) = eltype(values(ϕ))
-Base.zero(ϕ::MeshField) = MeshField(zero(values(ϕ)), mesh(ϕ), boundary_condition(ϕ))
-Base.similar(ϕ::MeshField) = MeshField(similar(values(ϕ)), mesh(ϕ), boundary_condition(ϕ))
+Base.eachindex(ϕ::MeshField) = eachindex(mesh(ϕ))
 
 """
     LevelSet
 
-Alias for [`MeshField`](@ref) with a boundary condition.
+Alias for [`MeshField`](@ref) with `vals` as an `AbstractArray` of `Real`s.
 """
-const LevelSet{V,M,B<:BoundaryCondition} = MeshField{V,M,B}
+const LevelSet{V<:AbstractArray{<:Real},M,B} = MeshField{V,M,B}
 
-function LevelSet(f::Function, m, bc::BoundaryCondition = PeriodicBC(0))
+function LevelSet(f::Function, m)
     vals = map(f, m)
-    ϕ = MeshField(vals, m, bc)
-    applybc!(ϕ)
-    return ϕ
+    return MeshField(vals, m, nothing)
 end
 
-applybc!(ϕ::LevelSet) = applybc!(ϕ, boundary_condition(ϕ))
+"""
+    const CartesianMeshField{V,M<:CartesianGrid} = MeshField{V,M}
 
-interior_indices(ϕ::LevelSet) = interior_indices(mesh(ϕ), boundary_condition(ϕ))
+[`MeshField`](@ref) over a [`CartesianGrid`](@ref).
+"""
+const CartesianMeshField{V,M<:CartesianGrid} = MeshField{V,M}
 
-# helps to obtain classical shapes's signed distance function
-function CircleSignedDistance(m, center, r)
-    rsq = r * r
-    return map(x -> sum((x .- center) .^ 2) - rsq, m)
-end
-function RectangleSignedDistance(m, center, size)
-    sized2 = 0.5 * size
-    return map(x -> maximum(abs.(x .- center) - sized2), m)
-end
+# Boundary conditions
 
-# helpers to add geometric shapes on the a level set
-function add_circle!(ϕ::MeshField, center, r)
-    circle = CircleSignedDistance(mesh(ϕ), center, r)
-    return union!(values(ϕ), circle)
-end
-function remove_circle!(ϕ::MeshField, center, r)
-    circle = CircleSignedDistance(mesh(ϕ), center, r)
-    return difference!(values(ϕ), circle)
-end
-
-function add_rectangle!(ϕ::MeshField, center, size)
-    rectangle = RectangleSignedDistance(mesh(ϕ), center, size)
-    return union!(values(ϕ), rectangle)
-end
-function remove_rectangle!(ϕ::MeshField, center, size)
-    rectangle = RectangleSignedDistance(mesh(ϕ), center, size)
-    return difference!(values(ϕ), rectangle)
+function _getindex(ϕ::CartesianMeshField, I::CartesianIndex{N}, ::PeriodicBC, d) where {N}
+    ax = axes(ϕ)[abs(d)]
+    # compute mirror index to I[d]
+    i = I[abs(d)]
+    J = ntuple(N) do dir
+        if dir == abs(d)
+            d < 0 ? (last(ax) - (first(ax) - i)) : (first(ax) + (i - last(ax)))
+        else
+            I[dir]
+        end
+    end
+    return getindex(values(ϕ), CartesianIndex(J))
 end
 
-# helpers to merge or make the difference between two level set functions
-@inline function Base.union!(ϕ1, ϕ2)
-    @. ϕ1 = min(ϕ1, ϕ2)
+function _getindex(ϕ::CartesianMeshField, I::CartesianIndex{N}, ::NeumannBC, d) where {N}
+    ax = axes(ϕ)[abs(d)]
+    # compute mirror index to I[d]
+    i = I[abs(d)]
+    J = ntuple(N) do dir
+        if dir == abs(d)
+            d < 0 ? (first(ax) + (first(ax) - i)) : (last(ax) - (i - last(ax)))
+        else
+            I[dir]
+        end
+    end
+    return getindex(values(ϕ), CartesianIndex(J))
 end
-@inline function difference!(ϕ1, ϕ2)
-    @. ϕ1 = -min(-ϕ1, ϕ2)
+
+# TODO: test this
+function _getindex(
+    ϕ::CartesianMeshField,
+    I::CartesianIndex{N},
+    bc::DirichletBC,
+    d,
+) where {N}
+    # Compute the closest index to I that is within the domain and return value of bc there
+    Iproj = clamp.(Tuple(I), axes(ϕ)) |> CartesianIndex
+    x = mesh(ϕ)(Iproj)
+    return bc.f(x)
 end

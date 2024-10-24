@@ -6,15 +6,15 @@ using LevelSetMethods: D⁺, D⁻, D⁰, D2⁰, D2, weno5⁻, weno5⁺
 
 @testset "Uniform mesh" begin
     nx, ny = 100, 50
-    x      = LinRange(-2, 2, nx)
-    y      = LinRange(-2, 2, ny)
-    grid   = CartesianGrid(x, y)
-    h      = meshsize(grid)
-    ϕ      = LevelSet(grid) do (x, y)
+    a = (-2, -2)
+    b = (2, 2)
+    grid = CartesianGrid(a, b, (nx, ny))
+    h = meshsize(grid)
+    ϕ = LevelSet(grid) do (x, y)
         return x^2 + y^2 - 1
     end
-    I      = CartesianIndex(9, 7)
-    ∇ϕ     = MeshField(grid) do (x, y)
+    I = CartesianIndex(9, 7)
+    ∇ϕ = MeshField(grid) do (x, y)
         return SVector(2x, 2y)
     end
     # first derivative

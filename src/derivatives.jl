@@ -5,12 +5,12 @@ struct Upwind <: SpatialScheme end
 struct WENO5 <: SpatialScheme end
 
 """
-    D⁰(ϕ::MeshField,I,dim)
+    D⁰(ϕ::CartesianMeshField,I,dim)
 
 Centered finite difference scheme for first order derivative at grid point `I`
 along dimension `dim`.
 """
-function D⁰(ϕ::MeshField, I, dim)
+function D⁰(ϕ::CartesianMeshField, I, dim)
     h  = meshsize(ϕ, dim)
     Im = _decrement_index(I, dim)
     Ip = _increment_index(I, dim)
@@ -18,18 +18,18 @@ function D⁰(ϕ::MeshField, I, dim)
 end
 
 """
-    D⁺(ϕ::MeshField,I,dim)
+    D⁺(ϕ::CartesianMeshField,I,dim)
 
 Forward finite difference scheme for first order derivative at grid point `I`
 along dimension `dim`.
 """
-@inline function D⁺(ϕ::MeshField, I, dim)
+@inline function D⁺(ϕ::CartesianMeshField, I, dim)
     h  = meshsize(ϕ, dim)
     Ip = _increment_index(I, dim)
     return (ϕ[Ip] - ϕ[I]) / h
 end
 
-function D⁺⁺(ϕ::MeshField, I, dim)
+function D⁺⁺(ϕ::CartesianMeshField, I, dim)
     h   = meshsize(ϕ, dim)
     Ip  = _increment_index(I, dim)
     Ipp = _increment_index(I, dim, 2)
@@ -37,25 +37,25 @@ function D⁺⁺(ϕ::MeshField, I, dim)
 end
 
 """
-    D⁻(ϕ::MeshField,I,dim)
+    D⁻(ϕ::CartesianMeshField,I,dim)
 
 Backward finite difference scheme for first order derivative at grid point `I`
 along dimension `dim`.
 """
-function D⁻(ϕ::MeshField, I, dim)
+function D⁻(ϕ::CartesianMeshField, I, dim)
     h  = meshsize(ϕ, dim)
     Im = _decrement_index(I, dim)
     return (ϕ[I] - ϕ[Im]) / h
 end
 
-function D⁻⁻(ϕ::MeshField, I, dim)
+function D⁻⁻(ϕ::CartesianMeshField, I, dim)
     h = meshsize(ϕ, dim)
     Im = _decrement_index(I, dim)
     Imm = _decrement_index(I, dim, 2)
     return (1.5 * ϕ[I] - 2 * ϕ[Im] + 1 / 2 * ϕ[Imm]) / h
 end
 
-function weno5⁻(ϕ::MeshField, I, dim)
+function weno5⁻(ϕ::CartesianMeshField, I, dim)
     # see section 3.4 of Osher-Fedwik
     Im  = _decrement_index(I, dim)
     Imm = _decrement_index(Im, dim)
@@ -88,7 +88,7 @@ function weno5⁻(ϕ::MeshField, I, dim)
     return ω1 * dϕ1 + ω2 * dϕ2 + ω3 * dϕ3
 end
 
-function weno5⁺(ϕ::MeshField, I, dim)
+function weno5⁺(ϕ::CartesianMeshField, I, dim)
     # see section 3.4 of Osher-Fedwik
     Im  = _decrement_index(I, dim)
     Imm = _decrement_index(Im, dim)
@@ -122,12 +122,12 @@ function weno5⁺(ϕ::MeshField, I, dim)
 end
 
 """
-    D2⁰(ϕ::MeshField,I,dim)
+    D2⁰(ϕ::CartesianMeshField,I,dim)
 
 Centered finite difference scheme for second order derivative at grid point `I`
 along dimension `dim`. E.g. if `dim=1`, this approximates `∂ₓₓ`.
 """
-function D2⁰(ϕ::MeshField, I, dim)
+function D2⁰(ϕ::CartesianMeshField, I, dim)
     h  = meshsize(ϕ, dim)
     Im = _decrement_index(I, dim)
     Ip = _increment_index(I, dim)
@@ -135,7 +135,7 @@ function D2⁰(ϕ::MeshField, I, dim)
 end
 
 """
-    D2(ϕ::MeshField,I,dims)
+    D2(ϕ::CartesianMeshField,I,dims)
 
 Finite difference scheme for second order derivative at grid point `I`
 along the dimensions `dims`.
@@ -150,12 +150,12 @@ function D2(ϕ, I, dims)
 end
 
 """
-    D2⁺⁺(ϕ::MeshField,I,dim)
+    D2⁺⁺(ϕ::CartesianMeshField,I,dim)
 
 Upward finite difference scheme for second order derivative at grid point `I`
 along dimension `dim`. E.g. if `dim=1`, this approximates `∂ₓₓ`.
 """
-function D2⁺⁺(ϕ::MeshField, I, dim)
+function D2⁺⁺(ϕ::CartesianMeshField, I, dim)
     h   = meshsize(ϕ, dim)
     Ip  = _increment_index(I, dim, 1)
     Ipp = _increment_index(I, dim, 2)
@@ -163,12 +163,12 @@ function D2⁺⁺(ϕ::MeshField, I, dim)
 end
 
 """
-    D2⁻⁺(ϕ::MeshField,I,dim)
+    D2⁻⁺(ϕ::CartesianMeshField,I,dim)
 
 Backward finite difference scheme for second order derivative at grid point `I`
 along dimension `dim`. E.g. if `dim=1`, this approximates `∂ₓₓ`.
 """
-function D2⁻⁻(ϕ::MeshField, I, dim)
+function D2⁻⁻(ϕ::CartesianMeshField, I, dim)
     h   = meshsize(ϕ, dim)
     Im  = _decrement_index(I, dim, 1)
     Imm = _decrement_index(I, dim, 2)

@@ -14,7 +14,7 @@ DocMeta.setdocmeta!(
 const page_rename = Dict("developer.md" => "Developer docs") # Without the numbers
 const numbered_pages = [
     file for file in readdir(joinpath(@__DIR__, "src")) if
-    file != "index.md" && splitext(file)[2] == ".md"
+    file != "index.md" && splitext(file)[2] == ".md" && occursin(r"^\d", file)
 ]
 
 modules = [LevelSetMethods]
@@ -36,4 +36,4 @@ makedocs(;
     pagesonly = true, # ignore .md files not in the pages list
 )
 
-deploydocs(; repo = "github.com/maltezfaria/LevelSetMethods.jl")
+deploydocs(; repo = "github.com/maltezfaria/LevelSetMethods.jl", push_preview = true)

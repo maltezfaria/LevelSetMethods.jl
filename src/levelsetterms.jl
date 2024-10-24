@@ -22,7 +22,7 @@ end
 # generic method, loops over indices
 function _compute_cfl(term::LevelSetTerm, ϕ)
     dt = Inf
-    for I in interior_indices(ϕ)
+    for I in eachindex(ϕ)
         cfl = _compute_cfl(term, ϕ, I)
         dt = min(dt, cfl)
     end
@@ -38,8 +38,8 @@ end
 
 Level-set advection term representing  `𝐯 ⋅ ∇ϕ`.
 """
-@kwdef struct AdvectionTerm{V,M,S<:SpatialScheme} <: LevelSetTerm
-    velocity::MeshField{V,M}
+@kwdef struct AdvectionTerm{V,S<:SpatialScheme} <: LevelSetTerm
+    velocity::V
     scheme::S = Upwind()
 end
 velocity(adv::AdvectionTerm) = adv.velocity
