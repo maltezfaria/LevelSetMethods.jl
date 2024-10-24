@@ -4,7 +4,6 @@
 Types used to specify boundary conditions.
 """
 abstract type BoundaryCondition end
-# TODO: define the interface for BoundaryConditions
 
 """
     struct PeriodicBC <: BoundaryCondition
@@ -28,3 +27,6 @@ A Dirichlet boundary condition taking values of `f(x)` at the boundary.
 struct DirichletBC{T} <: BoundaryCondition
     f::T
 end
+
+DirichletBC() = DirichletBC(0.0)
+DirichletBC(a::Real) = DirichletBC(x -> float(a))

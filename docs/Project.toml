@@ -5,6 +5,7 @@ LevelSetMethods = "ca3df947-0575-4ae6-b9a3-78df393a7451"
 LiveServer = "16fef848-5104-11e9-1b77-fb7a48bbb589"
 MMG_jll = "86086c02-e288-5929-a127-40944b0018b7"
 MarchingCubes = "299715c1-40a9-479a-aaf9-4a633d36f717"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [sources]
 LevelSetMethods = {path = ".."}

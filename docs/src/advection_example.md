@@ -36,7 +36,7 @@ We can now initialize the level set function
 
 ```@example advection
 ϕ = LevelSet(grid) do (x, y)
-    return 0.5^2 - x^2 - y^2
+    return x^2 + y^2 - 0.5^2
 end
 ```
 

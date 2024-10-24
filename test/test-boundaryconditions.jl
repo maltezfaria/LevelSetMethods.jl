@@ -13,3 +13,20 @@ import LevelSetMethods as LSM
     @test mf[1, 0] == vals[1, 4]
     @test mf[11, 5] == mf[2, 5]
 end
+
+@testset "Normalize BC" begin
+    bcs = LSM.PeriodicBC()
+    @test LSM._normalize_bc(bcs, 2) ==
+          ((LSM.PeriodicBC(), LSM.PeriodicBC()), (LSM.PeriodicBC(), LSM.PeriodicBC()))
+    bcs = (LSM.PeriodicBC(), LSM.PeriodicBC())
+    @test LSM._normalize_bc(bcs, 2) ==
+          ((LSM.PeriodicBC(), LSM.PeriodicBC()), (LSM.PeriodicBC(), LSM.PeriodicBC()))
+    bcs = (LSM.PeriodicBC(), LSM.NeumannBC())
+    @test LSM._normalize_bc(bcs, 2) ==
+          ((LSM.PeriodicBC(), LSM.PeriodicBC()), (LSM.NeumannBC(), LSM.NeumannBC()))
+    bcs = [LSM.PeriodicBC(), (LSM.DirichletBC(), LSM.NeumannBC())]
+    @test LSM._normalize_bc(bcs, 2) ==
+          ((LSM.PeriodicBC(), LSM.PeriodicBC()), (LSM.DirichletBC(), LSM.NeumannBC()))
+    bcs = [(LSM.PeriodicBC(), LSM.DirichletBC()), (LSM.DirichletBC(), LSM.NeumannBC())]
+    @test_throws ArgumentError LSM._normalize_bc(bcs, 2)
+end

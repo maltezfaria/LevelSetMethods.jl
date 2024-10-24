@@ -4,7 +4,7 @@
 A field described by its discrete values on a mesh.
 
 `Base.getindex` of an `MeshField` is overloaded to handle indices that lie outside the
-`CartesianIndices` of its `MeshField` by using.
+`CartesianIndices` of its `MeshField` by using `bcs`.
 """
 struct MeshField{V,M,B}
     vals::V
@@ -49,22 +49,59 @@ function Base.getindex(ϕ::MeshField, I...)
 end
 
 function _getindex(ϕ::MeshField, I::CartesianIndex{N}) where {N}
-    bcs = boundary_conditions(ϕ)
-    axs = axes(ϕ)
-    # identify the first dimension where the index is out of bounds and use the
-    # corresponding boundary condition
-    # FIXME: the code would probably fail if the index is out of bounds in more than one
-    # dimension, but is this a valid use case?
-    for d in 1:N
-        ax = axs[d]
-        i = I[d]
-        if i < first(ax)
-            return _getindex(ϕ, I, bcs[d][1], -d) # left
-        elseif i > last(ax)
-            return _getindex(ϕ, I, bcs[d][2], d) # right
-        end
+    return _getindexrec(ϕ, I, N)
+end
+
+function _getindexrec(ϕ, I, dim)
+    dim == 0 && return getindex(values(ϕ), I)
+    bcs = boundary_conditions(ϕ)[dim]
+    ax = axes(ϕ)[dim]
+    (I[dim] in axes(ϕ)[dim]) && (return _getindexrec(ϕ, I, dim - 1))
+    bc = I[dim] < first(ax) ? bcs[1] : bcs[2]
+    if bc isa PeriodicBC
+        I′ = _wrap_index_periodic(I, ax, dim)
+        return _getindexrec(ϕ, I′, dim - 1)
+    elseif bc isa NeumannBC
+        I′ = _wrap_index_neumann(I, ax, dim)
+        return _getindexrec(ϕ, I′, dim - 1)
+    elseif bc isa DirichletBC
+        grid = mesh(ϕ)
+        x = _getindex(grid, I)
+        T = eltype(ϕ)
+        return T(bc.f(x))
+    else
+        error("Unknown boundary condition $bc")
     end
-    return getindex(values(ϕ), I)
+end
+
+function _wrap_index_periodic(I::CartesianIndex{N}, ax, dim) where {N}
+    i = I[dim]
+    ntuple(N) do d
+        if d == dim
+            if i < first(ax)
+                return (last(ax) - (first(ax) - i))
+            else
+                i > last(ax)
+                return (first(ax) + (i - last(ax)))
+            end
+        end
+        return I[d]
+    end |> CartesianIndex
+end
+
+function _wrap_index_neumann(I::CartesianIndex{N}, ax, dim) where {N}
+    i = I[dim]
+    ntuple(N) do d
+        if d == dim
+            if i < first(ax)
+                return (first(ax) + (first(ax) - i))
+            else
+                i > last(ax)
+                return (last(ax) - (i - last(ax)))
+            end
+        end
+        return I[d]
+    end |> CartesianIndex
 end
 
 Base.setindex!(ϕ::MeshField, vals, I...) = setindex!(values(ϕ), vals, I...)
@@ -94,7 +131,7 @@ end
 
 [`MeshField`](@ref) over a [`CartesianGrid`](@ref).
 """
-const CartesianMeshField{V,M<:CartesianGrid} = MeshField{V,M}
+const CartesianMeshField{V,M<:CartesianGrid,B} = MeshField{V,M,B}
 
 # Boundary conditions
 
