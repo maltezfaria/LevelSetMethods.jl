@@ -53,6 +53,8 @@ function _getindex(ϕ::MeshField, I::CartesianIndex{N}) where {N}
     axs = axes(ϕ)
     # identify the first dimension where the index is out of bounds and use the
     # corresponding boundary condition
+    # FIXME: the code would probably fail if the index is out of bounds in more than one
+    # dimension, but is this a valid use case?
     for d in 1:N
         ax = axs[d]
         i = I[d]
@@ -70,24 +72,6 @@ Base.setindex!(ϕ::MeshField, vals, I...) = setindex!(values(ϕ), vals, I...)
 function _get_index(ϕ::MeshField, I::CartesianIndex)
     return axs = axes(ϕ)
 end
-
-function wrap_index(ϕ::MeshField, I::CartesianIndex{N}) where {N}
-    bcs = boundary_conditions(ϕ)
-    axs = axes(ϕ)
-    It = ntuple(N) do d
-        ax = axs[d]
-        i = I[d]
-        if i < first(ax)
-            return wrap_index(ax, i, bcs[d][1]) # left
-        elseif i > last(ax)
-            return wrap_index(ax, i, bcs[d][2]) # right
-        else
-            return i
-        end
-    end
-    return CartesianIndex(It)
-end
-wrap_index(ϕ::MeshField, I...) = wrap_index(ϕ, CartesianIndex(I))
 
 Base.axes(ϕ::MeshField) = axes(values(ϕ))
 Base.eltype(ϕ::MeshField) = eltype(values(ϕ))
@@ -140,4 +124,17 @@ function _getindex(ϕ::CartesianMeshField, I::CartesianIndex{N}, ::NeumannBC, d)
         end
     end
     return getindex(values(ϕ), CartesianIndex(J))
+end
+
+# TODO: test this
+function _getindex(
+    ϕ::CartesianMeshField,
+    I::CartesianIndex{N},
+    bc::DirichletBC,
+    d,
+) where {N}
+    # Compute the closest index to I that is within the domain and return value of bc there
+    Iproj = clamp.(Tuple(I), axes(ϕ)) |> CartesianIndex
+    x = mesh(ϕ)(Iproj)
+    return bc.f(x)
 end

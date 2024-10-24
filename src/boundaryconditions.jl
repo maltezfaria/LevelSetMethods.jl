@@ -20,6 +20,11 @@ Homogenous Neumann boundary condition.
 """
 struct NeumannBC <: BoundaryCondition end
 
+"""
+    struct DirichletBC{T} <: BoundaryCondition
+
+A Dirichlet boundary condition taking values of `f(x)` at the boundary.
+"""
 struct DirichletBC{T} <: BoundaryCondition
-    value::T
+    f::T
 end
