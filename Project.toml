@@ -14,6 +14,7 @@ Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 MakieExt = "Makie"
 
 [compat]
-julia = "1.9"
 LinearAlgebra = "1"
+Makie = "0.21"
 StaticArrays = "1"
+julia = "1.9"
