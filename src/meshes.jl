@@ -20,6 +20,7 @@ in each direction.
 # Examples
 
 ```jldoctest; output = true
+using LevelSetMethods
 a = (0, 0)
 b = (1, 1)
 n = (10, 4)

@@ -27,8 +27,8 @@ right boundary. The same logic applies to the other dimensions.
 The optional parameter `t` specifies the initial time of the simulation, and `integrator` is
 the [`TimeIntegrator`](@ref) used to evolve the level-set equation.
 
-```jldoctest
-using StaticArrays
+```jldoctest; output = true
+using LevelSetMethods, StaticArrays
 grid = CartesianGrid((-1, -1), (1, 1), (50, 50))    # define the grid
 ϕ = LevelSet(x -> x[1]^2 + x[2]^2 - 0.5^2, grid)    # initial shape
 𝐮 = MeshField(x -> SVector(1, 0), grid)             # advection velocity
@@ -40,9 +40,10 @@ eq = LevelSetEquation(; terms, levelset = ϕ, bc)    # level-set equation
 
 Level-set equation given by
 
-         ϕₜ + 𝐮 ⋅ ∇ ϕ = 0
+ 	 ϕₜ + 𝐮 ⋅ ∇ ϕ = 0
 
- Current time 0.0
+Current time 0.0
+
 ```
 """
 function LevelSetEquation(; terms, integrator = ForwardEuler(), levelset, t = 0, bc)
@@ -96,7 +97,7 @@ function Base.show(io::IO, eq::LevelSetEquation)
     end
     print(io, terms[end])
     print(io, " = 0")
-    print(io, "\n\n Current time $(eq.t)")
+    print(io, "\n\nCurrent time $(eq.t)")
     return io
 end
 
