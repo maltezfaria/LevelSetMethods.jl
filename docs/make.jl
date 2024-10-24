@@ -3,6 +3,7 @@ using Documenter
 using GLMakie
 using MMG_jll
 using MarchingCubes
+using StaticArrays
 
 DocMeta.setdocmeta!(
     LevelSetMethods,
