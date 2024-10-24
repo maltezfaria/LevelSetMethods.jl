@@ -13,20 +13,18 @@ Create a of a level-set equation of the form `ϕₜ + sum(terms) = 0`, where eac
 is a [`LevelSetTerm`](@ref) and `ϕ` is a [`LevelSet`](@ref) object with initial value given
 by `state`.
 
-Calling `integrate!(ls, tf)` will evolve the level-set equation up to time `tf`, modifying
+Calling [`integrate!(ls, tf)`](@ref) will evolve the level-set equation up to time `tf`, modifying
 the `current_state(eq)` and `current_time(eq)` of the object `eq` in the process.
 
 Boundary conditions can be specified in the following ways. If a single `BoundaryCondition`
 is passed, it will be applied to all boundaries of the domain. To apply different boundary
-conditions, pass a vector of the form `[(xleft,xright), (yleft,yright), ...]` where each
+conditions, pass a vector of the form `((xleft,xright), (yleft,yright), ...)` where each
 element is a `BoundaryCondition`, and there are as many elements as dimensions in the
 domain.
 """
 function LevelSetEquation(; terms, integrator, levelset, t, bc)
     N = dimension(levelset)
-    bc = if bc isa BoundaryCondition
-        ntuple(_ -> (bc, bc), N)
-    end
+    bc = _normalize_bc(bc, N)
     _check_valid_bc(bc, N) || throw(ArgumentError("Invalid format of boundary conditions"))
     # append boundary conditions to the state
     state = add_boundary_conditions(levelset, bc)
@@ -34,6 +32,13 @@ function LevelSetEquation(; terms, integrator, levelset, t, bc)
     nb = number_of_buffers(integrator)
     buffers = ntuple(_ -> deepcopy(state), nb)
     return LevelSetEquation(terms, integrator, state, t, buffers)
+end
+
+function _normalize_bc(bc, N)
+    if isa(bc, BoundaryCondition)
+        return ntuple(_ -> bc, N)
+    end
+    return bc
 end
 
 function _check_valid_bc(bc, N)
