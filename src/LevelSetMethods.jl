@@ -40,6 +40,7 @@ Return a Makie theme for plots of level-set functions.
 """
 function makie_theme end
 
-function export_mesh end
+function export_volume_mesh end
+function export_surface_mesh end
 
 end # module

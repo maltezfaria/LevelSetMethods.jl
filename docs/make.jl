@@ -1,5 +1,8 @@
 using LevelSetMethods
 using Documenter
+using GLMakie
+using MMG_jll
+using MarchingCubes
 
 DocMeta.setdocmeta!(
     LevelSetMethods,
@@ -14,8 +17,15 @@ const numbered_pages = [
     file != "index.md" && splitext(file)[2] == ".md"
 ]
 
+modules = [LevelSetMethods]
+for extension in [:MakieExt, :MMGSurfaceExt, :MMGVolumeExt]
+    ext = Base.get_extension(LevelSetMethods, extension)
+    isnothing(ext) && "error loading $ext"
+    push!(modules, ext)
+end
+
 makedocs(;
-    modules = [LevelSetMethods],
+    modules,
     authors = "Luiz M. Faria and Nicolas Lebbe",
     repo = "https://github.com/maltezfaria/LevelSetMethods.jl/blob/{commit}{path}#{line}",
     sitename = "LevelSetMethods.jl",
