@@ -24,6 +24,7 @@ makedocs(;
     ),
     pages = ["index.md"; "advection_example.md"; numbered_pages],
     pagesonly = true, # ignore .md files not in the pages list
+    push_preview = true,
 )
 
 deploydocs(; repo = "github.com/maltezfaria/LevelSetMethods.jl")
