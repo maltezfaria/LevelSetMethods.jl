@@ -198,35 +198,6 @@ function _integrate!(ϕ::LevelSet, buffers, integrator::RK2, terms, tc, tf, Δt)
     return ϕ
 end
 
-number_of_buffers(fe::RKLM2) = 1
-
-function _integrate!(ϕ::LevelSet, buffers, integrator::RKLM2, terms, tc, tf, Δt)
-    buffer = buffers[1]
-    α      = cfl(integrator)
-    Δt_cfl = α * compute_cfl(terms, ϕ)
-    Δt     = min(Δt, Δt_cfl)
-    while tc <= tf - eps(tc)
-        Δt = min(Δt, tf - tc) # if needed, take a smaller time-step to exactly land on tf
-        for I in eachindex(ϕ)
-            tmp = _compute_terms(terms, ϕ, I)
-            buffer[I] = tmp
-        end
-        for I in eachindex(ϕ)
-            ϕ[I] = ϕ[I] - Δt * buffer[I] # muladd?
-        end
-        applybc!(ϕ)
-        for I in eachindex(ϕ)
-            tmp = _compute_terms(terms, ϕ, I)
-            buffer[I] = ϕ[I] - 0.5 * Δt * tmp + 0.5 * Δt * buffer[I]
-        end
-        ϕ, buffer = buffer, ϕ # swap the roles, no copies
-        tc += Δt
-        @debug tc, Δt
-    end
-    # @assert tc ≈ tf
-    return ϕ
-end
-
 number_of_buffers(fe::RK3) = 3
 
 function _integrate!(ϕ::LevelSet, buffers, integrator::RK3, terms, tc, tf, Δt)
