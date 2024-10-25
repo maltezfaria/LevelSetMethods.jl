@@ -49,9 +49,10 @@ jobs:
             DocMeta.setdocmeta!(LevelSetMethods, :DocTestSetup, :(using LevelSetMethods); recursive=true)
             doctest(LevelSetMethods)'
       - name: Generate and deploy documentation
-        run: DISPLAY=:1 xvfb-run -s '-screen 1 1024x768x24' julia --project=docs docs/make.jl
+        run: DISPLAY=:1 xvfb-run -s '-screen 1 1024x768x24' julia --project=docs --code-coverage=user docs/make.jl
         env:
           JULIA_PKG_SERVER: ""
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
-          GKSwstype: "100" # https://discourse.julialang.org/t/generation-of-documentation-fails-qt-qpa-xcb-could-not-connect-to-display/60988
+      - name: Process coverage
+        uses: julia-actions/julia-processcoverage@v1
