@@ -31,11 +31,11 @@ export CartesianGrid,
     remove_rectangle!,
     ForwardEuler,
     RK2,
-    RK3,
     Upwind,
     WENO5,
     LevelSetEquation,
-    integrate!
+    integrate!,
+    current_time
 
 """
     makie_theme()
@@ -43,6 +43,13 @@ export CartesianGrid,
 Return a Makie theme for plots of level-set functions.
 """
 function makie_theme end
+
+"""
+    set_makie_theme!()
+
+Set the `Makie` theme to [`LevelSetMethods.makie_theme()`](@ref).
+"""
+function set_makie_theme! end
 
 function export_volume_mesh end
 function export_surface_mesh end

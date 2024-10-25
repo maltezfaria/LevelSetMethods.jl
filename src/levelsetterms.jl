@@ -41,11 +41,11 @@ velocity(adv::AdvectionTerm) = adv.velocity
 scheme(adv::AdvectionTerm) = adv.scheme
 
 """
-    AdvectionTerm(𝐮, scheme = Upwind())
+    AdvectionTerm(𝐮, scheme = WENO5())
 
 Advection term representing  `𝐮 ⋅ ∇ϕ`. Available `scheme`s are `Upwind` and `WENO5`.
 """
-AdvectionTerm(𝐮; scheme = Upwind()) = AdvectionTerm(𝐮, scheme)
+AdvectionTerm(𝐮, scheme = WENO5()) = AdvectionTerm(𝐮, scheme)
 
 Base.show(io::IO, t::AdvectionTerm) = print(io, "𝐮 ⋅ ∇ ϕ")
 
