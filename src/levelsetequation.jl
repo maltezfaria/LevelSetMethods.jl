@@ -7,7 +7,7 @@ mutable struct LevelSetEquation
 end
 
 """
-    LevelSetEquation(; terms, levelset, boundary_conditions, t = 0, integrator = ForwardEuler())
+    LevelSetEquation(; terms, levelset, boundary_conditions, t = 0, integrator = RK3())
 
 Create a of a level-set equation of the form `ϕₜ + sum(terms) = 0`, where each `t ∈ terms`
 is a [`LevelSetTerm`](@ref) and `levelset` is the initial [`LevelSet`](@ref).
@@ -46,10 +46,10 @@ Current time 0.0
 
 ```
 """
-function LevelSetEquation(; terms, integrator = ForwardEuler(), levelset, t = 0, bc)
+function LevelSetEquation(; terms, integrator = RK3(), levelset, t = 0, bc)
     N = dimension(levelset)
+    terms = _normalize_terms(terms, N)
     bc = _normalize_bc(bc, N)
-    _check_valid_bc(bc, N) || throw(ArgumentError("invalid format of boundary conditions"))
     # append boundary conditions to the state
     state = add_boundary_conditions(levelset, bc)
     # create buffers for the time-integrator
@@ -58,12 +58,27 @@ function LevelSetEquation(; terms, integrator = ForwardEuler(), levelset, t = 0,
     return LevelSetEquation(terms, integrator, state, t, buffers)
 end
 
-function _normalize_bc(bc, N)
-    if isa(bc, BoundaryCondition)
-        return ntuple(_ -> (bc, bc), N)
+function _normalize_terms(terms, dim)
+    N = length(terms)
+    if isa(terms, LevelSetTerm) # single term
+        return (terms,)
     else
-        length(bc) == N || throw(ArgumentError("invalid number of boundary conditions"))
         return ntuple(N) do i
+            if isa(terms[i], LevelSetTerm)
+                return terms[i]
+            else
+                throw(ArgumentError("invalid term $(terms[i]) on entry $i"))
+            end
+        end
+    end
+end
+
+function _normalize_bc(bc, dim)
+    if isa(bc, BoundaryCondition)
+        return ntuple(_ -> (bc, bc), dim)
+    else
+        length(bc) == dim || throw(ArgumentError("invalid number of boundary conditions"))
+        return ntuple(dim) do i
             if isa(bc[i], BoundaryCondition)
                 return (bc[i], bc[i])
             else
@@ -81,10 +96,6 @@ function _normalize_bc(bc, N)
             end
         end
     end
-end
-
-function _check_valid_bc(bc, N)
-    return true # FIXME: check that bc respects the format
 end
 
 function Base.show(io::IO, eq::LevelSetEquation)
@@ -163,6 +174,7 @@ end
 number_of_buffers(fe::RK2) = 2
 
 function _integrate!(ϕ::LevelSet, buffers, integrator::RK2, terms, tc, tf, Δt)
+    # Heun's method
     α = cfl(integrator)
     buffer1, buffer2 = buffers[1], buffers[2]
     Δt_cfl = α * compute_cfl(terms, ϕ)
@@ -171,8 +183,8 @@ function _integrate!(ϕ::LevelSet, buffers, integrator::RK2, terms, tc, tf, Δt)
         Δt = min(Δt, tf - tc) # if needed, take a smaller time-step to exactly land on tf
         for I in eachindex(ϕ)
             tmp = _compute_terms(terms, ϕ, I)
-            buffer1[I] = ϕ[I] - Δt * tmp # muladd?
-            buffer2[I] = ϕ[I] - 0.5 * Δt * tmp # muladd?
+            buffer1[I] = ϕ[I] - Δt * tmp
+            buffer2[I] = ϕ[I] - 0.5 * Δt * tmp
         end
         for I in eachindex(ϕ)
             tmp = _compute_terms(terms, buffer1, I)
@@ -208,6 +220,36 @@ function _integrate!(ϕ::LevelSet, buffers, integrator::RKLM2, terms, tc, tf, Δ
             buffer[I] = ϕ[I] - 0.5 * Δt * tmp + 0.5 * Δt * buffer[I]
         end
         ϕ, buffer = buffer, ϕ # swap the roles, no copies
+        tc += Δt
+        @debug tc, Δt
+    end
+    # @assert tc ≈ tf
+    return ϕ
+end
+
+number_of_buffers(fe::RK3) = 3
+
+function _integrate!(ϕ::LevelSet, buffers, integrator::RK3, terms, tc, tf, Δt)
+    buffer1, buffer2, buffer3 = buffers
+    α = cfl(integrator)
+    Δt_cfl = α * compute_cfl(terms, ϕ)
+    Δt = min(Δt, Δt_cfl)
+    while tc <= tf - eps(tc)
+        Δt = min(Δt, tf - tc) # if needed, take a smaller time-step to exactly land on tf
+        for I in eachindex(ϕ)
+            tmp = _compute_terms(terms, ϕ, I)
+            buffer1[I] = ϕ[I] - Δt * tmp # ϕ(t + Δt)
+        end
+        for I in eachindex(ϕ)
+            tmp = _compute_terms(terms, buffer1, I)
+            buffer2[I] = buffer1[I] - Δt * tmp # ϕ(t + 2Δt)
+            buffer2[I] = 1 / 4 * buffer2[I] + 3 / 4 * ϕ[I] # ϕ(t + Δt/2) = 3/4 ϕ(t) + 1/4 ϕ(t + 2Δt)
+        end
+        for I in eachindex(ϕ)
+            tmp = _compute_terms(terms, buffer2, I)
+            buffer1[I] = buffer2[I] - Δt * tmp # ϕ(t + 3/2 Δt)
+            ϕ[I] = 1 / 3 * ϕ[I] + 2 / 3 * buffer1[I] # ϕ(t + Δt) = 1/2 ϕ(t) + 2/3 ϕ(t + 3/2 Δt)
+        end
         tc += Δt
         @debug tc, Δt
     end

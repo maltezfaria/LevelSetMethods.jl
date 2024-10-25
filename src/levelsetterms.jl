@@ -33,17 +33,19 @@ function _compute_cfl(term::LevelSetTerm, ϕ)
     # end
 end
 
-"""
-    struct AdvectionTerm{V,M} <: LevelSetTerm
-
-Level-set advection term representing  `𝐯 ⋅ ∇ϕ`.
-"""
-@kwdef struct AdvectionTerm{V,S<:SpatialScheme} <: LevelSetTerm
+struct AdvectionTerm{V,S<:SpatialScheme} <: LevelSetTerm
     velocity::V
-    scheme::S = Upwind()
+    scheme::S
 end
 velocity(adv::AdvectionTerm) = adv.velocity
 scheme(adv::AdvectionTerm) = adv.scheme
+
+"""
+    AdvectionTerm(𝐮, scheme = Upwind())
+
+Advection term representing  `𝐮 ⋅ ∇ϕ`. Available `scheme`s are `Upwind` and `WENO5`.
+"""
+AdvectionTerm(𝐮; scheme = Upwind()) = AdvectionTerm(𝐮, scheme)
 
 Base.show(io::IO, t::AdvectionTerm) = print(io, "𝐮 ⋅ ∇ ϕ")
 
@@ -78,6 +80,13 @@ function _compute_term(term::AdvectionTerm, ϕ, I)
     sum(1:N) do dim
         return _compute_term(term, ϕ, I, dim)
     end
+end
+
+function _compute_cfl(term::AdvectionTerm, ϕ, I)
+    # equation 3.10 of Osher and Fedkiw
+    u = velocity(term)[I]
+    Δx = meshsize(ϕ)
+    return 1 / maximum(abs.(u) ./ Δx)
 end
 
 function _compute_cfl(term::AdvectionTerm, ϕ, I, dim)
@@ -168,6 +177,7 @@ speed(adv::NormalMotionTerm) = adv.speed
 Base.show(io::IO, t::NormalMotionTerm) = print(io, "v|∇ϕ|")
 
 function _compute_term(term::NormalMotionTerm, ϕ, I)
+    N = dimension(ϕ)
     u = speed(term)
     v = u[I]
     mA0², mB0² = sum(1:N) do dim
