@@ -49,36 +49,31 @@ AdvectionTerm(𝐮, scheme = WENO5()) = AdvectionTerm(𝐮, scheme)
 
 Base.show(io::IO, t::AdvectionTerm) = print(io, "𝐮 ⋅ ∇ ϕ")
 
-@inline function _compute_term(term::AdvectionTerm, ϕ, I, dim)
+@inline function _compute_term(term::AdvectionTerm, ϕ, I)
     sch = scheme(term)
-    𝐮 = velocity(term)
     N = dimension(ϕ)
+    𝐮 = velocity(term)[I]
     # for dimension dim, compute the upwind derivative and multiply by the
     # velocity
-    v = 𝐮[I][dim]
-    if v > 0
-        if sch === Upwind()
-            return v * D⁻(ϕ, I, dim)
-        elseif sch === WENO5()
-            return v * weno5⁻(ϕ, I, dim)
-        else
-            error("scheme $sch not implemented")
-        end
-    else
-        if sch === Upwind()
-            return v * D⁺(ϕ, I, dim)
-        elseif sch === WENO5()
-            return v * weno5⁺(ϕ, I, dim)
-        else
-            error("scheme $sch not implemented")
-        end
-    end
-end
-
-function _compute_term(term::AdvectionTerm, ϕ, I)
-    N = dimension(ϕ)
     sum(1:N) do dim
-        return _compute_term(term, ϕ, I, dim)
+        v = 𝐮[dim]
+        if v > 0
+            if sch === Upwind()
+                return v * D⁻(ϕ, I, dim)
+            elseif sch === WENO5()
+                return v * weno5⁻(ϕ, I, dim)
+            else
+                error("scheme $sch not implemented")
+            end
+        else
+            if sch === Upwind()
+                return v * D⁺(ϕ, I, dim)
+            elseif sch === WENO5()
+                return v * weno5⁺(ϕ, I, dim)
+            else
+                error("scheme $sch not implemented")
+            end
+        end
     end
 end
 
@@ -87,15 +82,6 @@ function _compute_cfl(term::AdvectionTerm, ϕ, I)
     u = velocity(term)[I]
     Δx = meshsize(ϕ)
     return 1 / maximum(abs.(u) ./ Δx)
-end
-
-function _compute_cfl(term::AdvectionTerm, ϕ, I, dim)
-    𝐮 = velocity(term)[I]
-    N = dimension(ϕ)
-    # for each dimension, compute the upwind derivative and multiply by the
-    # velocity and add to buffer
-    Δx = meshsize(ϕ)[dim]
-    return Δx / abs(𝐮[dim])
 end
 
 """
