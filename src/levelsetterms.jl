@@ -5,32 +5,20 @@ A typical term in a level-set evolution equation.
 """
 abstract type LevelSetTerm end
 
-function compute_cfl(terms, ϕ)
+function compute_cfl(terms, ϕ, t)
     minimum(terms) do term
-        return _compute_cfl(term, ϕ)
-    end
-end
-
-# generic method, loops over dimensions
-function _compute_cfl(term::LevelSetTerm, ϕ, I)
-    N = dimension(ϕ)
-    minimum(1:N) do dim
-        return _compute_cfl(term, ϕ, I, dim)
+        return _compute_cfl(term, ϕ, t)
     end
 end
 
 # generic method, loops over indices
-function _compute_cfl(term::LevelSetTerm, ϕ)
+function _compute_cfl(term::LevelSetTerm, ϕ, t)
     dt = Inf
     for I in eachindex(ϕ)
-        cfl = _compute_cfl(term, ϕ, I)
+        cfl = _compute_cfl(term, ϕ, I, t)
         dt = min(dt, cfl)
     end
     return dt
-    # FIXME: why does the minimum below allocate? It infers the return type as Any...
-    # minimum(interior_indices(ϕ)) do I
-    #     _compute_cfl(term,ϕ,I)
-    # end
 end
 
 struct AdvectionTerm{V,S<:SpatialScheme} <: LevelSetTerm
@@ -49,7 +37,7 @@ AdvectionTerm(𝐮, scheme = WENO5()) = AdvectionTerm(𝐮, scheme)
 
 Base.show(io::IO, t::AdvectionTerm) = print(io, "𝐮 ⋅ ∇ ϕ")
 
-@inline function _compute_term(term::AdvectionTerm, ϕ, I)
+@inline function _compute_term(term::AdvectionTerm, ϕ, I, t)
     sch = scheme(term)
     N = dimension(ϕ)
     𝐮 = velocity(term)[I]
@@ -77,7 +65,7 @@ Base.show(io::IO, t::AdvectionTerm) = print(io, "𝐮 ⋅ ∇ ϕ")
     end
 end
 
-function _compute_cfl(term::AdvectionTerm, ϕ, I)
+function _compute_cfl(term::AdvectionTerm, ϕ, I, t)
     # equation 3.10 of Osher and Fedkiw
     u = velocity(term)[I]
     Δx = meshsize(ϕ)
@@ -97,7 +85,7 @@ coefficient(cterm::CurvatureTerm) = cterm.b
 
 Base.show(io::IO, t::CurvatureTerm) = print(io, "b κ|∇ϕ|")
 
-function _compute_term(term::CurvatureTerm, ϕ, I)
+function _compute_term(term::CurvatureTerm, ϕ, I, t)
     N = dimension(ϕ)
     b = coefficient(term)
     κ = curvature(ϕ, I)
@@ -109,9 +97,9 @@ function _compute_term(term::CurvatureTerm, ϕ, I)
     return b[I] * κ * sqrt(ϕ2)
 end
 
-function _compute_cfl(term::CurvatureTerm, ϕ, I, dim)
+function _compute_cfl(term::CurvatureTerm, ϕ, I, t)
     b = coefficient(term)[I]
-    Δx = meshsize(ϕ)[dim]
+    Δx = minimum(meshsize(ϕ))
     return (Δx)^2 / (2 * abs(b))
 end
 
@@ -162,7 +150,7 @@ speed(adv::NormalMotionTerm) = adv.speed
 
 Base.show(io::IO, t::NormalMotionTerm) = print(io, "v|∇ϕ|")
 
-function _compute_term(term::NormalMotionTerm, ϕ, I)
+function _compute_term(term::NormalMotionTerm, ϕ, I, t)
     N = dimension(ϕ)
     u = speed(term)
     v = u[I]
@@ -179,9 +167,9 @@ function _compute_term(term::NormalMotionTerm, ϕ, I)
     return sqrt(mA0² + mB0²)
 end
 
-function _compute_cfl(term::NormalMotionTerm, ϕ, I, dim)
+function _compute_cfl(term::NormalMotionTerm, ϕ, I, t)
     u = speed(term)[I]
-    Δx = meshsize(ϕ)[dim]
+    Δx = minimum(meshsize(ϕ))
     return Δx / abs(u)
 end
 
@@ -218,10 +206,10 @@ Eikonal equation |∇ϕ| = 1.
 
 Base.show(io::IO, t::ReinitializationTerm) = print(io, "sign(ϕ) (|∇ϕ| - 1)")
 
-function _compute_term(term::ReinitializationTerm, ϕ, I)
+function _compute_term(term::ReinitializationTerm, ϕ, I, t)
     v = sign(ϕ[I])
     ∇ = _compute_∇_normal_motion(v, ϕ, I)
     return (∇ - 1.0) * v
 end
 
-_compute_cfl(term::ReinitializationTerm, ϕ, I, dim) = meshsize(ϕ)[dim]
+_compute_cfl(term::ReinitializationTerm, ϕ, I, t) = minimum(meshsize(ϕ))
