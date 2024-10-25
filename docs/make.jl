@@ -32,9 +32,20 @@ makedocs(;
     sitename = "LevelSetMethods.jl",
     format = Documenter.HTML(;
         canonical = "https://maltezfaria.github.io/LevelSetMethods.jl",
+        collapselevel = 2,
     ),
-    pages = ["index.md"; "advection_example.md"; numbered_pages],
+    pages = vcat(
+        "index.md",
+        "terms.md",
+        "time-integrators.md",
+        "boundary-conditions.md",
+        "extensions.md",
+        hide("Examples" => "examples.md", ["example-zalesak.md", "example-shape-optim.md"]),
+        numbered_pages,
+    ),
     pagesonly = true, # ignore .md files not in the pages list
 )
 
 deploydocs(; repo = "github.com/maltezfaria/LevelSetMethods.jl", push_preview = true)
+
+GLMakie.closeall()

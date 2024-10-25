@@ -27,6 +27,14 @@ function remove_rectangle!(ϕ, center, size)
     return difference!(values(ϕ), rectangle)
 end
 
+function dumbbell(grid; width = 1, height = 1 / 5, radius = 1 / 4)
+    ϕ = LevelSet(x -> 1.0, grid)
+    add_circle!(ϕ, SVector(-width / 2, 0.0), radius)
+    add_circle!(ϕ, SVector(width / 2, 0.0), radius)
+    add_rectangle!(ϕ, SVector(0.0, 0.0), SVector(width, height))
+    return ϕ
+end
+
 # helpers to merge or make the difference between two level set functions
 @inline function Base.union!(ϕ1, ϕ2)
     @. ϕ1 = min(ϕ1, ϕ2)

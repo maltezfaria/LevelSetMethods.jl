@@ -22,6 +22,10 @@ function LSM.makie_theme()
     )
 end
 
+function LSM.set_makie_theme!()
+    return Makie.set_theme!(LSM.makie_theme())
+end
+
 function Makie.plottype(ϕ::LSM.LevelSet)
     N = LSM.dimension(ϕ)
     if N == 2

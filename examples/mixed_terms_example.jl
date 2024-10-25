@@ -1,42 +1,34 @@
 using Test
 using LevelSetMethods
 using LinearAlgebra
-using Plots
+using GLMakie
 
-nx, ny = 100, 100
-x      = LinRange(-1, 1, nx)
-y      = LinRange(-1, 1, ny)
-hx, hy = step(x), step(y)
-grid   = CartesianGrid(x, y)
-bc     = PeriodicBC(3)
-ϕ      = LevelSet(grid, bc) do (x, y)
+grid = CartesianGrid((-1, -1), (1, 1), (100, 100))
+ϕ    = LevelSet(grid) do (x, y)
     return 1.0
 end
 add_circle!(ϕ, SVector(0.5, 0.0), 0.25)
 add_circle!(ϕ, SVector(-0.5, 0.0), 0.25)
 add_rectangle!(ϕ, SVector(0.0, 0.0), SVector(1.0, 0.1))
-plot(ϕ)
-v = MeshField(grid) do (x, y)
-    return -0.1
-end
-𝐮 = MeshField(grid) do (x, y)
-    return SVector(-y, x)
-end
-b = MeshField(grid) do (x, y)
-    return -min(hx, hy)
-end
-term1 = NormalMotionTerm(v)
-term2 = AdvectionTerm(𝐮)
-term3 = CurvatureTerm(b)
-terms = (term1, term2, term3)
-b = zero(ϕ)
-integrator = ForwardEuler(0.5)
-eq = LevelSetEquation(; terms, integrator, state = ϕ, t = 0, buffer = b)
+plot(ϕ; levels = [0])
 
-dt = 0.01
-anim = @animate for n in 0:80
-    tf = dt * n
-    integrate!(eq, tf)
-    plot(eq; linecolor = :black)
+# create terms
+𝐮 = MeshField(x -> SVector(-x[2], x[1]), grid)
+eq = LevelSetEquation(; terms = AdvectionTerm(𝐮), levelset = ϕ, t = 0, bc = PeriodicBC())
+
+theme = LevelSetMethods.makie_theme()
+
+anim = with_theme(theme) do
+    eq.t = 0
+    obs = Observable(eq)
+    fig = Figure()
+    ax = Axis(fig[1, 1])
+    plot!(ax, obs)
+    framerate = 30
+    tf = 2π
+    timestamps = range(0, tf; step = 1 / framerate)
+    record(fig, joinpath(@__DIR__, "ls_intro.gif"), timestamps) do t_
+        integrate!(eq, t_)
+        return obs[] = eq
+    end
 end
-gif(anim, "test.gif")

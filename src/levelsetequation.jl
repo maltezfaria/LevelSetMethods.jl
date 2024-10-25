@@ -32,7 +32,7 @@ using LevelSetMethods, StaticArrays
 grid = CartesianGrid((-1, -1), (1, 1), (50, 50))    # define the grid
 ϕ = LevelSet(x -> x[1]^2 + x[2]^2 - 0.5^2, grid)    # initial shape
 𝐮 = MeshField(x -> SVector(1, 0), grid)             # advection velocity
-terms = (AdvectionTerm(; velocity = 𝐮),)            # advection and curvature terms
+terms = (AdvectionTerm(𝐮),)            # advection and curvature terms
 bc = PeriodicBC()                                   # periodic boundary conditions
 eq = LevelSetEquation(; terms, levelset = ϕ, bc)    # level-set equation
 
@@ -59,10 +59,10 @@ function LevelSetEquation(; terms, integrator = RK3(), levelset, t = 0, bc)
 end
 
 function _normalize_terms(terms, dim)
-    N = length(terms)
     if isa(terms, LevelSetTerm) # single term
         return (terms,)
     else
+        N = length(terms)
         return ntuple(N) do i
             if isa(terms[i], LevelSetTerm)
                 return terms[i]
