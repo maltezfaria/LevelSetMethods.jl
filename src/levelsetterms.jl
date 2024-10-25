@@ -37,10 +37,17 @@ AdvectionTerm(𝐮, scheme = WENO5()) = AdvectionTerm(𝐮, scheme)
 
 Base.show(io::IO, t::AdvectionTerm) = print(io, "𝐮 ⋅ ∇ ϕ")
 
-@inline function _compute_term(term::AdvectionTerm, ϕ, I, t)
+@inline function _compute_term(term::AdvectionTerm{V}, ϕ, I, t) where {V}
     sch = scheme(term)
     N = dimension(ϕ)
-    𝐮 = velocity(term)[I]
+    𝐮 = if V <: MeshField
+        velocity(term)[I]
+    elseif V <: Function
+        x = mesh(ϕ)[I]
+        velocity(term)(x, t)
+    else
+        error("velocity field type $V not supported")
+    end
     # for dimension dim, compute the upwind derivative and multiply by the
     # velocity
     sum(1:N) do dim
@@ -65,11 +72,16 @@ Base.show(io::IO, t::AdvectionTerm) = print(io, "𝐮 ⋅ ∇ ϕ")
     end
 end
 
-function _compute_cfl(term::AdvectionTerm, ϕ, I, t)
+function _compute_cfl(term::AdvectionTerm{V}, ϕ, I, t) where {V}
     # equation 3.10 of Osher and Fedkiw
-    u = velocity(term)[I]
+    𝐮 = if V <: MeshField
+        velocity(term)[I]
+    elseif V <: Function
+        x = mesh(ϕ)[I]
+        velocity(term)(x, t)
+    end
     Δx = meshsize(ϕ)
-    return 1 / maximum(abs.(u) ./ Δx)
+    return 1 / maximum(abs.(𝐮) ./ Δx)
 end
 
 """
