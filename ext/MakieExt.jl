@@ -78,7 +78,7 @@ function Makie.plot!(p::LevelSetPlot)
         p,
         1, # x-position
         1; # y position
-        text = @lift("t = $(round($t, digits = 1))"),
+        text = @lift("t = $(round($t, digits = 2))"),
         fontsize = 20,
         align = (:right, :top),
         color = :darkgrey,

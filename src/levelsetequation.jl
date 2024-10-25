@@ -155,12 +155,12 @@ number_of_buffers(fe::ForwardEuler) = 1
 @noinline function _integrate!(ϕ, buffers, integrator::ForwardEuler, terms, tc, tf, Δt)
     buffer = buffers[1]
     α      = cfl(integrator)
-    Δt_cfl = α * compute_cfl(terms, ϕ)
+    Δt_cfl = α * compute_cfl(terms, ϕ, tc)
     Δt     = min(Δt, Δt_cfl)
     while tc <= tf - eps(tc)
         Δt = min(Δt, tf - tc) # if needed, take a smaller time-step to exactly land on tf
         for I in eachindex(ϕ)
-            buffer[I] = _compute_terms(terms, ϕ, I)
+            buffer[I] = _compute_terms(terms, ϕ, I, tc)
             buffer[I] = ϕ[I] - Δt * buffer[I] # muladd?
         end
         ϕ, buffer = buffer, ϕ # swap the roles, no copies
@@ -177,17 +177,17 @@ function _integrate!(ϕ::LevelSet, buffers, integrator::RK2, terms, tc, tf, Δt)
     # Heun's method
     α = cfl(integrator)
     buffer1, buffer2 = buffers[1], buffers[2]
-    Δt_cfl = α * compute_cfl(terms, ϕ)
+    Δt_cfl = α * compute_cfl(terms, ϕ, tc)
     Δt = min(Δt, Δt_cfl)
     while tc <= tf - eps(tc)
         Δt = min(Δt, tf - tc) # if needed, take a smaller time-step to exactly land on tf
         for I in eachindex(ϕ)
-            tmp = _compute_terms(terms, ϕ, I)
+            tmp = _compute_terms(terms, ϕ, I, tc)
             buffer1[I] = ϕ[I] - Δt * tmp
             buffer2[I] = ϕ[I] - 0.5 * Δt * tmp
         end
         for I in eachindex(ϕ)
-            tmp = _compute_terms(terms, buffer1, I)
+            tmp = _compute_terms(terms, buffer1, I, tc + Δt)
             buffer2[I] -= 0.5 * Δt * tmp
         end
         ϕ, buffer1, buffer2 = buffer2, ϕ, buffer1 # swap the roles, no copies
@@ -198,55 +198,26 @@ function _integrate!(ϕ::LevelSet, buffers, integrator::RK2, terms, tc, tf, Δt)
     return ϕ
 end
 
-number_of_buffers(fe::RKLM2) = 1
-
-function _integrate!(ϕ::LevelSet, buffers, integrator::RKLM2, terms, tc, tf, Δt)
-    buffer = buffers[1]
-    α      = cfl(integrator)
-    Δt_cfl = α * compute_cfl(terms, ϕ)
-    Δt     = min(Δt, Δt_cfl)
-    while tc <= tf - eps(tc)
-        Δt = min(Δt, tf - tc) # if needed, take a smaller time-step to exactly land on tf
-        for I in eachindex(ϕ)
-            tmp = _compute_terms(terms, ϕ, I)
-            buffer[I] = tmp
-        end
-        for I in eachindex(ϕ)
-            ϕ[I] = ϕ[I] - Δt * buffer[I] # muladd?
-        end
-        applybc!(ϕ)
-        for I in eachindex(ϕ)
-            tmp = _compute_terms(terms, ϕ, I)
-            buffer[I] = ϕ[I] - 0.5 * Δt * tmp + 0.5 * Δt * buffer[I]
-        end
-        ϕ, buffer = buffer, ϕ # swap the roles, no copies
-        tc += Δt
-        @debug tc, Δt
-    end
-    # @assert tc ≈ tf
-    return ϕ
-end
-
-number_of_buffers(fe::RK3) = 3
+number_of_buffers(fe::RK3) = 2
 
 function _integrate!(ϕ::LevelSet, buffers, integrator::RK3, terms, tc, tf, Δt)
-    buffer1, buffer2, buffer3 = buffers
+    buffer1, buffer2 = buffers
     α = cfl(integrator)
-    Δt_cfl = α * compute_cfl(terms, ϕ)
+    Δt_cfl = α * compute_cfl(terms, ϕ, tc)
     Δt = min(Δt, Δt_cfl)
     while tc <= tf - eps(tc)
         Δt = min(Δt, tf - tc) # if needed, take a smaller time-step to exactly land on tf
         for I in eachindex(ϕ)
-            tmp = _compute_terms(terms, ϕ, I)
+            tmp = _compute_terms(terms, ϕ, I, tc)
             buffer1[I] = ϕ[I] - Δt * tmp # ϕ(t + Δt)
         end
         for I in eachindex(ϕ)
-            tmp = _compute_terms(terms, buffer1, I)
+            tmp = _compute_terms(terms, buffer1, I, tc + Δt)
             buffer2[I] = buffer1[I] - Δt * tmp # ϕ(t + 2Δt)
             buffer2[I] = 1 / 4 * buffer2[I] + 3 / 4 * ϕ[I] # ϕ(t + Δt/2) = 3/4 ϕ(t) + 1/4 ϕ(t + 2Δt)
         end
         for I in eachindex(ϕ)
-            tmp = _compute_terms(terms, buffer2, I)
+            tmp = _compute_terms(terms, buffer2, I, tc + 3 / 2 * Δt)
             buffer1[I] = buffer2[I] - Δt * tmp # ϕ(t + 3/2 Δt)
             ϕ[I] = 1 / 3 * ϕ[I] + 2 / 3 * buffer1[I] # ϕ(t + Δt) = 1/2 ϕ(t) + 2/3 ϕ(t + 3/2 Δt)
         end
@@ -257,8 +228,8 @@ function _integrate!(ϕ::LevelSet, buffers, integrator::RK3, terms, tc, tf, Δt)
     return ϕ
 end
 
-function _compute_terms(terms, ϕ, I)
+function _compute_terms(terms, ϕ, I, t)
     sum(terms) do term
-        return _compute_term(term, ϕ, I)
+        return _compute_term(term, ϕ, I, t)
     end
 end

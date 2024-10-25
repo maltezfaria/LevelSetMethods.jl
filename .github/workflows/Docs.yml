@@ -48,11 +48,23 @@ jobs:
             using LevelSetMethods
             DocMeta.setdocmeta!(LevelSetMethods, :DocTestSetup, :(using LevelSetMethods); recursive=true)
             doctest(LevelSetMethods)'
-      - name: Generate and deploy documentation
+      - name: Generate and deploy documentation (without coverage)
+        if: github.ref != 'refs/heads/main'
+        run: DISPLAY=:1 xvfb-run -s '-screen 1 1024x768x24' julia --project=docs docs/make.jl
+        env:
+          JULIA_PKG_SERVER: ""
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
+      - name: Generate and deploy documentation (with coverage)
+        if: github.ref == 'refs/heads/main'
         run: DISPLAY=:1 xvfb-run -s '-screen 1 1024x768x24' julia --project=docs --code-coverage=user docs/make.jl
         env:
           JULIA_PKG_SERVER: ""
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
       - name: Process coverage
+        if: github.ref == 'refs/heads/main'
         uses: julia-actions/julia-processcoverage@v1
+      - name: Upload coverage to Codecov
+        if: github.ref == 'refs/heads/main'
+        uses: codecov/codecov-action@v4
