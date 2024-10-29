@@ -20,6 +20,13 @@ Homogenous Neumann boundary condition.
 struct NeumannBC <: BoundaryCondition end
 
 """
+    struct NeumannGradientBC <: BoundaryCondition
+
+Homogenous Neumann gradient boundary condition.
+"""
+struct NeumannGradientBC <: BoundaryCondition end
+
+"""
     struct DirichletBC{T} <: BoundaryCondition
 
 A Dirichlet boundary condition taking values of `f(x)` at the boundary.
