@@ -119,14 +119,17 @@ See [`curvature(ϕ::LevelSet, I)`](@ref)@ for more details.
 
 ```julia
 using LevelSetMethods
-N, R = 50, 0.5
+N = 50
 grid = CartesianGrid((-1, -1), (1, 1), (N, N))
-ϕ = LevelSetMethods.sphere(grid; radius = R)
+ϕ = LevelSetMethods.star(grid)
 using GLMakie
-κ = curvature(ϕ)
+coeff = exp.(-40.0 * values(ϕ) .^ 2)
+κ = curvature(ϕ) .* coeff
 xs = LevelSetMethods.grid1d(grid, 1)
 ys = LevelSetMethods.grid1d(grid, 2)
-heatmap(xs, ys, κ)
+fig, ax, hm = heatmap(xs, ys, κ)
+Colorbar(fig[:, end+1], hm)
+contour!(xs, ys, values(ϕ); levels = [0.0])
 ```
 """
 function curvature(ϕ::LevelSet)
@@ -169,16 +172,18 @@ Compute the unit exterior normal vector of ϕ using n = ∇ϕ/|∇ϕ|
 
 ```julia
 using LevelSetMethods
-N, R = 20, 0.5
+N = 50
 grid = CartesianGrid((-1, -1), (1, 1), (N, N))
-ϕ = LevelSetMethods.sphere(grid; radius = R)
+ϕ = LevelSetMethods.star(grid)
 using GLMakie
 n = normal(ϕ)
 xs = LevelSetMethods.grid1d(grid, 1)
 ys = LevelSetMethods.grid1d(grid, 2)
-us = getindex.(n, 1)
-vs = getindex.(n, 2)
-arrows!(xs, ys, us, vs; lengthscale = 2.0 / (N - 1))
+coeff = exp.(-40.0 * values(ϕ) .^ 2)
+us = getindex.(n, 1) .* coeff
+vs = getindex.(n, 2) .* coeff
+arrows(xs, ys, us, vs; arrowsize = 10 * vec(coeff), lengthscale = 2.0 / (N - 1))
+contour!(xs, ys, values(ϕ); levels = [0.0])
 ```
 """
 function normal(ϕ::LevelSet)

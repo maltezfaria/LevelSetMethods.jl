@@ -5,6 +5,7 @@
 We consider in this example the *isoperimetric inequality* which states that among all closed surfaces enclosing a fixed area with volume $V_0 > 0$, the sphere is the one with minimal perimeter.
 We show here how to demonstrate this result through numerical optimization.
 To do this, we first define the problem mathematically (1):
+
 ```math
     \begin{array}{rl}
         \displaystyle\min_{\Omega \subset \mathbb{R}^N} & P(\Omega)
@@ -14,6 +15,7 @@ To do this, we first define the problem mathematically (1):
 ```
 
 where $P(\Omega), V(\Omega)$ are the perimeter and volume of $\Omega$ defined by
+
 ```math
     V(\Omega) = \int_{\Omega} \:\text{d}\mathbf{x}
     \quad\text{and}\quad
@@ -22,6 +24,7 @@ where $P(\Omega), V(\Omega)$ are the perimeter and volume of $\Omega$ defined by
 ```
 
 The optimization problem (1) can be solved using the augmented Lagrangian approach by minimizing iteratively the following functional (2):
+
 ```math
     f(\Omega) = P(\Omega) + \lambda (V(\Omega) - V_0) + \frac{\mu}{2} (V(\Omega) - V_0)^2
 ```
@@ -30,6 +33,7 @@ where $\mu$ is a parameter updated during the course of the optimization.
 To minimize (2), we will use a gradient-based algorithm.
 For this, we need to define what a *small variation* of $\Omega$ is.
 As such, we define for any shape $\Omega \subset \mathbb{R}^N$ its deformed configuration $\Omega_{\boldsymbol{\theta}}$ by a small vector field $\boldsymbol{\theta} \in W^{1,\infty}(\mathbb{R}^N, \mathbb{R}^N)$ as:
+
 ```math
     \Omega_{\boldsymbol{\theta}}
     = (\text{Id} + \boldsymbol{\theta})(\Omega)
@@ -37,6 +41,7 @@ As such, we define for any shape $\Omega \subset \mathbb{R}^N$ its deformed conf
 ```
 
 The following first-order Taylor expansion can then be obtained:
+
 ```math
     f(\Omega_{\boldsymbol{\theta}})
     =
@@ -56,6 +61,7 @@ In other words, using $\boldsymbol{\theta} = - (\kappa + (\lambda + \mu (V(\Omeg
 ## Numerical solution using the level-set method
 
 If $\Omega$ is given by the level-set function $\phi_0 : \R^N \to \R$ then one associated with $\Omega_{\tau\boldsymbol{\theta}}$ is given by $\phi(\cdot, \tau)$ solution of
+
 ```math
     \partial_t \phi - \kappa |\nabla \phi| - (\lambda + \mu (V(\Omega) - V_0)) |\nabla \phi| = 0
 ```
