@@ -64,6 +64,11 @@ function _getindexrec(ϕ, I, dim)
     elseif bc isa NeumannBC
         I′ = _wrap_index_neumann(I, ax, dim)
         return _getindexrec(ϕ, I′, dim - 1)
+    elseif bc isa NeumannGradientBC
+        Ion, Iin, dist = _wrap_index_neumann_gradient(I, ax, dim)
+        Von = _getindexrec(ϕ, Ion, dim - 1)
+        Vin = _getindexrec(ϕ, Iin, dim - 1)
+        return Von + dist * (Von - Vin)
     elseif bc isa DirichletBC
         grid = mesh(ϕ)
         x = _getindex(grid, I)
@@ -80,8 +85,7 @@ function _wrap_index_periodic(I::CartesianIndex{N}, ax, dim) where {N}
         if d == dim
             if i < first(ax)
                 return (last(ax) - (first(ax) - i))
-            else
-                i > last(ax)
+            elseif i > last(ax)
                 return (first(ax) + (i - last(ax)))
             end
         end
@@ -95,13 +99,29 @@ function _wrap_index_neumann(I::CartesianIndex{N}, ax, dim) where {N}
         if d == dim
             if i < first(ax)
                 return (first(ax) + (first(ax) - i))
-            else
-                i > last(ax)
+            elseif i > last(ax)
                 return (last(ax) - (i - last(ax)))
             end
         end
         return I[d]
     end |> CartesianIndex
+end
+
+# return the two closest indices in the axis for the given dimension
+# as well as the distance from the closest one.
+function _wrap_index_neumann_gradient(I::CartesianIndex{N}, ax, dim) where {N}
+    i = I[dim]
+    a, b = first(ax), last(ax)
+    if i < a
+        Ion = ntuple(d -> d == dim ? a : I[d], N) |> CartesianIndex
+        Iin = ntuple(d -> d == dim ? a + 1 : I[d], N) |> CartesianIndex
+        return Ion, Iin, a - i
+    elseif i > b
+        Ion = ntuple(d -> d == dim ? b : I[d], N) |> CartesianIndex
+        Iin = ntuple(d -> d == dim ? b - 1 : I[d], N) |> CartesianIndex
+        return Ion, Iin, i - b
+    end
+    return I, I, 0
 end
 
 Base.setindex!(ϕ::MeshField, vals, I...) = setindex!(values(ϕ), vals, I...)
@@ -152,6 +172,26 @@ end
 function _getindex(ϕ::CartesianMeshField, I::CartesianIndex{N}, ::NeumannBC, d) where {N}
     ax = axes(ϕ)[abs(d)]
     # compute mirror index to I[d]
+    i = I[abs(d)]
+    J = ntuple(N) do dir
+        if dir == abs(d)
+            d < 0 ? (first(ax) + (first(ax) - i)) : (last(ax) - (i - last(ax)))
+        else
+            I[dir]
+        end
+    end
+    return getindex(values(ϕ), CartesianIndex(J))
+end
+
+function _getindex(
+    ϕ::CartesianMeshField,
+    I::CartesianIndex{N},
+    ::NeumannGradientBC,
+    d,
+) where {N}
+    ax = axes(ϕ)[abs(d)]
+    # compute mirror index to I[d]
+    # TODO
     i = I[abs(d)]
     J = ntuple(N) do dir
         if dir == abs(d)
