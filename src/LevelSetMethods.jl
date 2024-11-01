@@ -11,6 +11,7 @@ include("derivatives.jl")
 include("levelsetterms.jl")
 include("timestepping.jl")
 include("levelsetequation.jl")
+include("properties.jl")
 
 export CartesianGrid,
     meshsize,
@@ -19,12 +20,18 @@ export CartesianGrid,
     LevelSet,
     PeriodicBC,
     NeumannBC,
+    NeumannGradientBC,
     DirichletBC,
     AdvectionTerm,
     CurvatureTerm,
     NormalMotionTerm,
     ReinitializationTerm,
+    gradient,
+    normal,
+    hessian,
     curvature,
+    Volume,
+    Surface,
     compute_terms,
     add_circle!,
     remove_circle!,

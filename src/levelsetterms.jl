@@ -115,47 +115,6 @@ function _compute_cfl(term::CurvatureTerm, ϕ, I, t)
     return (Δx)^2 / (2 * abs(b))
 end
 
-function curvature(ϕ::LevelSet, I)
-    N = dimension(ϕ)
-    Δ = minimum(meshsize(ϕ))/100
-    if N == 2
-        ϕx  = D⁰(ϕ, I, 1)
-        ϕy  = D⁰(ϕ, I, 2)
-        ϕxx = D2⁰(ϕ, I, 1)
-        ϕyy = D2⁰(ϕ, I, 2)
-        ϕxy = D2(ϕ, I, (2, 1))
-        normsq = ϕx^2 + ϕy^2 + Δ^2
-        κ = (ϕxx * ϕy^2 - 2 * ϕy * ϕx * ϕxy + ϕyy * ϕx^2) / normsq^(3 / 2)
-        return κ
-    elseif N == 3
-        ϕx  = D⁰(ϕ, I, 1)
-        ϕy  = D⁰(ϕ, I, 2)
-        ϕz  = D⁰(ϕ, I, 3)
-        ϕxx = D2⁰(ϕ, I, 1)
-        ϕyy = D2⁰(ϕ, I, 2)
-        ϕzz = D2⁰(ϕ, I, 3)
-        ϕxy = D2(ϕ, I, (2, 1))
-        ϕxz = D2(ϕ, I, (3, 1))
-        ϕyz = D2(ϕ, I, (3, 2))
-        normsq = ϕx^2 + ϕy^2 + ϕz^2 + Δ^2
-        κ = (
-                (ϕyy + ϕzz) * ϕx^2 + (ϕxx + ϕzz) * ϕy^2 + (ϕxx + ϕyy) * ϕz^2
-                - 2 * (ϕx * ϕy * ϕxy + ϕx * ϕz * ϕxz + ϕy * ϕz * ϕyz)
-            ) / normsq^2
-        return κ
-    else
-        notimplemented()
-    end
-end
-
-function curvature(ϕ::LevelSet)
-    tmp = zeros(size(values(ϕ)))
-    for I in eachindex(ϕ)
-        tmp[I] = curvature(ϕ, I)
-    end
-    return tmp
-end
-
 """
     struct NormalMotionTerm{V,M} <: LevelSetTerm
 
