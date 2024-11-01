@@ -24,9 +24,9 @@ anim = with_theme(LevelSetMethods.makie_theme()) do
     # parameters for augmented Lagrangian method
     λ, μ = 0.0, 0.1
     c = 1.1
-    S0 = 2.0
-    R0 = S0 / (2π)
-    V0 = π * R0^2
+    V0 = 0.5
+    R0 = sqrt(V0 / π)
+    P0 = 2π * R0
     δ = 0.25
 
     eq.t = 0
@@ -37,21 +37,19 @@ anim = with_theme(LevelSetMethods.makie_theme()) do
     arc!([0; 0], R0, 0, 2π)
 
     record(fig, "optimization.gif", 1:nit) do it
-        # update vector field for curvature
-
-        S = LevelSetMethods.Surface(ϕ)
+        P = LevelSetMethods.Perimeter(ϕ)
         V = LevelSetMethods.Volume(ϕ)
-        println("it = ", it, "; S = ", S, "->", S0, "; V = ", V, " vs. ", V0)
 
-        term1 = NormalMotionTerm(MeshField(X -> -(λ + μ * (S - S0)), grid))
+        println("it = ", it, "; P = ", P, "->", P0, "; V = ", V, " vs. ", V0)
+
+        term1 = NormalMotionTerm(MeshField(X -> -(λ + μ * (V - V0)), grid))
         eq.terms = (term1, term2)
 
         τ = δ * LevelSetMethods.compute_cfl(eq.terms, eq.state, eq.t)
         integrate!(eq, eq.t + τ)
 
-        λ += μ * (S - S0)
+        λ += μ * (V - V0)
         μ *= c
         return obs[] = eq
     end
-    return println(λ, ", ", μ)
 end

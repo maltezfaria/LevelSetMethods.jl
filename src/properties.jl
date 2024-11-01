@@ -28,9 +28,9 @@ function Volume(ϕ::LevelSet)
 end
 
 """
-    Surface(ϕ::LevelSet)
+    Perimeter(ϕ::LevelSet)
 
-Compute the surface area of the level-set function.
+Compute the perimeter area of the level-set function.
 Note: this function does not compute the perimeter on the borders of the domain.
 
 ```julia
@@ -43,13 +43,13 @@ nb = length(Ns)
 for N in Ns
     grid = CartesianGrid((-1, -1), (1, 1), (N, N))
     ϕ = LevelSetMethods.sphere(grid; radius = R)
-    push!(S, Surface(ϕ))
+    push!(S, Perimeter(ϕ))
 end
 lines(Ns, S; color = "blue")
 lines!([minimum(Ns); maximum(Ns)], [S0; S0]; color = "red")
 ```
 """
-function Surface(ϕ::LevelSet)
+function Perimeter(ϕ::LevelSet)
     # if no boundary conditions then we use homogenous Neumann
     if !has_boundary_conditions(ϕ)
         N = dimension(ϕ)
