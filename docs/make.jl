@@ -39,7 +39,7 @@ makedocs(;
         "terms.md",
         "time-integrators.md",
         "boundary-conditions.md",
-        "extensions.md",
+        hide("Extensions" => "extensions.md", ["extension-makie.md", "extension-mmg.md"]),
         hide("Examples" => "examples.md", ["example-zalesak.md", "example-shape-optim.md"]),
         numbered_pages,
     ),

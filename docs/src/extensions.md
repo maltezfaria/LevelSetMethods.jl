@@ -1,5 +1,6 @@
 # [Extensions](@id extensions)
 
-## [Makie extension](@id makie)
+The following extensions are present in the LevelSetMethods.jl package.
 
-## [Mmg extension](@id mmg)
+- [Makie extension](@ref extension-makie)
+- [Mmg extension](@ref extension-mmg)
