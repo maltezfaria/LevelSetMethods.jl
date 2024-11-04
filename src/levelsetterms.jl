@@ -90,8 +90,8 @@ end
 Level-set curvature term representing `bκ|∇ϕ|`, where `κ = ∇ ⋅ (∇ϕ/|∇ϕ|) ` is
 the curvature.
 """
-struct CurvatureTerm{V,M} <: LevelSetTerm
-    b::MeshField{V,M}
+struct CurvatureTerm{V} <: LevelSetTerm
+    b::V
 end
 coefficient(cterm::CurvatureTerm) = cterm.b
 
@@ -122,8 +122,8 @@ Level-set advection term representing  `v |∇ϕ|`. This `LevelSetTerm` should b
 used for internally generated velocity fields; for externally generated
 velocities you may use `AdvectionTerm` instead.
 """
-@kwdef struct NormalMotionTerm{V,M} <: LevelSetTerm
-    speed::MeshField{V,M}
+@kwdef struct NormalMotionTerm{V} <: LevelSetTerm
+    speed::V
 end
 speed(adv::NormalMotionTerm) = adv.speed
 
