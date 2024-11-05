@@ -39,11 +39,12 @@ makedocs(;
         "terms.md",
         "time-integrators.md",
         "boundary-conditions.md",
-        "extensions.md",
+        hide("Extensions" => "extensions.md", ["extension-makie.md", "extension-mmg.md"]),
         hide("Examples" => "examples.md", ["example-zalesak.md", "example-shape-optim.md"]),
         numbered_pages,
     ),
     pagesonly = true, # ignore .md files not in the pages list
+    warnonly = true,
 )
 
 deploydocs(; repo = "github.com/maltezfaria/LevelSetMethods.jl", push_preview = true)
