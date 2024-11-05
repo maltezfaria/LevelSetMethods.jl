@@ -90,8 +90,8 @@ end
 Level-set curvature term representing `bκ|∇ϕ|`, where `κ = ∇ ⋅ (∇ϕ/|∇ϕ|) ` is
 the curvature.
 """
-struct CurvatureTerm{V,M} <: LevelSetTerm
-    b::MeshField{V,M}
+struct CurvatureTerm{V} <: LevelSetTerm
+    b::V
 end
 coefficient(cterm::CurvatureTerm) = cterm.b
 
@@ -115,39 +115,6 @@ function _compute_cfl(term::CurvatureTerm, ϕ, I, t)
     return (Δx)^2 / (2 * abs(b))
 end
 
-function curvature(ϕ::LevelSet, I)
-    N = dimension(ϕ)
-    if N == 2
-        ϕx  = D⁰(ϕ, I, 1)
-        ϕy  = D⁰(ϕ, I, 2)
-        ϕxx = D2⁰(ϕ, I, 1)
-        ϕyy = D2⁰(ϕ, I, 2)
-        ϕxy = D2(ϕ, I, (2, 1))
-        κ   = (ϕxx * (ϕy)^2 - 2 * ϕy * ϕx * ϕxy + ϕyy * ϕx^2) / (ϕx^2 + ϕy^2)^(3 / 2)
-        return κ
-    elseif N == 3
-        ϕx  = D⁰(ϕ, I, 1)
-        ϕy  = D⁰(ϕ, I, 2)
-        ϕz  = D⁰(ϕ, I, 3)
-        ϕxx = D2⁰(ϕ, I, 1)
-        ϕyy = D2⁰(ϕ, I, 2)
-        ϕzz = D2⁰(ϕ, I, 3)
-        ϕxy = D2(ϕ, I, (2, 1))
-        ϕxz = D2(ϕ, I, (3, 1))
-        # TODO: test + simplify this
-        κ =
-            (
-                ϕxx * (ϕy)^2 - 2 * ϕy * ϕx * ϕxy + ϕyy * ϕx^2 + ϕx^2 * ϕzz -
-                2 * ϕx * ϕz * ϕxz +
-                ϕz^2 * ϕxx +
-                ϕy^2 * ϕzz - 2 * ϕy * ϕz * ϕyz + ϕz^2 * ϕyy
-            ) / (ϕx^2 + ϕy^2)^3 / 2
-        return κ
-    else
-        notimplemented()
-    end
-end
-
 """
     struct NormalMotionTerm{V,M} <: LevelSetTerm
 
@@ -155,8 +122,8 @@ Level-set advection term representing  `v |∇ϕ|`. This `LevelSetTerm` should b
 used for internally generated velocity fields; for externally generated
 velocities you may use `AdvectionTerm` instead.
 """
-@kwdef struct NormalMotionTerm{V,M} <: LevelSetTerm
-    speed::MeshField{V,M}
+@kwdef struct NormalMotionTerm{V} <: LevelSetTerm
+    speed::V
 end
 speed(adv::NormalMotionTerm) = adv.speed
 
@@ -166,17 +133,17 @@ function _compute_term(term::NormalMotionTerm, ϕ, I, t)
     N = dimension(ϕ)
     u = speed(term)
     v = u[I]
-    mA0², mB0² = sum(1:N) do dim
+    ∇⁺², ∇⁻² = sum(1:N) do dim
+        # for first-order, dont use +- 0.5h ...
         h = meshsize(ϕ, dim)
-        A = D⁻(ϕ, I, dim) + 0.5 * h * limiter(D2⁻⁻(ϕ, I, dim), D2⁰(ϕ, I, dim))
-        B = D⁺(ϕ, I, dim) - 0.5 * h * limiter(D2⁺⁺(ϕ, I, dim), D2⁰(ϕ, I, dim))
-        if v > 0.0
-            SVector(positive(A)^2, negative(B)^2)
-        else
-            SVector(negative(A)^2, positive(B)^2)
-        end
+        neg = D⁻(ϕ, I, dim) + 0.5h * limiter(D2⁻⁻(ϕ, I, dim), D2⁰(ϕ, I, dim))
+        pos = D⁺(ϕ, I, dim) - 0.5h * limiter(D2⁺⁺(ϕ, I, dim), D2⁰(ϕ, I, dim))
+        return SVector(
+            positive(neg) .^ 2 + negative(pos) .^ 2,
+            negative(neg) .^ 2 + positive(pos) .^ 2,
+        )
     end
-    return sqrt(mA0² + mB0²)
+    return positive(v) * sqrt(∇⁺²) + negative(v) * sqrt(∇⁻²)
 end
 
 function _compute_cfl(term::NormalMotionTerm, ϕ, I, t)
