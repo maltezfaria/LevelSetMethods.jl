@@ -23,7 +23,7 @@ This package defines a [`LevelSetEquation`](@ref) type that can be used to solve
 differential equations of the form
 
 ```math
-\phi_t + \underbrace{\boldsymbol{u} \cdot \nabla \phi}_{\substack{\text{advection} \\ \text{term}}} + \underbrace{v |\phi|}_{\substack{\text{normal} \\ \text{term}}} + \underbrace{b \kappa |\nabla \phi|}_{\substack{\text{curvature} \\ \text{term}}} + \underbrace{\text{sign}(\phi)(|\nabla \phi| - 1)}_{\substack{\text{reinitialization}\\ \text{term}}} = 0
+\phi_t + \underbrace{\boldsymbol{u} \cdot \nabla \phi}_{\substack{\text{advection} \\ \text{term}}} + \underbrace{v |\nabla \phi|}_{\substack{\text{normal} \\ \text{term}}} + \underbrace{b \kappa |\nabla \phi|}_{\substack{\text{curvature} \\ \text{term}}} + \underbrace{\text{sign}(\phi)(|\nabla \phi| - 1)}_{\substack{\text{reinitialization}\\ \text{term}}} = 0
 ```
 
 where
@@ -99,6 +99,14 @@ Here is what the `.gif` file looks like:
 For more interesting applications and advanced usage, see the [examples section](@ref
 examples)!
 
+!!! note "Other resources"
+    There is an almost one-to-one correspondance between each of the [`LevelSetTerm`](@ref)s
+    described above and individual chapters of the book by Osher and Fedwick on level set
+    methods [osher2003level](@cite), so users interested in digging deeper into the
+    theory/algorithms are encourage to consult that refenrence. We also drew some
+    inspiration from the great Matlab library `ToolboxLS` by Ian Mitchell
+    [mitchell2007toolbox](@cite).
+
 ## Going further
 
 As illustrated above, the `LevelSetEquation` type is the main structure of this package.
@@ -119,3 +127,8 @@ To learn more about the package, you should also check out the following section
 
 Finally, the [examples](@ref examples) section contains a list of examples that demonstrate some
 hopefully cool applications.
+
+## Bibliography
+
+```@bibliography
+```

@@ -4,6 +4,9 @@ using GLMakie
 using MMG_jll
 using MarchingCubes
 using StaticArrays
+using DocumenterCitations
+
+bib = CitationBibliography(joinpath(@__DIR__, "src", "refs.bib"); style = :numeric)
 
 DocMeta.setdocmeta!(
     LevelSetMethods,
@@ -35,7 +38,7 @@ makedocs(;
         collapselevel = 2,
     ),
     pages = vcat(
-        "index.md",
+        "Home" => "index.md",
         "terms.md",
         "time-integrators.md",
         "boundary-conditions.md",
@@ -45,6 +48,7 @@ makedocs(;
     ),
     pagesonly = true, # ignore .md files not in the pages list
     warnonly = true,
+    plugins = [bib],
 )
 
 deploydocs(; repo = "github.com/maltezfaria/LevelSetMethods.jl", push_preview = true)
