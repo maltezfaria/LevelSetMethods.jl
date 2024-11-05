@@ -71,19 +71,6 @@ end
 function Makie.plot!(p::LevelSetPlot)
     eq = p.eq
     ϕ = @lift LSM.current_state($eq)
-    t = @lift LSM.current_time($eq)
-    # TODO: since we can't really modify the axis in a recipe, we set the time
-    # manually. The proper solution is to set the time as a title in the axis...
-    text!(
-        p,
-        1, # x-position
-        1; # y position
-        text = @lift("t = $(round($t, digits = 2))"),
-        fontsize = 20,
-        align = (:right, :top),
-        color = :darkgrey,
-        strokewidth = 1,
-    )
     plot!(p, ϕ; levels = [0], linewidth = 2, color = :black)
     return p
 end
