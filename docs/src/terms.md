@@ -50,7 +50,7 @@ for (n,t) in enumerate([0.0, 0.5, 0.75, 1.0])
     I = CartesianIndices((2,2))[n]
     integrate!(eq, t)
     # ax = Axis(fig[I[1],I[2]])
-    ax = Axis(fig[1,n])
+    ax = Axis(fig[1,n], title = "t = $t")
     plot!(ax, eq)
 end
 fig
@@ -68,12 +68,15 @@ fig = Figure(; size = (1200, 300))
 for (n,t) in enumerate([0.0, 0.5, 0.75, 1.0])
     I = CartesianIndices((2,2))[n]
     integrate!(eq, t)
-    # ax = Axis(fig[I[1],I[2]])
-    ax = Axis(fig[1,n])
+    ax = Axis(fig[1,n], title = "t = $t")
     plot!(ax, eq)
 end
 fig
 ```
+
+Note that the velocity function must accept two arguments: the spatial coordinates `x`,
+which is an abstract vector of length `d`, and the time `t`. Furthermore, it should return a
+vector of length `d`.
 
 Besides the velocity field, the `AdvectionTerm` constructor also accepts a `scheme` as a
 second argument to specify the discretization scheme. The available options are:
@@ -95,13 +98,39 @@ eq_weno   = LevelSetEquation(; terms = AdvectionTerm(𝐮), levelset  = deepcopy
 fig = Figure(size = (1000, 400))
 ax = Axis(fig[1,1], title = "Initial")
 plot!(ax, eq_upwind)
-# do a full revolution
+# do half a revolution
 tf = π
-ax = Axis(fig[1,2], title = "Upwind")
+ax = Axis(fig[1,2], title = "Upwind (final time)")
 integrate!(eq_upwind, tf)
 plot!(ax, eq_upwind)
-ax = Axis(fig[1,3], title = "WENO5")
+ax = Axis(fig[1,3], title = "WENO5 (final time)")
 integrate!(eq_weno, tf)
 plot!(ax, eq_weno)
+fig
+```
+
+## [Normal motion](@id normal-motion)
+
+The normal motion term is given by
+
+```math
+  v |\nabla \phi|
+```
+
+where ``v`` is a scalar field. This term models the motion of the level-set in the normal
+direction (see [osher2003level; Chapter 6](@cite)). Here is an example of how to use it:
+
+```@example normal-motion-term
+using LevelSetMethods
+using CairoMakie
+grid = CartesianGrid((-2,-2), (2,2), (100, 100))
+ϕ = LevelSetMethods.star(grid)
+eq = LevelSetEquation(; terms = (NormalMotionTerm((x,t) -> 0.5),), levelset = ϕ, bc = PeriodicBC())
+fig = Figure(; size = (1200, 300))
+for (n,t) in enumerate([0.0, 0.5, 0.75, 1.0])
+    integrate!(eq, t)
+    ax = Axis(fig[1,n], title = "t = $t")
+    plot!(ax, eq)
+end
 fig
 ```
