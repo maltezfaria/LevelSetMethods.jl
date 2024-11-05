@@ -15,9 +15,16 @@ struct PeriodicBC <: BoundaryCondition end
 """
     struct NeumannBC <: BoundaryCondition
 
-Homogenous Neumann boundary condition.
+Homogenous Neumann boundary condition, i.e. ∂x ϕ = 0.
 """
 struct NeumannBC <: BoundaryCondition end
+
+"""
+    struct NeumannGradientBC <: BoundaryCondition
+
+Homogenous Neumann gradient boundary condition, i.e. ∂xx ϕ = 0.
+"""
+struct NeumannGradientBC <: BoundaryCondition end
 
 """
     struct DirichletBC{T} <: BoundaryCondition
