@@ -132,7 +132,14 @@ Base.show(io::IO, t::NormalMotionTerm) = print(io, "v|∇ϕ|")
 function _compute_term(term::NormalMotionTerm, ϕ, I, t)
     N = dimension(ϕ)
     u = speed(term)
-    v = u[I]
+    v = if u isa MeshField
+        u[I]
+    elseif u isa Function
+        x = mesh(ϕ)[I]
+        u(x, t)
+    else
+        error("velocity field type $u not supported")
+    end
     ∇⁺², ∇⁻² = sum(1:N) do dim
         # for first-order, dont use +- 0.5h ...
         h = meshsize(ϕ, dim)
@@ -147,9 +154,17 @@ function _compute_term(term::NormalMotionTerm, ϕ, I, t)
 end
 
 function _compute_cfl(term::NormalMotionTerm, ϕ, I, t)
-    u = speed(term)[I]
+    u = speed(term)
+    v = if u isa MeshField
+        u[I]
+    elseif u isa Function
+        x = mesh(ϕ)[I]
+        u(x, t)
+    else
+        error("velocity field type $u not supported")
+    end
     Δx = minimum(meshsize(ϕ))
-    return Δx / abs(u)
+    return Δx / abs(v)
 end
 
 @inline positive(x) = x > zero(x) ? x : zero(x)
