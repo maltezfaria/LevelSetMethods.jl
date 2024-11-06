@@ -216,10 +216,28 @@ Eikonal equation |∇ϕ| = 1.
 
 Base.show(io::IO, t::ReinitializationTerm) = print(io, "sign(ϕ) (|∇ϕ| - 1)")
 
-function _compute_term(term::ReinitializationTerm, ϕ, I, t)
-    v = sign(ϕ[I])
-    ∇ = _compute_∇_normal_motion(v, ϕ, I)
-    return (∇ - 1.0) * v
+function _compute_term(::ReinitializationTerm, ϕ, I, t)
+    norm_∇ϕ = _compute_∇_norm(sign(ϕ[I]), ϕ, I)
+    # equation 7.6 of Osher and Fedkiw
+    Δx = minimum(meshsize(ϕ))
+    S = ϕ[I] / sqrt(ϕ[I]^2 + norm_∇ϕ^2 * Δx^2)
+    return S * (norm_∇ϕ - 1.0)
 end
 
 _compute_cfl(term::ReinitializationTerm, ϕ, I, t) = minimum(meshsize(ϕ))
+
+function _compute_∇_norm(v, ϕ, I)
+    # FIXME: use version from NormalTerm
+    N = dimension(ϕ)
+    mA0², mB0² = sum(1:N) do dim
+        h = meshsize(ϕ, dim)
+        A = D⁻(ϕ, I, dim) + 0.5 * h * limiter(D2⁻⁻(ϕ, I, dim), D2⁰(ϕ, I, dim))
+        B = D⁺(ϕ, I, dim) - 0.5 * h * limiter(D2⁺⁺(ϕ, I, dim), D2⁰(ϕ, I, dim))
+        if v > 0
+            SVector(positive(A)^2, negative(B)^2)
+        else
+            SVector(negative(A)^2, positive(B)^2)
+        end
+    end
+    return sqrt(mA0² + mB0²)
+end

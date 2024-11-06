@@ -180,3 +180,48 @@ for (n,t) in enumerate([0.0, 0.1, 0.2, 0.3])
 end
 fig
 ```
+
+## [Reinitialization term](@id reinitialization)
+
+The reinitialization term is given by
+
+```math
+  \phi_t + \text{sign}(\phi) \left( |\nabla \phi| - 1 \right) = 0
+```
+
+This term is used to ensure that the level-set function remains close to a signed distance
+function, which is sometimes important for numerical stability. The idea of the evolution
+equation above is to penalize the deviation of the level-set from a signed distance
+function, where ``|\nabla \phi| = 1``, without changing the zero level-set. In practice a
+smeared `sign` function is used; see [osher2003level; Chapter 7](@cite) for more details.
+
+Here is an example of how to use the reinitialization term to obtain a signed distance
+function from a level-set. Let us first create a level-set that is not a signed distance,
+and its signed distance function:
+
+```@example reinitialization-term
+using LevelSetMethods, GLMakie
+grid = CartesianGrid((-1,-1), (1,1), (100, 100))
+ϕ = LevelSet(x -> x[1]^2 + x[2]^2 - 0.5^2, grid) # circle level-set, but not a signed distance function
+sdf = LevelSet(x -> sqrt(x[1]^2 + x[2]^2) - 0.5, grid) # signed distance function
+LevelSetMethods.set_makie_theme!()
+fig = Figure(; size = (800, 400))
+ax = Axis(fig[1,1], title = "Signed distance function")
+contour!(ax, sdf; levels = [0, 0.5], labels = true, labelsize = 14)
+ax = Axis(fig[1,2], title = "ϕ at t = 0")
+contour!(ax, ϕ, levels = [0, 0.5], labels = true, labelsize = 14)
+fig
+```
+
+We will now evolve the level-set using the reinitialization term:
+
+```@example reinitialization-term
+eq = LevelSetEquation(; terms = (ReinitializationTerm(),), levelset = ϕ, bc = PeriodicBC())
+fig = Figure(; size = (1200, 300))
+for (n,t) in enumerate([0.0, 0.25, 0.5, 0.75])
+    integrate!(eq, t)
+    ax = Axis(fig[1,n], title = "t = $t")
+    contour!(ax, LevelSetMethods.current_state(eq); levels = [0, 0.5], labels = true, labelsize = 14)
+end
+fig
+```
