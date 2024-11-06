@@ -6,8 +6,17 @@ A level-set equation is given by
   \phi_t + \sum_n \texttt{term}_n = 0
 ```
 
-where each ``\texttt{term}_n`` is a `LevelSetTerm` object. Here we investigate the meaning
-of each term, and how they can be used to model different phenomena.
+where each ``\texttt{term}_n`` is a `LevelSetTerm` object. The following terms are
+available:
+
+```@example
+using LevelSetMethods
+using InteractiveUtils # hide
+subtypes(LevelSetMethods.LevelSetTerm)
+```
+
+Here we investigate the meaning of each term, and how they can be used to model different
+phenomena.
 
 ## [Advection](@id advection)
 
