@@ -99,28 +99,44 @@ Base.show(io::IO, t::CurvatureTerm) = print(io, "b κ|∇ϕ|")
 
 function _compute_term(term::CurvatureTerm, ϕ, I, t)
     N = dimension(ϕ)
-    b = coefficient(term)
     κ = curvature(ϕ, I)
+    b = coefficient(term)
+    bI = if b isa MeshField
+        b[I]
+    elseif b isa Function
+        x = mesh(ϕ)[I]
+        b(x, t)
+    else
+        error("curvature field type $b not supported")
+    end
     # compute |∇ϕ|
     ϕ2 = sum(1:N) do dim
         return D⁰(ϕ, I, dim)^2
     end
     # update
-    return b[I] * κ * sqrt(ϕ2)
+    return bI * κ * sqrt(ϕ2)
 end
 
 function _compute_cfl(term::CurvatureTerm, ϕ, I, t)
-    b = coefficient(term)[I]
+    b = coefficient(term)
+    bI = if b isa MeshField
+        b[I]
+    elseif b isa Function
+        x = mesh(ϕ)[I]
+        b(x, t)
+    else
+        error("curvature field type $b not supported")
+    end
     Δx = minimum(meshsize(ϕ))
-    return (Δx)^2 / (2 * abs(b))
+    return (Δx)^2 / (2 * abs(bI))
 end
 
 """
     struct NormalMotionTerm{V,M} <: LevelSetTerm
 
 Level-set advection term representing  `v |∇ϕ|`. This `LevelSetTerm` should be
-used for internally generated velocity fields; for externally generated
-velocities you may use `AdvectionTerm` instead.
+used for internally generated velocity fields; for externally generated velocities you may
+use `AdvectionTerm` instead.
 """
 @kwdef struct NormalMotionTerm{V} <: LevelSetTerm
     speed::V

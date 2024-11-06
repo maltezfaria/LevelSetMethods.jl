@@ -18,7 +18,7 @@ The simplest term is the advection term, which is given by
 ```
 
 where ``\mathbf{u}`` is a velocity field. This term models the transport of the level-set by
-an *external* velocity field. You can construct an advection term using the `AdvectionTerm`
+an *external* velocity field (see [osher2003level; Chapter 3](@cite)). You can construct an advection term using the `AdvectionTerm`
 structure:
 
 ```@example advection-term
@@ -122,12 +122,58 @@ direction (see [osher2003level; Chapter 6](@cite)). Here is an example of how to
 
 ```@example normal-motion-term
 using LevelSetMethods
-using CairoMakie
+using GLMakie
 grid = CartesianGrid((-2,-2), (2,2), (100, 100))
 ϕ = LevelSetMethods.star(grid)
 eq = LevelSetEquation(; terms = (NormalMotionTerm((x,t) -> 0.5),), levelset = ϕ, bc = PeriodicBC())
 fig = Figure(; size = (1200, 300))
 for (n,t) in enumerate([0.0, 0.5, 0.75, 1.0])
+    integrate!(eq, t)
+    ax = Axis(fig[1,n], title = "t = $t")
+    plot!(ax, eq)
+end
+fig
+```
+
+## [Curvature motion](@id curvature)
+
+This terms models the motion of the level-set in the normal direction with a velocity that
+is proportional to the mean curvature:
+
+```math
+  b \kappa |\nabla \phi|
+```
+
+where ``\kappa = \nabla \cdot (\nabla / |\nabla|)`` is the mean curvature. Note that the
+coefficient ``b`` should be negative; a positive value of ``b`` would yield an ill-posed
+evolution problem (akin to a negative diffusion coefficient).
+
+Here is the classic example of motion by mean curavature for a spiral-like level-set:
+
+```@example curvature-term
+using LevelSetMethods, GLMakie
+grid = CartesianGrid((-1,-1), (1,1), (100, 100))
+# create a spiral level-set
+d = 1
+r0 = 0.5
+θ0 = -π / 3
+α = π / 100.0
+R = [cos(α) -sin(α); sin(α) cos(α)]
+M = R * [1/0.06^2 0; 0 1/(4π^2)] * R'
+ϕ = LevelSet(grid) do (x, y)
+    r = sqrt(x^2 + y^2)
+    θ = atan(y, x)
+    result = 1e30
+    for i in 0:4
+        θ1 = θ + (2i - 4) * π
+        v = [r - r0; θ1 - θ0]
+        result = min(result, sqrt(v' * M * v) - d)
+    end
+    return result
+end
+eq = LevelSetEquation(; terms = (CurvatureTerm((x,t) -> -0.1),), levelset = ϕ, bc = PeriodicBC())
+fig = Figure(; size = (1200, 300))
+for (n,t) in enumerate([0.0, 0.1, 0.2, 0.3])
     integrate!(eq, t)
     ax = Axis(fig[1,n], title = "t = $t")
     plot!(ax, eq)
