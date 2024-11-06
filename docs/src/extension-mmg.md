@@ -14,14 +14,32 @@ For 2 and 3 dimensional Cartesian levelset, one can use the `export_volume_mesh`
 This method relies on the `mmg2d_O3` and `mmg3d_O3` utilities.
 Example in 2D:
 
-```julia
+```@example volume2D
 using LevelSetMethods, MMG_jll
-grid = CartesianGrid((-1, -1), (+1, +1), (50, 50))
+grid = CartesianGrid((-2, -2), (2, 2), (50, 50))
 ϕ = LevelSetMethods.star(grid)
-LevelSetMethods.export_volume_mesh(ϕ, "Volume2D.mesh")
+fout = LevelSetMethods.export_volume_mesh(ϕ, joinpath(@__DIR__, "volume2D.mesh"))
 ```
 
-![Volume2D](Volume2D.png)
+You can then use e.g. `Gmsh` to visualize the mesh:
+
+```@example volume2D
+using GLMakie # hide
+GLMakie.closeall() # hide
+using Gmsh
+try
+  gmsh.initialize()
+  gmsh.open(fout)
+  gmsh.fltk.initialize()
+  gmsh.write(joinpath(@__DIR__, "volume2d.png"))
+  gmsh.fltk.finalize()
+finally
+  gmsh.finalize()
+end
+
+```
+
+![Volume2D](volume2D.png)
 
 And similarly in 3D:
 

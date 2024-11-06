@@ -161,7 +161,7 @@ function LSM.export_volume_mesh(
         end
     end
 
-    return nothing
+    return output
 end
 
 end
