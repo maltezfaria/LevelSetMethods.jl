@@ -10,6 +10,8 @@ function LevelSet(f::Function, m)
     return MeshField(vals, m, nothing)
 end
 
+current_state(ϕ::LevelSet) = ϕ
+
 """
     volume(ϕ::LevelSet)
 
@@ -266,12 +268,12 @@ function sphere(grid; center = (0, 0, 0), radius)
 end
 
 function star(grid; radius = 1, deformation = 0.25, n = 5.0)
-    dimension(grid) == 2 ||
-        throw(ArgumentError("star shape is only available in two dimensions"))
-    return LevelSet(grid) do (x, y)
-        norm = sqrt(x^2 + y^2)
-        θ = atan(y, x)
-        return norm - radius * (1.0 + deformation * cos(n * θ))
+    # dimension(grid) == 2 ||
+    #     throw(ArgumentError("star shape is only available in two dimensions"))
+    return LevelSet(grid) do x
+        r = norm(x)
+        θ = atan(x[2], x[1])
+        return r - radius * (1.0 + deformation * cos(n * θ))
     end
 end
 
