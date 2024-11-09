@@ -18,7 +18,7 @@ Example in 2D:
 using LevelSetMethods, MMG_jll
 grid = CartesianGrid((-2, -2), (2, 2), (50, 50))
 ϕ = LevelSetMethods.star(grid)
-fout = LevelSetMethods.export_volume_mesh(ϕ, joinpath(@__DIR__, "volume2D.mesh"))
+volume_mesh2d = LevelSetMethods.export_volume_mesh(ϕ, joinpath(@__DIR__, "volume2D.mesh"))
 ```
 
 You can then use e.g. `Gmsh` to visualize the mesh:
@@ -29,7 +29,7 @@ GLMakie.closeall() # hide
 using Gmsh
 try
   gmsh.initialize()
-  gmsh.open(fout)
+  gmsh.open(volume_mesh2d)
   gmsh.fltk.initialize()
   gmsh.write(joinpath(@__DIR__, "volume2d.png"))
   gmsh.fltk.finalize()
@@ -43,27 +43,45 @@ end
 
 And similarly in 3D:
 
-```julia
+```@example volume3D
 using LevelSetMethods, MMG_jll
 grid = CartesianGrid((-1, -1, -1), (+1, +1, +1), (20, 20, 20))
-ϕ = LevelSetMethods.sphere(grid)
-LevelSetMethods.export_volume_mesh(ϕ, "Volume3D.mesh")
+ϕ = LevelSetMethods.sphere(grid; radius = 0.5)
+volume_mesh3d = LevelSetMethods.export_volume_mesh(ϕ, joinpath(@__DIR__, "volume3D.mesh"))
 ```
 
-![Volume3D](Volume3D.png)
+![Volume3D](volume3D.png)
 
 ## Generation of 3D surface mesh with MarchingCubes.jl
 
 Using the `mmgs_O3` utility, the `MarchingCubes.jl` library and the `export_surface_mesh` function it is possible to obtain a mesh of the levelset contour.
 
-```julia
+```@example surface3D
 using LevelSetMethods, MMG_jll, MarchingCubes
 grid = CartesianGrid((-2, -1, -1), (+2, +1, +1), (40, 20, 20))
-ϕ = LevelSet(x -> 1.0, grid)
-add_circle!(ϕ, [-1.0, 0.0, 0.0], 0.75)
-add_circle!(ϕ, [+1.0, 0.0, 0.0], 0.75)
-add_rectangle!(ϕ, [0.0, 0.0, 0.0], [2.0, 0.5, 0.5])
-LevelSetMethods.export_surface_mesh(ϕ, "Surface3D.mesh"; hausd = 1.2, hmax = 1.0)
+ϕ₁ = LevelSetMethods.sphere(grid; radius = 0.5, center = (-1, 0, 0))
+ϕ₂ = LevelSetMethods.sphere(grid; radius = 0.5, center = (+1, 0, 0))
+ϕ₃ = LevelSetMethods.rectangle(grid; center = (0, 0, 0), width = (2, 0.25, 0.25))
+ϕ  = ϕ₁ ∪ ϕ₂ ∪ ϕ₃
+surf_mesh3d = LevelSetMethods.export_surface_mesh(ϕ, joinpath(@__DIR__,"surface3D.mesh"); hausd = 1.2, hmax = 1.0)
 ```
 
-![Surface3D](Surface3D.png)
+Again, to visualize it we can use `Gmsh`:
+
+```@example surface3D
+using GLMakie # hide
+GLMakie.closeall() # hide
+using Gmsh
+try
+  gmsh.initialize()
+  gmsh.open(surf_mesh3d)
+  gmsh.fltk.initialize()
+  gmsh.write(joinpath(@__DIR__, "surface3d.png"))
+  gmsh.fltk.finalize()
+finally
+  gmsh.finalize()
+end
+
+```
+
+![Surface3D](surface3D.png)

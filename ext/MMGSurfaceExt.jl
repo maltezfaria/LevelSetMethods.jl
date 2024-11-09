@@ -80,6 +80,7 @@ function LSM.export_surface_mesh(
             rm(temp_mesh_path)
         end
     end
+    return output
 end
 
 function _write_3D_triangular_mesh(path, vertices, triangles)

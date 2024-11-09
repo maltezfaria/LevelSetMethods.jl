@@ -71,7 +71,14 @@ end
 function Makie.plot!(p::LevelSetPlot)
     eq = p.eq
     ϕ = @lift LSM.current_state($eq)
-    plot!(p, ϕ; levels = [0], linewidth = 2, color = :black)
+    N = @lift LSM.dimension($ϕ)
+    if N == 2
+        plot!(p, ϕ; levels = [0], linewidth = 2, color = :black)
+    elseif N == 3
+        plot!(p, ϕ; algorithm = :iso, isolevel = 0, alpha = 0.5)
+    else
+        throw(ArgumentError("Plot of $N dimensional level-set not supported."))
+    end
     return p
 end
 

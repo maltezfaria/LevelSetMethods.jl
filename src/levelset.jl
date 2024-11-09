@@ -256,8 +256,6 @@ function circle(grid; center = (0, 0), radius = 1)
 end
 
 function rectangle(grid; center = zero(0, 0), width = (1, 1))
-    dimension(grid) == 2 ||
-        throw(ArgumentError("rectangle shape is only available in two dimensions"))
     return LevelSet(x -> maximum(abs.(x .- center) .- width ./ 2), grid)
 end
 
@@ -284,7 +282,21 @@ function dumbbell(grid; width = 1, height = 1 / 5, radius = 1 / 4, center = (0, 
     return cl ∪ cr ∪ rec
 end
 
-# helpers to merge or make the difference between two level set functions
+function zalesak_disk(grid; center = (0, 0), radius = 0.5, width = 0.25, height = 1)
+    dimension(grid) == 2 ||
+        throw(ArgumentError("zalesak disk shape is only available in two dimensions"))
+    disk = circle(grid; center = center, radius = radius)
+    rec = rectangle(grid; center = center .- (0, radius), width = (width, height))
+    # return union(disk, rec)
+    return setdiff(disk, rec)
+end
+
+#=
+
+Set operations for level set functions.
+
+=#
+
 function Base.union!(ϕ1::LevelSet, ϕ2::LevelSet)
     v1, v2 = values(ϕ1), values(ϕ2)
     v1 .= min.(v1, v2)
@@ -298,3 +310,17 @@ function Base.intersect!(ϕ1::LevelSet, ϕ2::LevelSet)
     return ϕ1
 end
 Base.intersect(ϕ1::LevelSet, ϕ2::LevelSet) = intersect!(deepcopy(ϕ1), ϕ2)
+
+function complement!(ϕ::LevelSet)
+    v = values(ϕ)
+    v .= -v
+    return ϕ
+end
+complement(ϕ::LevelSet) = complement!(deepcopy(ϕ))
+
+function Base.setdiff!(ϕ1::LevelSet, ϕ2::LevelSet)
+    v1, v2 = values(ϕ1), values(ϕ2)
+    v1 .= max.(v1, -v2)
+    return ϕ1
+end
+Base.setdiff(ϕ1::LevelSet, ϕ2::LevelSet) = setdiff!(deepcopy(ϕ1), ϕ2)
