@@ -6,8 +6,8 @@ exclude = [
   "zenodo.org/badge/DOI/FIXME$",
   # ignore any file that ends .gif
   ".*.gif$",
-  ".*volume2D.png$",
-  ".*surface3D.png$",
+  ".*volume2d.png$",
+  ".*surface3d.png$",
   # ignore @cite tags
   "@cite",
 ]

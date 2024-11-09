@@ -39,7 +39,7 @@ end
 
 ```
 
-![Volume2D](volume2D.png)
+![Volume2D](volume2d.png)
 
 And similarly in 3D:
 
@@ -47,10 +47,10 @@ And similarly in 3D:
 using LevelSetMethods, MMG_jll
 grid = CartesianGrid((-1, -1, -1), (+1, +1, +1), (20, 20, 20))
 ϕ = LevelSetMethods.sphere(grid; radius = 0.5)
-volume_mesh3d = LevelSetMethods.export_volume_mesh(ϕ, joinpath(@__DIR__, "volume3D.mesh"))
+volume_mesh3d = LevelSetMethods.export_volume_mesh(ϕ, joinpath(@__DIR__, "volume3d.mesh"))
 ```
 
-![Volume3D](volume3D.png)
+![Volume3D](volume3d.png)
 
 ## Generation of 3D surface mesh with MarchingCubes.jl
 
@@ -84,4 +84,4 @@ end
 
 ```
 
-![Surface3D](surface3D.png)
+![Surface3D](surface3d.png)
