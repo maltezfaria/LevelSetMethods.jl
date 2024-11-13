@@ -7,28 +7,11 @@
 [![Lint workflow Status](https://github.com/maltezfaria/LevelSetMethods.jl/actions/workflows/Lint.yml/badge.svg?branch=main)](https://github.com/maltezfaria/LevelSetMethods.jl/actions/workflows/Lint.yml?query=branch%3Amain)
 [![Docs workflow Status](https://github.com/maltezfaria/LevelSetMethods.jl/actions/workflows/Docs.yml/badge.svg?branch=main)](https://github.com/maltezfaria/LevelSetMethods.jl/actions/workflows/Docs.yml?query=branch%3Amain)
 [![Coverage](https://codecov.io/gh/maltezfaria/LevelSetMethods.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/maltezfaria/LevelSetMethods.jl)
-[![DOI](https://zenodo.org/badge/DOI/FIXME)](https://doi.org/FIXME)
-[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
-[![All Contributors](https://img.shields.io/github/all-contributors/maltezfaria/LevelSetMethods.jl?labelColor=5e1ec7&color=c0ffee&style=flat-square)](#contributors)
 [![BestieTemplate](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/JuliaBesties/BestieTemplate.jl/main/docs/src/assets/badge.json)](https://github.com/JuliaBesties/BestieTemplate.jl)
 
-## How to Cite
+This package provides tools to solve level-set equations on cartesian meshes. It closely
+follows the book [Level Set Methods and Dynamic Implicit
+Surfaces](https://link.springer.com/book/10.1007/b98879) by Stanley Osher and Ronald Fedkiw.
 
-If you use LevelSetMethods.jl in your work, please cite using the reference given in [CITATION.cff](https://github.com/maltezfaria/LevelSetMethods.jl/blob/main/CITATION.cff).
-
-## Contributing
-
-If you want to make contributions of any kind, please first that a look into our [contributing guide directly on GitHub](docs/src/90-contributing.md) or the [contributing page on the website](https://maltezfaria.github.io/LevelSetMethods.jl/dev/90-contributing/)
-
----
-
-### Contributors
-
-<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
-<!-- prettier-ignore-start -->
-<!-- markdownlint-disable -->
-
-<!-- markdownlint-restore -->
-<!-- prettier-ignore-end -->
-
-<!-- ALL-CONTRIBUTORS-LIST:END -->
+For more details, see the [stable](https://maltezfaria.github.io/LevelSetMethods.jl/stable)
+or [development](https://maltezfaria.github.io/LevelSetMethods.jl/dev) documentations.

@@ -29,6 +29,7 @@ GLMakie.closeall() # hide
 using Gmsh
 try
   gmsh.initialize()
+  gmsh.option.setNumber("General.Verbosity", 0)
   gmsh.open(volume_mesh2d)
   gmsh.fltk.initialize()
   gmsh.write(joinpath(@__DIR__, "volume2d.png"))
@@ -74,6 +75,7 @@ GLMakie.closeall() # hide
 using Gmsh
 try
   gmsh.initialize()
+  gmsh.option.setNumber("General.Verbosity", 0)
   gmsh.open(surf_mesh3d)
   gmsh.fltk.initialize()
   gmsh.write(joinpath(@__DIR__, "surface3d.png"))

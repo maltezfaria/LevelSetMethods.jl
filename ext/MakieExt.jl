@@ -74,6 +74,7 @@ function Makie.plot!(p::LevelSetPlot)
     ϕ = @lift LSM.current_state($eq)
     N = @lift LSM.dimension($ϕ)
     if to_value(N) == 2
+        contourf!(p, ϕ; levels = [0], extendlow = (:lightgray, 0.5))
         contour!(p, ϕ; levels = [0], linewidth = 2, color = :black)
     elseif to_value(N) == 3
         volume!(p, ϕ; algorithm = :iso, isovalue = 0, alpha = 0.5)
@@ -94,7 +95,6 @@ function Makie.preferred_axis_type(p::LevelSetPlot)
     if to_value(dim) == 2
         return Axis
     elseif to_value(dim) == 3
-        @info "here"
         return LScene
     else
         throw(ArgumentError("Plot of $dim dimensional level-set not supported."))

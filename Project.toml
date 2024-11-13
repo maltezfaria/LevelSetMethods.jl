@@ -20,5 +20,7 @@ MakieExt = "Makie"
 [compat]
 julia = "1.9"
 LinearAlgebra = "1"
+Makie = "0.21"
 MarchingCubes = "0.1.10"
 StaticArrays = "1"
+MMG_jll = "5"
