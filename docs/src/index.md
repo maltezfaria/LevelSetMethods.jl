@@ -6,7 +6,7 @@ CurrentModule = LevelSetMethods
 
 ## Installation
 
-Run the following command on a Julia REPL:
+To install the library, run the following command on a Julia REPL:
 
 ```julia
 using Pkg; Pkg.add("LevelSetMethods")
