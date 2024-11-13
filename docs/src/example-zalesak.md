@@ -73,9 +73,10 @@ and the situation would be much worse with a low-order upwind scheme.
 
 ## Three-dimensional Zalesak Disk
 
-The same example can be run in 3D, but the solution takes longer to compute and visualize:
+The same example can be run in 3D, but the solution takes longer to compute and visualize.
 
-```@example zalesak_disk_3d
+!!! warning "Performance Warning"
+    The 3D example below may take a minute or two to run.
 
 ```@setup zalesak_disk_3d
 using LevelSetMethods
@@ -83,7 +84,7 @@ using GLMakie
 LevelSetMethods.set_makie_theme!()
 ```
 
-```@example zalesak_disk_3d
+```julia
 # 3D Zalesak's sphere example
 grid = CartesianGrid((-1, -1, -1), (1, 1, 1), (50, 50, 50))
 center = (-1 / 3, 0, 0)
@@ -97,7 +98,7 @@ rec = LevelSetMethods.rectangle(
 ϕ = setdiff(disk, rec)
 eq = LevelSetEquation(;
     levelset = ϕ,
-    terms = AdvectionTerm((x, t) -> π * SVector(-x[2], x[1], 0)),
+    terms = AdvectionTerm((x, t) -> π * SVector(x[2], -x[1], 0)),
     bc = NeumannBC(),
 )
 LevelSetMethods.set_makie_theme!()

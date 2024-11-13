@@ -29,7 +29,7 @@ differential equations of the form
 where
 
 - ``\phi : \mathbb{R}^d \times \mathbb{R}^+ \to \mathbb{R}`` is the level set function
-- ``\boldsymbol{u} \times \mathbb{R}^+ :\mathbb{R}^d \to \mathbb{R}^d`` is a given (external) velocity field
+- ``\boldsymbol{u} :\mathbb{R}^d \times \mathbb{R}^+  \to \mathbb{R}^d`` is a given (external) velocity field
 - ``v : \mathbb{R}^d \times \mathbb{R}^+ \to \mathbb{R}`` is a normal speed
 - ``b : \mathbb{R}^d \times \mathbb{R}^+ \to \mathbb{R}`` is a function that multiplies the curvature ``\kappa =
   \nabla \cdot (\nabla \phi / |\nabla \phi|)``
