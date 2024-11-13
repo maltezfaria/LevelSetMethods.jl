@@ -125,7 +125,7 @@ To learn more about the package, you should also check out the following section
 - The section on [boundary conditions](@ref boundary-conditions) for a description of the
   available boundary conditions and how to use them
 
-Finally, the [examples](@ref examples) section contains a list of examples that demonstrate some
+Finally, the examples section contains a list of examples that demonstrate some
 hopefully cool applications.
 
 ## Bibliography

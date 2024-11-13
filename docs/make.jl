@@ -42,8 +42,8 @@ makedocs(;
         "terms.md",
         "time-integrators.md",
         "boundary-conditions.md",
-        hide("Extensions" => "extensions.md", ["extension-makie.md", "extension-mmg.md"]),
-        hide("Examples" => "examples.md", ["example-zalesak.md", "example-shape-optim.md"]),
+        "Extensions" => ["extension-makie.md", "extension-mmg.md"],
+        "Examples" => ["example-zalesak.md", "example-shape-optim.md"],
         numbered_pages,
     ),
     pagesonly = true, # ignore .md files not in the pages list
