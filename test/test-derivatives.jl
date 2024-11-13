@@ -1,6 +1,7 @@
 using Test
 using LevelSetMethods
 using LinearAlgebra
+using StaticArrays
 
 using LevelSetMethods: D⁺, D⁻, D⁰, D2⁰, D2, weno5⁻, weno5⁺
 
@@ -9,7 +10,7 @@ using LevelSetMethods: D⁺, D⁻, D⁰, D2⁰, D2, weno5⁻, weno5⁺
     a = (-2, -2)
     b = (2, 2)
     grid = CartesianGrid(a, b, (nx, ny))
-    h = meshsize(grid)
+    h = LevelSetMethods.meshsize(grid)
     ϕ = LevelSet(grid) do (x, y)
         return x^2 + y^2 - 1
     end
