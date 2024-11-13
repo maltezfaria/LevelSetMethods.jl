@@ -216,9 +216,9 @@ sdf = LevelSet(x -> sqrt(x[1]^2 + x[2]^2) - 0.5, grid) # signed distance functio
 LevelSetMethods.set_makie_theme!()
 fig = Figure(; size = (800, 400))
 ax = Axis(fig[1,1], title = "Signed distance function")
-contour!(ax, sdf; levels = [0, 0.5], labels = true, labelsize = 14)
+contour!(ax, sdf; levels = [0.25, 0, 0.5], labels = true, labelsize = 14)
 ax = Axis(fig[1,2], title = "ϕ at t = 0")
-contour!(ax, ϕ, levels = [0, 0.5], labels = true, labelsize = 14)
+contour!(ax, ϕ, levels = [0.25, 0, 0.5], labels = true, labelsize = 14)
 fig
 ```
 
@@ -230,7 +230,9 @@ fig = Figure(; size = (1200, 300))
 for (n,t) in enumerate([0.0, 0.25, 0.5, 0.75])
     integrate!(eq, t)
     ax = Axis(fig[1,n], title = "t = $t")
-    contour!(ax, LevelSetMethods.current_state(eq); levels = [0, 0.5], labels = true, labelsize = 14)
+    contour!(ax, LevelSetMethods.current_state(eq); levels = [0.25, 0, 0.5], labels = true, labelsize = 14)
 end
 fig
 ```
+
+Note that `ϕ` converges to the signed distance function `sdf` shown in the first figure.

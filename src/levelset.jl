@@ -289,7 +289,6 @@ function zalesak_disk(grid; center = (0, 0), radius = 0.5, width = 0.25, height 
         throw(ArgumentError("zalesak disk shape is only available in two dimensions"))
     disk = circle(grid; center = center, radius = radius)
     rec = rectangle(grid; center = center .- (0, radius), width = (width, height))
-    # return union(disk, rec)
     return setdiff(disk, rec)
 end
 

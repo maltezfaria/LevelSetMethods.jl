@@ -4,18 +4,18 @@ CurrentModule = LevelSetMethods
 
 # LevelSetMethods
 
-Documentation for [LevelSetMethods](https://github.com/maltezfaria/LevelSetMethods.jl).
-
 ## Installation
 
-LevelSetMethods.jl is not yet registered in the Julia package registry. To install it, run
-the following command on a Julia REPL:
+Run the following command on a Julia REPL:
 
 ```julia
-using Pkg; Pkg.add("https://github.com/maltezfaria/LevelSetMethods.jl")
+using Pkg; Pkg.add("LevelSetMethods")
 ```
 
 This will install the latest tagged version of the package and its dependencies.
+
+For **visualization**, you may also want to install one of the
+[Makie](https://docs.makie.org) backends (we suggest `GLMakie` for 3D plots and animations).
 
 ## Overview
 
@@ -28,20 +28,20 @@ differential equations of the form
 
 where
 
-- ``\phi : \mathbb{R}^d \to \mathbb{R}`` is the level set function
-- ``\boldsymbol{u} :\mathbb{R}^d \to \mathbb{R}^d`` is a given (external) velocity field
-- ``v : \mathbb{R}^d \to \mathbb{R}`` is a normal speed
-- ``b : \mathbb{R}^d \to \mathbb{R}`` is a function that multiplies the curvature ``\kappa =
+- ``\phi : \mathbb{R}^d \times \mathbb{R}^+ \to \mathbb{R}`` is the level set function
+- ``\boldsymbol{u} \times \mathbb{R}^+ :\mathbb{R}^d \to \mathbb{R}^d`` is a given (external) velocity field
+- ``v : \mathbb{R}^d \times \mathbb{R}^+ \to \mathbb{R}`` is a normal speed
+- ``b : \mathbb{R}^d \times \mathbb{R}^+ \to \mathbb{R}`` is a function that multiplies the curvature ``\kappa =
   \nabla \cdot (\nabla \phi / |\nabla \phi|)``
 
 Here is how it looks in practice to create a simple `LevelSetEquation`:
 
 ```@example ls-intro
-using LevelSetMethods, StaticArrays
+using LevelSetMethods
 grid = CartesianGrid((-1, -1), (1, 1), (100, 100))
-# ϕ    = LevelSet(x -> sqrt(2*x[1]^2 + x[2]^2) - 1/2, grid)
-ϕ    = LevelSetMethods.dumbbell(grid)
-𝐮    = MeshField(x -> SVector(-x[2], x[1]), grid)
+# ϕ    = LevelSet(x -> sqrt(2*x[1]^2 + x[2]^2) - 1/2, grid) # a disk
+ϕ    = LevelSetMethods.dumbbell(grid) # a predefined shape
+𝐮    = (x,t) -> (-x[2], x[1])
 eq   = LevelSetEquation(;
   terms = (AdvectionTerm(𝐮),),
   levelset = ϕ,
@@ -55,7 +55,7 @@ from [Makie](https://docs.makie.org):
 ```@example ls-intro
 using GLMakie # loads the MakieExt from LevelSetMethods
 LevelSetMethods.set_makie_theme!() # optional theme customization
-plot(eq)
+plot(ϕ)
 ```
 
 To step it in time, we can use the [`integrate!`](@ref) function:
@@ -67,7 +67,7 @@ integrate!(eq, 1)
 This will advance the solution up to `t = 1`, modifying `ϕ` in the process:
 
 ```@example ls-intro
-plot(eq)
+plot(ϕ)
 ```
 
 Creating an animation can be achieved by calling `integrate!` in a loop and saving the

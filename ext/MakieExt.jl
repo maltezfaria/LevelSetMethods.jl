@@ -95,7 +95,6 @@ function Makie.preferred_axis_type(p::LevelSetPlot)
     if to_value(dim) == 2
         return Axis
     elseif to_value(dim) == 3
-        @info "here"
         return LScene
     else
         throw(ArgumentError("Plot of $dim dimensional level-set not supported."))
