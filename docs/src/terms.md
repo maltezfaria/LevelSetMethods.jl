@@ -153,7 +153,7 @@ is proportional to the mean curvature:
   b \kappa |\nabla \phi|
 ```
 
-where ``\kappa = \nabla \cdot (\nabla / |\nabla|)`` is the mean curvature. Note that the
+where ``\kappa = \nabla \cdot (\nabla \phi / |\nabla \phi|)`` is the mean curvature. Note that the
 coefficient ``b`` should be negative; a positive value of ``b`` would yield an ill-posed
 evolution problem (akin to a negative diffusion coefficient).
 
