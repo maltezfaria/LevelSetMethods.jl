@@ -18,9 +18,9 @@ MMGVolumeExt = "MMG_jll"
 MakieExt = "Makie"
 
 [compat]
-julia = "1.9"
 LinearAlgebra = "1"
-Makie = "0.21"
+MMG_jll = "5"
+Makie = "0.21, 0.22"
 MarchingCubes = "0.1.10"
 StaticArrays = "1"
-MMG_jll = "5"
+julia = "1.9"
