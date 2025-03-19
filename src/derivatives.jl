@@ -74,7 +74,7 @@ function weno5⁻(ϕ::CartesianMeshField, I, dim)
     # smoothness indicators
     S1 = (13 / 12) * (v1 - 2 * v2 + v3)^2 + (1 / 4) * (v1 - 4 * v2 + 3 * v3)^2
     S2 = (13 / 12) * (v2 - 2 * v3 + v4)^2 + (1 / 4) * (v2 - v4)^2
-    S3 = (13 / 12) * (v3 - 2 * v4 + v5)^2 + (1 / 4) * (3 * v3 - 4 * v4 + v5^3)^2
+    S3 = (13 / 12) * (v3 - 2 * v4 + v5)^2 + (1 / 4) * (3 * v3 - 4 * v4 + v5)^2
     # fudge factor
     ϵ = 1e-6 * max(v1^2, v2^2, v3^2, v4^2, v5^2) + 1e-99
     # weights
@@ -107,7 +107,7 @@ function weno5⁺(ϕ::CartesianMeshField, I, dim)
     # smoothness indicators
     S1 = (13 / 12) * (v1 - 2 * v2 + v3)^2 + (1 / 4) * (v1 - 4 * v2 + 3 * v3)^2
     S2 = (13 / 12) * (v2 - 2 * v3 + v4)^2 + (1 / 4) * (v2 - v4)^2
-    S3 = (13 / 12) * (v3 - 2 * v4 + v5)^2 + (1 / 4) * (3 * v3 - 4 * v4 + v5^3)^2
+    S3 = (13 / 12) * (v3 - 2 * v4 + v5)^2 + (1 / 4) * (3 * v3 - 4 * v4 + v5)^2
     # fudge factor
     ϵ = 1e-6 * max(v1^2, v2^2, v3^2, v4^2, v5^2) + 1e-99
     # weights
