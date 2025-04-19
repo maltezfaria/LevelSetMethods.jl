@@ -8,16 +8,19 @@ LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [weakdeps]
+Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
 MMG_jll = "86086c02-e288-5929-a127-40944b0018b7"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 MarchingCubes = "299715c1-40a9-479a-aaf9-4a633d36f717"
 
 [extensions]
+InterpolationsExt = "Interpolations"
 MMGSurfaceExt = ["MMG_jll", "MarchingCubes"]
 MMGVolumeExt = "MMG_jll"
 MakieExt = "Makie"
 
 [compat]
+Interpolations = "0.15"
 LinearAlgebra = "1"
 MMG_jll = "5"
 Makie = "0.21, 0.22"

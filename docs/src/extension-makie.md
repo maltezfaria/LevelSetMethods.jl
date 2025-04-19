@@ -1,8 +1,8 @@
 # [Makie extension](@id extension-makie)
 
-[Makie](https://docs.makie.org/v0.21/) can be used to visualize levelset functions in both 2
-and 3 dimensions. After loading one of the `Makie` backends (we recomment `GLMakie` for 3D),
-you can simply call `plot` on the levelset function to visualize it. For example:
+[Makie](https://docs.makie.org/v0.21/) can be used to visualize level set functions in both 2
+and 3 dimensions. After loading one of the `Makie` backends (we recommend `GLMakie` for 3D),
+you can simply call `plot` on the level set function to visualize it. For example:
 
 ```@example contour2D
 using LevelSetMethods, GLMakie
@@ -11,7 +11,7 @@ grid = CartesianGrid((-2, -2), (2, 2), (100, 100))
 plot(ϕ)
 ```
 
-By default, only the zero level-set is plotted as a contour line. For more control, simply
+By default, only the zero level set is plotted as a contour line. For more control, simply
 call the `contour` (or `contourf`) function from `Makie` directly. For example:
 
 ```@example contour2D
@@ -19,7 +19,7 @@ contour(ϕ; levels = [-0.5, 0, 0.5], labels = true)
 ```
 
 Although you can manually customize the `Axis` attributes for the plot, `LevelSetMethods`
-provides a `Theme` with some reasonable defaults for plotting levelset functions:
+provides a `Theme` with some reasonable defaults for plotting level set functions:
 
 ```@example contour2D
 theme = LevelSetMethods.makie_theme()
@@ -28,7 +28,7 @@ with_theme(theme) do
 end
 ```
 
-In `3D`, the `plot` function will plot the zero level-set as an isosurface. For example:
+In `3D`, the `plot` function will plot the zero level set as an isosurface. For example:
 
 ```@example volume3D
 using LevelSetMethods, GLMakie, LinearAlgebra
