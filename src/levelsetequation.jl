@@ -102,7 +102,7 @@ function Base.show(io::IO, eq::LevelSetEquation)
     print(io, "Level-set equation given by\n")
     print(io, "\n \t ϕₜ + ")
     terms = eq.terms
-    for term in terms[1:end-1]
+    for term in terms[1:(end-1)]
         print(io, term)
         print(io, " + ")
     end
@@ -138,7 +138,7 @@ function integrate!(ls::LevelSetEquation, tf, Δt = Inf)
            the level-set equation cannot be solved back in time"
     @assert tf >= tc msg
     # append boundary conditions for integration
-    ϕ          = current_state(ls)
+    ϕ         = current_state(ls)
     buf        = buffers(ls)
     integrator = time_integrator(ls)
     # dynamic dispatch. Should not be a problem provided enough computation is
@@ -153,7 +153,7 @@ end
 number_of_buffers(fe::ForwardEuler) = 1
 
 @noinline function _integrate!(ϕ, buffers, integrator::ForwardEuler, terms, tc, tf, Δt)
-    buffer = buffers[1]
+    buffer  = buffers[1]
     α      = cfl(integrator)
     Δt_cfl = α * compute_cfl(terms, ϕ, tc)
     Δt     = min(Δt, Δt_cfl)

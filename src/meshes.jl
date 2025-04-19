@@ -79,7 +79,7 @@ function interior_indices(g::CartesianGrid, P)
     N  = dimension(g)
     sz = size(g)
     I  = ntuple(N) do dim
-        return P+1:sz[dim]-P
+        return (P+1):(sz[dim]-P)
     end
     return CartesianIndices(I)
 end
