@@ -78,7 +78,7 @@ function LSM.export_volume_mesh(
                 num_triangles = 2(nx - 1) * (ny - 1)
                 write(file, "\nTriangles\n")
                 write(file, "$num_triangles\n")
-                for x_id in 1:nx-1, y_id in 1:ny-1
+                for x_id in 1:(nx-1), y_id in 1:(ny-1)
                     c00 = (y_id - 1) * nx + x_id
                     c10 = c00 + 1
                     c01 = c00 + nx
@@ -96,7 +96,7 @@ function LSM.export_volume_mesh(
                 num_tetrahedrons = 6(nx - 1) * (ny - 1) * (nz - 1)
                 write(file, "\nTetrahedra\n")
                 write(file, "$num_tetrahedrons\n")
-                for x_id in 1:nx-1, y_id in 1:ny-1, z_id in 1:nz-1
+                for x_id in 1:(nx-1), y_id in 1:(ny-1), z_id in 1:(nz-1)
                     c000 = (z_id - 1) * nx * ny + (y_id - 1) * nx + x_id
                     c100 = c000 + 1
                     c010 = c000 + nx

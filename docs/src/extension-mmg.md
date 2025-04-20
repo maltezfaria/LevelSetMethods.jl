@@ -1,7 +1,7 @@
 # [MMG extension](@id extension-mmg)
 
-This extension provides functions to generate meshes of levelset functions using [MMG](https://www.mmgtools.org/).
-It define two methods: `export_volume_mesh` and `export_surface_mesh`.
+This extension provides functions to generate meshes of level-set functions using [MMG](https://www.mmgtools.org/).
+It defines two methods: `export_volume_mesh` and `export_surface_mesh`.
 For both of them, it is possible to control the size of the generated mesh using the following optional parameters:
 
 - `hgrad` control the growth ratio between two adjacent edges.
@@ -10,7 +10,7 @@ For both of them, it is possible to control the size of the generated mesh using
 
 ## Generation of 2D and 3D mesh from a level-set
 
-For 2 and 3 dimensional Cartesian levelset, one can use the `export_volume_mesh` function to generate meshes.
+For 2 and 3-dimensional Cartesian level set, one can use the `export_volume_mesh` function to generate meshes.
 This method relies on the `mmg2d_O3` and `mmg3d_O3` utilities.
 Example in 2D:
 
