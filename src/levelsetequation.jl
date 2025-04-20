@@ -100,13 +100,12 @@ end
 
 function Base.show(io::IO, eq::LevelSetEquation)
     print(io, "Level-set equation given by\n")
-    print(io, "\n \t ϕₜ + ")
+    print(io, "\n \t ϕₜ")
     terms = eq.terms
-    for term in terms[1:(end-1)]
-        print(io, term)
+    for term in terms
         print(io, " + ")
+        print(io, term)
     end
-    print(io, terms[end])
     print(io, " = 0")
     print(io, "\n\nCurrent time $(eq.t)")
     return io
@@ -153,10 +152,10 @@ end
 number_of_buffers(fe::ForwardEuler) = 1
 
 @noinline function _integrate!(ϕ, buffers, integrator::ForwardEuler, terms, tc, tf, Δt)
-    buffer  = buffers[1]
-    α      = cfl(integrator)
+    buffer = buffers[1]
+    α = cfl(integrator)
     Δt_cfl = α * compute_cfl(terms, ϕ, tc)
-    Δt     = min(Δt, Δt_cfl)
+    Δt = min(Δt, Δt_cfl)
     while tc <= tf - eps(tc)
         Δt = min(Δt, tf - tc) # if needed, take a smaller time-step to exactly land on tf
         for I in eachindex(ϕ)

@@ -56,10 +56,11 @@ meshsize(g::CartesianGrid, dim) = (g.hc[dim] - g.lc[dim]) / (g.n[dim] - 1)
 Base.size(g::CartesianGrid) = g.n
 Base.length(g) = prod(size(g))
 
-function Base.getindex(g::CartesianGrid, I::CartesianIndex)
+function Base.getindex(g::CartesianGrid{N}, I::CartesianIndex{N}) where {N}
     I ∈ CartesianIndices(g) || throw(ArgumentError("index $I is out of bounds"))
     return _getindex(g, I)
 end
+
 Base.getindex(g::CartesianGrid, I::Int...) = g[CartesianIndex(I...)]
 
 function _getindex(g::CartesianGrid, I::CartesianIndex)

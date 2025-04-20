@@ -26,7 +26,7 @@ itp(0.5, 0.5)
 This can be used e.g. to plot the level-set function using `Makie`:
 
 ```@example interpolations
-using CairoMakie
+using GLMakie
 xx = yy = -2:0.01:2
 contour(xx, yy, [itp(x,y) for x in xx, y in yy]; levels = [0], linewidth = 2)
 ```
