@@ -49,7 +49,8 @@ function LSM.export_surface_mesh(
         throw(ArgumentError("export_mesh of $N dimensional level-set not supported."))
     end
 
-    mc = MarchingCubes.MC(LSM.values(ϕ))
+    grids = collect.(LSM.grid1d(LSM.mesh(ϕ)))
+    mc = MarchingCubes.MC(LSM.values(ϕ); x = grids[1], y = grids[2], z = grids[3])
     MarchingCubes.march(mc)
 
     temp_mesh_path = tempname() * ".mesh"

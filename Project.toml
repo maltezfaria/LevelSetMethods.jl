@@ -1,7 +1,7 @@
 name = "LevelSetMethods"
 uuid = "ca3df947-0575-4ae6-b9a3-78df393a7451"
 authors = ["Luiz M. Faria and Nicolas Lebbe"]
-version = "0.1.1"
+version = "0.1.2"
 
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
