@@ -15,4 +15,8 @@ function Itp.interpolate(ϕ::LSM.LevelSet, mode)
     return Itp.scale(itp, grids...)
 end
 
+function Itp.interpolate(eq::LSM.LevelSetEquation, args...; kwargs...)
+    return Itp.interpolate(LSM.current_state(eq), args...; kwargs...)
+end
+
 end # module

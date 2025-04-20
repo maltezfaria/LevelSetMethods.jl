@@ -6,23 +6,29 @@ way to construct a global interpolant from the discrete data in a
 [`LevelSet`](@ref) or [`LevelSetEquation`](@ref). This can be useful in situations where you want
 to evaluate the approximate underlying functions at points that are not on the grid.
 
-Here is an example of how to use the interpolation to plot on a finer grid:
+Here is an example of how to construct such an interpolant:
 
 ```@example interpolations
-using LevelSetMethods, Interpolations, CairoMakie, LinearAlgebra
+using LevelSetMethods, Interpolations
 LevelSetMethods.set_makie_theme!()
 a, b = (-2, -2), (2, 2)
 ϕ   = LevelSetMethods.star(CartesianGrid(a, b, (50, 50)))
 itp = interpolate(ϕ, BSpline(Cubic())) # create the interpolant
-xx = yy = -2:0.01:2
-contour(xx, yy, [itp(x,y) for x in xx, y in yy]; levels = [0], linewidth = 2, label = "Cubic Spline")
-current_figure() # hide
 ```
 
-Note that we can use `itp` to evaluate the level-set function anywhere *inside* the grid:
+Once constructed, the interpolant can be used to evaluate the level-set function anywhere
+inside the grid:
 
 ```@example interpolations
 itp(0.5, 0.5)
+```
+
+This can be used e.g. to plot the level-set function using `Makie`:
+
+```@example interpolations
+using CairoMakie
+xx = yy = -2:0.01:2
+contour(xx, yy, [itp(x,y) for x in xx, y in yy]; levels = [0], linewidth = 2)
 ```
 
 Trying to evaluate it outside the domain will throw an error:
@@ -38,6 +44,7 @@ end
 Using it on three-dimensional level sets is similar:
 
 ```@example interpolations
+using LinearAlgebra
 grid = CartesianGrid((-1.5, -1.5, -1.5), (1.5, 1.5, 1.5), (50, 50, 50))
 P1, P2 = (-1, 0, 0), (1, 0, 0)
 b = 1.05
