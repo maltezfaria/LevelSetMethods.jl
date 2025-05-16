@@ -20,7 +20,7 @@ MMGVolumeExt = "MMG_jll"
 MakieExt = "Makie"
 
 [compat]
-Interpolations = "0.15"
+Interpolations = "0.15, 0.16"
 LinearAlgebra = "1"
 MMG_jll = "5"
 Makie = "0.21, 0.22"
