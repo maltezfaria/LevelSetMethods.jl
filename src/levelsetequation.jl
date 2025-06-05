@@ -118,6 +118,7 @@ buffers(ls::LevelSetEquation) = ls.buffers
 time_integrator(ls) = ls.integrator
 terms(ls) = ls.terms
 boundary_conditions(ls) = boundary_conditions(ls.state)
+mesh(ls::LevelSetEquation) = mesh(ls.state)
 
 """
     integrate!(ls::LevelSetEquation,tf,Δt=Inf)
