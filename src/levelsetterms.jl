@@ -79,6 +79,8 @@ function _compute_cfl(term::AdvectionTerm{V}, ϕ, I, t) where {V}
     elseif V <: Function
         x = mesh(ϕ)[I]
         velocity(term)(x, t)
+    else
+        error("velocity field type $V not supported")
     end
     Δx = meshsize(ϕ)
     return 1 / maximum(abs.(𝐮) ./ Δx)
