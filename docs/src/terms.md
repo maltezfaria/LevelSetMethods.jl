@@ -225,7 +225,7 @@ fig
 We will now evolve the level-set using the reinitialization term:
 
 ```@example reinitialization-term
-eq = LevelSetEquation(; terms = (ReinitializationTerm(),), levelset = ϕ, bc = PeriodicBC())
+eq = LevelSetEquation(; terms = (ReinitializationTerm(),), levelset = deepcopy(ϕ), bc = PeriodicBC())
 fig = Figure(; size = (1200, 300))
 for (n,t) in enumerate([0.0, 0.25, 0.5, 0.75])
     integrate!(eq, t)
@@ -236,3 +236,25 @@ fig
 ```
 
 Note that `ϕ` converges to the signed distance function `sdf` shown in the first figure.
+
+Note that it is also possible to use a variant of the reinitialization term that
+uses the sign only on the *initial level-set function*:
+
+```math
+  \phi_t + \text{sign}(\phi_0) \left( |\nabla \phi| - 1 \right) = 0
+```
+
+To use this variant instead, you can pass a `LevelSet` object to the `ReinitializationTerm`
+
+```@example reinitialization-term
+eq = LevelSetEquation(; terms = (ReinitializationTerm(ϕ),), levelset = deepcopy(ϕ), bc = PeriodicBC())
+fig = Figure(; size = (1200, 300))
+for (n,t) in enumerate([0.0, 0.25, 0.5, 0.75])
+    integrate!(eq, t)
+    ax = Axis(fig[1,n], title = "t = $t")
+    contour!(ax, LevelSetMethods.current_state(eq); levels = [0.25, 0, 0.5], labels = true, labelsize = 14)
+end
+fig
+```
+
+Note that the results are similar to the previous example.

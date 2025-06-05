@@ -210,19 +210,51 @@ end
     struct ReinitializationTerm <: LevelSetTerm
 
 Level-set term representing  `sign(ϕ) (|∇ϕ| - 1)`. This `LevelSetTerm` should be
-used for reinitializing the level set into a signed distance function: for a
-sufficiently large number of time steps this term allows one to solve the
-Eikonal equation |∇ϕ| = 1.
+used for reinitializing the level set into a signed distance function: for a sufficiently
+large number of time steps this term allows one to solve the Eikonal equation |∇ϕ| = 1.
+
+There are two ways of constructing a `ReinitializationTerm`:
+
+  - using `ReinitializationTerm(ϕ₀::LevelSet)` precomputes the `sign` term on the initial
+    level set `ϕ₀`, as in equation 7.5 of Osher and Fedkiw;
+  - using `ReinitializationTerm()` constructs a term that computes the `sign` term
+    on-the-fly at each time step, as in equation 7.6 of Osher and Fedkiw.
 """
-@kwdef struct ReinitializationTerm <: LevelSetTerm end
+struct ReinitializationTerm{T} <: LevelSetTerm
+    S₀::T
+end
 
-Base.show(io::IO, t::ReinitializationTerm) = print(io, "sign(ϕ) (|∇ϕ| - 1)")
+function ReinitializationTerm(ϕ₀::LevelSet)
+    Δx = minimum(meshsize(ϕ₀))
+    # equation 7.5 of Osher and Fedkiw
+    S₀ = map(CartesianIndices(mesh(ϕ₀))) do I
+        return ϕ₀[I] / sqrt(ϕ₀[I]^2 + Δx^2)
+    end
+    return ReinitializationTerm(S₀)
+end
+ReinitializationTerm() = ReinitializationTerm(nothing)
 
-function _compute_term(::ReinitializationTerm, ϕ, I, t)
+function Base.show(io::IO, t::ReinitializationTerm)
+    S₀ = t.S₀
+    if isnothing(S₀)
+        print(io, "sign(ϕ) (|∇ϕ| - 1)")
+    else
+        print(io, "sign(ϕ₀) (|∇ϕ| - 1)")
+    end
+    return io
+end
+
+function _compute_term(term::ReinitializationTerm, ϕ, I, t)
+    S₀ = term.S₀
     norm_∇ϕ = _compute_∇_norm(sign(ϕ[I]), ϕ, I)
-    # equation 7.6 of Osher and Fedkiw
-    Δx = minimum(meshsize(ϕ))
-    S = ϕ[I] / sqrt(ϕ[I]^2 + norm_∇ϕ^2 * Δx^2)
+    if isnothing(S₀)
+        # equation 7.6 of Osher and Fedkiw
+        Δx = minimum(meshsize(ϕ))
+        S = ϕ[I] / sqrt(ϕ[I]^2 + norm_∇ϕ^2 * Δx^2)
+    else
+        # precomputed S₀ term
+        S = S₀[I]
+    end
     return S * (norm_∇ϕ - 1.0)
 end
 
