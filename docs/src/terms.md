@@ -235,16 +235,15 @@ end
 fig
 ```
 
-Note that `ϕ` converges to the signed distance function `sdf` shown in the first figure.
+Observe that as the reinitialization equation evolves, `ϕ` approaches the signed distance function `sdf` depicted in the first figure.
 
-Note that it is also possible to use a variant of the reinitialization term that
-uses the sign only on the *initial level-set function*:
+Alternatively, you can use a modified reinitialization term that applies the sign function to the *initial level-set function* only:
 
 ```math
   \phi_t + \text{sign}(\phi_0) \left( |\nabla \phi| - 1 \right) = 0
 ```
 
-To use this variant instead, you can pass a `LevelSet` object to the `ReinitializationTerm`
+To enable this behavior, simply pass a `LevelSet` object to the `ReinitializationTerm`:
 
 ```@example reinitialization-term
 eq = LevelSetEquation(; terms = (ReinitializationTerm(ϕ),), levelset = deepcopy(ϕ), bc = PeriodicBC())
@@ -257,4 +256,4 @@ end
 fig
 ```
 
-Note that the results are similar to the previous example.
+The outcome closely matches that of the previous approach.
