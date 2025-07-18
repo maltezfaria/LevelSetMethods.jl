@@ -233,3 +233,63 @@ function _compute_terms(terms, ϕ, I, t)
         return _compute_term(term, ϕ, I, t)
     end
 end
+
+"""
+    reinitialize!(eq::LevelSetEquation; tol=0.5 max_iters=100, verbose = false, dt)
+
+Reinitialize the level set in `eq` to be a signed distance function, i.e., `|∇ϕ| ≈ 1`, while
+trying to preserve the zero level set.
+
+This function evolves a temporary level-set equation with a `ReinitializationTerm` until
+`|∇ϕ|` is within `tol` of `1`, or until `max_iters` iterations are reached. Each iteration
+evolves the equation by `dt`.
+
+If `verbose` is `true`, it will print the maximum error at each iteration.
+"""
+function reinitialize!(
+    eq::LevelSetEquation;
+    tol = 0.5,
+    max_iters = 100,
+    dt = minimum(meshsize(mesh(eq))),
+    verbose = false,
+)
+    ϕ = current_state(eq)
+    # Create a temporary equation for reinitialization
+    reinit_eq = LevelSetEquation(;
+        terms = (ReinitializationTerm(),),
+        levelset = ϕ,
+        bc = NeumannGradientBC(),
+    )
+    ϕ_new = current_state(reinit_eq)
+    max_er = 0.0
+    for k in 1:max_iters
+        ∇ϕ_norm = grad_norm(ϕ_new)
+        max_er = maximum(abs.(∇ϕ_norm .- 1))
+        verbose && @info "Iteration $k: max error = $max_er"
+        integrate!(reinit_eq, reinit_eq.t + dt)
+        max_er < tol && break
+    end
+
+    max_er > tol && @warn(
+        "Reinitialization did not converge within $max_iters iterations. " *
+        "Maximum error: $max_er",
+    )
+
+    return eq
+end
+
+"""
+    grad_norm(ϕ::LevelSet[, I])
+
+Compute the norm of the gradient of ϕ at index `I`, i.e. `|∇ϕ|`, or for all grid points
+if `I` is not provided.
+"""
+function grad_norm(ϕ)
+    # idxs = interior_indices(mesh(ϕ), 3)
+    idxs = eachindex(ϕ)
+    return map(i -> grad_norm(ϕ, i), idxs)
+end
+function grad_norm(ϕ, I)
+    return _compute_∇_norm(sign(ϕ[I]), ϕ, I)
+end
+grad_norm(eq::LevelSetEquation) = grad_norm(current_state(eq))

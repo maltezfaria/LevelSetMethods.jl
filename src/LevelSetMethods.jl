@@ -30,7 +30,8 @@ export CartesianGrid,
     WENO5,
     LevelSetEquation,
     integrate!,
-    current_time
+    current_time,
+    reinitialize!
 
 """
     makie_theme()

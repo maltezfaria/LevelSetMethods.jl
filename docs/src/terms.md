@@ -257,3 +257,21 @@ fig
 ```
 
 The outcome closely matches that of the previous approach.
+
+### Automated Reinitialization
+
+To simplify the process of reinitialization, the function [`reinitialize!`](@ref) is
+provided. It automates the process of evolving the level-set with a `ReinitializationTerm`
+until the gradient norm is close to 1. Here is an example of how to use it:
+
+```@example reinitialization-term
+fig = Figure(; size = (600, 300))
+ϕ = LevelSet(x -> x[1]^2 + x[2]^2 - 0.5^2, grid)
+eq = LevelSetEquation(; terms=(), levelset=ϕ, bc=NeumannGradientBC())
+ax = Axis(fig[1,1], title = "Before reinitialize!")
+contour!(ax, LevelSetMethods.current_state(eq); levels = [0.25, 0, 0.5], labels = true, labelsize = 14)
+reinitialize!(eq; tol=1e-1)
+ax = Axis(fig[1,2], title = "After reinitialize!")
+contour!(ax, LevelSetMethods.current_state(eq); levels = [0.25, 0, 0.5], labels = true, labelsize = 14)
+fig
+```
