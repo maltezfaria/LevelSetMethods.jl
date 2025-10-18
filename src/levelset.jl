@@ -129,7 +129,8 @@ function curvature(ϕ::LevelSet, I)
         ϕzz = D2⁰(ϕ, I, 3)
         ϕxy = D2(ϕ, I, (2, 1))
         ϕxz = D2(ϕ, I, (3, 1))
-        κ   = (ϕxx * (ϕy)^2 - 2 * ϕy * ϕx * ϕxy + ϕyy * ϕx^2 + ϕx^2 * ϕzz - 2 * ϕx * ϕz * ϕxz + ϕz^2 * ϕxx + ϕy^2 * ϕzz - 2 * ϕy * ϕz * ϕyz + ϕz^2 * ϕyy) / (ϕx^2 + ϕy^2)^3 / 2
+        ϕyz = D2(ϕ, I, (3, 2))
+        κ   = (ϕxx * ϕy^2 + ϕyy * ϕx^2 + ϕxx * ϕz^2 + ϕzz * ϕx^2 + ϕyy * ϕz^2 + ϕzz  * ϕy^2 - 2 * ϕx * ϕz * ϕxz - 2 * ϕy * ϕz * ϕyz  - 2 * ϕy * ϕx * ϕxy) / (ϕx^2 + ϕy^2 + ϕz^2)^(3 / 2)
         return κ
     else
         # generic method
