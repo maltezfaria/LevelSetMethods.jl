@@ -63,6 +63,8 @@ end
 
 Base.getindex(g::CartesianGrid, I::Int...) = g[CartesianIndex(I...)]
 
+Base.eltype(g::CartesianGrid) = typeof(g.lc)
+
 function _getindex(g::CartesianGrid, I::CartesianIndex)
     N = dimension(g)
     @assert N == length(I)
