@@ -37,7 +37,10 @@ end
 #     end
 # end
 
-function Makie.convert_arguments(::Union{Type{<:Contour},Type{<:Contourf}}, ϕ::LSM.LevelSet)
+function Makie.convert_arguments(
+    ::Union{Type{<:Contour},Type{<:Contourf},Type{<:Heatmap}},
+    ϕ::LSM.LevelSet,
+)
     LSM.dimension(ϕ) == 2 ||
         throw(ArgumentError("Contour plot only supported for 2D level-sets."))
     return _contour_plot(ϕ)
