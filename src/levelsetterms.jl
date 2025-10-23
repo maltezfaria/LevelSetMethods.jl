@@ -6,7 +6,7 @@ A typical term in a level-set evolution equation.
 abstract type LevelSetTerm end
 
 function compute_cfl(terms, ϕ, t)
-    minimum(terms) do term
+    return minimum(terms) do term
         return _compute_cfl(term, ϕ, t)
     end
 end
@@ -21,7 +21,7 @@ function _compute_cfl(term::LevelSetTerm, ϕ, t)
     return dt
 end
 
-struct AdvectionTerm{V,S<:SpatialScheme} <: LevelSetTerm
+struct AdvectionTerm{V, S <: SpatialScheme} <: LevelSetTerm
     velocity::V
     scheme::S
 end
@@ -50,7 +50,7 @@ Base.show(io::IO, t::AdvectionTerm) = print(io, "𝐮 ⋅ ∇ ϕ")
     end
     # for dimension dim, compute the upwind derivative and multiply by the
     # velocity
-    sum(1:N) do dim
+    return sum(1:N) do dim
         v = 𝐮[dim]
         if v > 0
             if sch === Upwind()

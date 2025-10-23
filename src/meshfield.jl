@@ -6,7 +6,7 @@ A field described by its discrete values on a mesh.
 `Base.getindex` of an `MeshField` is overloaded to handle indices that lie outside the
 `CartesianIndices` of its `MeshField` by using `bcs`.
 """
-struct MeshField{V,M,B}
+struct MeshField{V, M, B}
     vals::V
     mesh::M
     bcs::B
@@ -38,7 +38,7 @@ dimension(f::MeshField) = dimension(mesh(f))
 
 # overload base methods for convenience
 function Base.getindex(ϕ::MeshField, I::CartesianIndex)
-    if has_boundary_conditions(ϕ)
+    return if has_boundary_conditions(ϕ)
         _getindex(ϕ, I)
     else
         getindex(values(ϕ), I)
@@ -81,7 +81,7 @@ end
 
 function _wrap_index_periodic(I::CartesianIndex{N}, ax, dim) where {N}
     i = I[dim]
-    ntuple(N) do d
+    return ntuple(N) do d
         if d == dim
             if i < first(ax)
                 return (last(ax) - (first(ax) - i))
@@ -95,7 +95,7 @@ end
 
 function _wrap_index_neumann(I::CartesianIndex{N}, ax, dim) where {N}
     i = I[dim]
-    ntuple(N) do d
+    return ntuple(N) do d
         if d == dim
             if i < first(ax)
                 return (first(ax) + (first(ax) - i))
@@ -139,7 +139,7 @@ Base.eachindex(ϕ::MeshField) = eachindex(mesh(ϕ))
 
 [`MeshField`](@ref) over a [`CartesianGrid`](@ref).
 """
-const CartesianMeshField{V,M<:CartesianGrid,B} = MeshField{V,M,B}
+const CartesianMeshField{V, M <: CartesianGrid, B} = MeshField{V, M, B}
 
 # Boundary conditions
 
@@ -172,11 +172,11 @@ function _getindex(ϕ::CartesianMeshField, I::CartesianIndex{N}, ::NeumannBC, d)
 end
 
 function _getindex(
-    ϕ::CartesianMeshField,
-    I::CartesianIndex{N},
-    ::NeumannGradientBC,
-    d,
-) where {N}
+        ϕ::CartesianMeshField,
+        I::CartesianIndex{N},
+        ::NeumannGradientBC,
+        d,
+    ) where {N}
     ax = axes(ϕ)[abs(d)]
     # compute mirror index to I[d]
     # TODO
@@ -193,11 +193,11 @@ end
 
 # TODO: test this
 function _getindex(
-    ϕ::CartesianMeshField,
-    I::CartesianIndex{N},
-    bc::DirichletBC,
-    d,
-) where {N}
+        ϕ::CartesianMeshField,
+        I::CartesianIndex{N},
+        bc::DirichletBC,
+        d,
+    ) where {N}
     # Compute the closest index to I that is within the domain and return value of bc there
     Iproj = clamp.(Tuple(I), axes(ϕ)) |> CartesianIndex
     x = mesh(ϕ)(Iproj)

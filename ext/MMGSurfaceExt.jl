@@ -5,7 +5,7 @@ import MarchingCubes
 import LevelSetMethods as LSM
 
 function __init__()
-    @info "Loading MMGSurface extension for LevelSetMethods.jl"
+    return @info "Loading MMGSurface extension for LevelSetMethods.jl"
 end
 
 """
@@ -37,13 +37,13 @@ boundary and the reconstructed ideal boundary
     Only works for 3 dimensional level-set.
 """
 function LSM.export_surface_mesh(
-    ϕ::LSM.LevelSet,
-    output::String;
-    hgrad = nothing,
-    hmin = nothing,
-    hmax = nothing,
-    hausd = nothing,
-)
+        ϕ::LSM.LevelSet,
+        output::String;
+        hgrad = nothing,
+        hmin = nothing,
+        hmax = nothing,
+        hausd = nothing,
+    )
     N = LSM.dimension(ϕ)
     if N != 3
         throw(ArgumentError("export_mesh of $N dimensional level-set not supported."))
@@ -85,7 +85,7 @@ function LSM.export_surface_mesh(
 end
 
 function _write_3D_triangular_mesh(path, vertices, triangles)
-    open(path, "w") do file
+    return open(path, "w") do file
         write(file, "MeshVersionFormatted 1\n")
         write(file, "Dimension 3\n")
 

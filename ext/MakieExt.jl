@@ -4,7 +4,7 @@ using Makie
 import LevelSetMethods as LSM
 
 function __init__()
-    @info "Loading Makie extension for LevelSetMethods.jl"
+    return @info "Loading Makie extension for LevelSetMethods.jl"
 end
 
 # NOTE: Makie recipes currently can't modify the Axis (https://discourse.julialang.org/t/makie-plot-recipe-collections/86434)
@@ -37,7 +37,10 @@ end
 #     end
 # end
 
-function Makie.convert_arguments(::Union{Type{<:Contour},Type{<:Contourf}}, ϕ::LSM.LevelSet)
+function Makie.convert_arguments(
+        ::Union{Type{<:Contour}, Type{<:Contourf}, Type{<:Heatmap}},
+        ϕ::LSM.LevelSet,
+    )
     LSM.dimension(ϕ) == 2 ||
         throw(ArgumentError("Contour plot only supported for 2D level-sets."))
     return _contour_plot(ϕ)

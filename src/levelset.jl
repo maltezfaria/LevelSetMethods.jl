@@ -3,7 +3,7 @@
 
 Alias for [`MeshField`](@ref) with `vals` as an `AbstractArray` of `Real`s.
 """
-const LevelSet{V<:AbstractArray{<:Real},M,B} = MeshField{V,M,B}
+const LevelSet{V <: AbstractArray{<:Real}, M, B} = MeshField{V, M, B}
 
 function LevelSet(f::Function, m)
     vals = map(f, m)
@@ -113,24 +113,24 @@ https://en.wikipedia.org/wiki/Mean_curvature#Implicit_form_of_mean_curvature
 function curvature(ϕ::LevelSet, I)
     N = dimension(ϕ)
     if N == 2
-        ϕx  = D⁰(ϕ, I, 1)
-        ϕy  = D⁰(ϕ, I, 2)
+        ϕx = D⁰(ϕ, I, 1)
+        ϕy = D⁰(ϕ, I, 2)
         ϕxx = D2⁰(ϕ, I, 1)
         ϕyy = D2⁰(ϕ, I, 2)
         ϕxy = D2(ϕ, I, (2, 1))
-        κ   = (ϕxx * (ϕy)^2 - 2 * ϕy * ϕx * ϕxy + ϕyy * ϕx^2) / (ϕx^2 + ϕy^2)^(3 / 2)
+        κ = (ϕxx * (ϕy)^2 - 2 * ϕy * ϕx * ϕxy + ϕyy * ϕx^2) / (ϕx^2 + ϕy^2)^(3 / 2)
         return κ
     elseif N == 3
-        ϕx  = D⁰(ϕ, I, 1)
-        ϕy  = D⁰(ϕ, I, 2)
-        ϕz  = D⁰(ϕ, I, 3)
+        ϕx = D⁰(ϕ, I, 1)
+        ϕy = D⁰(ϕ, I, 2)
+        ϕz = D⁰(ϕ, I, 3)
         ϕxx = D2⁰(ϕ, I, 1)
         ϕyy = D2⁰(ϕ, I, 2)
         ϕzz = D2⁰(ϕ, I, 3)
         ϕxy = D2(ϕ, I, (2, 1))
         ϕxz = D2(ϕ, I, (3, 1))
         ϕyz = D2(ϕ, I, (3, 2))
-        κ   = (ϕxx * ϕy^2 + ϕyy * ϕx^2 + ϕxx * ϕz^2 + ϕzz * ϕx^2 + ϕyy * ϕz^2 + ϕzz  * ϕy^2 - 2 * ϕx * ϕz * ϕxz - 2 * ϕy * ϕz * ϕyz  - 2 * ϕy * ϕx * ϕxy) / (ϕx^2 + ϕy^2 + ϕz^2)^(3 / 2)
+        κ = (ϕxx * ϕy^2 + ϕyy * ϕx^2 + ϕxx * ϕz^2 + ϕzz * ϕx^2 + ϕyy * ϕz^2 + ϕzz * ϕy^2 - 2 * ϕx * ϕz * ϕxz - 2 * ϕy * ϕz * ϕyz - 2 * ϕy * ϕx * ϕxy) / (ϕx^2 + ϕy^2 + ϕz^2)^(3 / 2)
         return κ
     else
         # generic method

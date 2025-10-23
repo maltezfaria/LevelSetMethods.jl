@@ -138,8 +138,8 @@ function integrate!(ls::LevelSetEquation, tf, Δt = Inf)
            the level-set equation cannot be solved back in time"
     @assert tf >= tc msg
     # append boundary conditions for integration
-    ϕ         = current_state(ls)
-    buf        = buffers(ls)
+    ϕ = current_state(ls)
+    buf = buffers(ls)
     integrator = time_integrator(ls)
     # dynamic dispatch. Should not be a problem provided enough computation is
     # done inside of the function below
@@ -229,7 +229,7 @@ function _integrate!(ϕ::LevelSet, buffers, integrator::RK3, terms, tc, tf, Δt)
 end
 
 function _compute_terms(terms, ϕ, I, t)
-    sum(terms) do term
+    return sum(terms) do term
         return _compute_term(term, ϕ, I, t)
     end
 end
