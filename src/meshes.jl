@@ -3,12 +3,12 @@
 
 An abstract mesh structure in dimension `N` with primite data of type `T`.
 """
-abstract type AbstractMesh{N,T} end
+abstract type AbstractMesh{N, T} end
 
-struct CartesianGrid{N,T} <: AbstractMesh{N,T}
-    lc::SVector{N,T}
-    hc::SVector{N,T}
-    n::NTuple{N,Int}
+struct CartesianGrid{N, T} <: AbstractMesh{N, T}
+    lc::SVector{N, T}
+    hc::SVector{N, T}
+    n::NTuple{N, Int}
 end
 
 """
@@ -34,10 +34,10 @@ CartesianGrid{2, Int64}([0, 0], [1, 1], (10, 4))
 function CartesianGrid(lc, hc, n)
     length(lc) == length(hc) == length(n) ||
         throw(ArgumentError("all arguments must have the same length"))
-    N   = length(lc)
-    lc_ = SVector{N,eltype(lc)}(lc...)
-    hc_ = SVector{N,eltype(hc)}(hc...)
-    n   = ntuple(i -> Int(n[i]), N)
+    N = length(lc)
+    lc_ = SVector{N, eltype(lc)}(lc...)
+    hc_ = SVector{N, eltype(hc)}(hc...)
+    n = ntuple(i -> Int(n[i]), N)
     return CartesianGrid(promote(lc_, hc_)..., n)
 end
 
@@ -50,7 +50,7 @@ xgrid(g::CartesianGrid) = grid1d(g, 1)
 ygrid(g::CartesianGrid) = grid1d(g, 2)
 zgrid(g::CartesianGrid) = grid1d(g, 3)
 
-meshsize(g::CartesianGrid)      = (g.hc .- g.lc) ./ (g.n .- 1)
+meshsize(g::CartesianGrid) = (g.hc .- g.lc) ./ (g.n .- 1)
 meshsize(g::CartesianGrid, dim) = (g.hc[dim] - g.lc[dim]) / (g.n[dim] - 1)
 
 Base.size(g::CartesianGrid) = g.n
@@ -68,7 +68,7 @@ Base.eltype(g::CartesianGrid) = typeof(g.lc)
 function _getindex(g::CartesianGrid, I::CartesianIndex)
     N = dimension(g)
     @assert N == length(I)
-    ntuple(N) do dim
+    return ntuple(N) do dim
         return g.lc[dim] + (I[dim] - 1) / (g.n[dim] - 1) * (g.hc[dim] - g.lc[dim])
     end |> SVector
 end
@@ -79,10 +79,10 @@ Base.eachindex(g::CartesianGrid) = CartesianIndices(g)
 
 # NOTE: remove?
 function interior_indices(g::CartesianGrid, P)
-    N  = dimension(g)
+    N = dimension(g)
     sz = size(g)
-    I  = ntuple(N) do dim
-        return (P+1):(sz[dim]-P)
+    I = ntuple(N) do dim
+        return (P + 1):(sz[dim] - P)
     end
     return CartesianIndices(I)
 end

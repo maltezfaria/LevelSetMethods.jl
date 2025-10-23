@@ -4,7 +4,7 @@ import Interpolations as Itp
 import LevelSetMethods as LSM
 
 function __init__()
-    @info "Loading Interpolations extension for LevelSetMethods.jl"
+    return @info "Loading Interpolations extension for LevelSetMethods.jl"
 end
 
 Itp.interpolate(ϕ::LSM.LevelSet) = Itp.interpolate(ϕ, Itp.BSpline(Itp.Cubic()))
