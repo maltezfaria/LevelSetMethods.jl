@@ -5,7 +5,7 @@
 [![Build Status](https://github.com/maltezfaria/LevelSetMethods.jl/workflows/Test/badge.svg)](https://github.com/maltezfaria/LevelSetMethods.jl/actions)
 [![Test workflow status](https://github.com/maltezfaria/LevelSetMethods.jl/actions/workflows/Test.yml/badge.svg?branch=main)](https://github.com/maltezfaria/LevelSetMethods.jl/actions/workflows/Test.yml?query=branch%3Amain)
 [![Lint workflow Status](https://github.com/maltezfaria/LevelSetMethods.jl/actions/workflows/Lint.yml/badge.svg?branch=main)](https://github.com/maltezfaria/LevelSetMethods.jl/actions/workflows/Lint.yml?query=branch%3Amain)
-[![Runic Badge](https://img.shields.io/badge/Runic-formatting-brightgreen.svg)](https://github.com/fredrikekre/Runic.jl)
+[![code style: runic](https://img.shields.io/badge/code_style-%E1%9A%B1%E1%9A%A2%E1%9A%BE%E1%9B%81%E1%9A%B2-black)](https://github.com/fredrikekre/Runic.jl)
 [![Docs workflow Status](https://github.com/maltezfaria/LevelSetMethods.jl/actions/workflows/Docs.yml/badge.svg?branch=main)](https://github.com/maltezfaria/LevelSetMethods.jl/actions/workflows/Docs.yml?query=branch%3Amain)
 [![Coverage](https://codecov.io/gh/maltezfaria/LevelSetMethods.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/maltezfaria/LevelSetMethods.jl)
 [![BestieTemplate](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/JuliaBesties/BestieTemplate.jl/main/docs/src/assets/badge.json)](https://github.com/JuliaBesties/BestieTemplate.jl)
