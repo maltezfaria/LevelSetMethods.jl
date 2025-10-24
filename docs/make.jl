@@ -44,7 +44,7 @@ makedocs(;
         "time-integrators.md",
         "boundary-conditions.md",
         "Extensions" =>
-            ["extension-makie.md", "extension-mmg.md", "extension-interpolations.md"],
+            ["extension-makie.md", "extension-mmg.md", "extension-interpolations.md", "extension-reinitialization.md"],
         "Examples" => ["example-zalesak.md", "example-shape-optim.md"],
         numbered_pages,
     ),
