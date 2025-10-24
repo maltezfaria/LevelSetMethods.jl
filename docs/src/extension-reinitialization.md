@@ -1,4 +1,4 @@
-# Reinitialization
+# Reinitialization with Newton's Method
 
 The `ReinitializationExt` extension provides a [`reinitialize!`](@ref) method to
 transform a level set function into a signed distance function by computing the closest

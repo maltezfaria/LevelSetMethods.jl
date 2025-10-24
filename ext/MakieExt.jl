@@ -46,10 +46,12 @@ function Makie.convert_arguments(
     return _contour_plot(ϕ)
 end
 
-function Makie.convert_arguments(::Type{<:Volume}, ϕ::LSM.LevelSet)
+function Makie.convert_arguments(P::Type{<:Volume}, ϕ::LSM.LevelSet)
     LSM.dimension(ϕ) == 3 ||
         throw(ArgumentError("Volume plot only supported for 3D level-sets."))
-    return _volume_plot(ϕ)
+    x, y, z, v = _volume_plot(ϕ)
+    # Delegate to Makie's existing conversion for arrays
+    return Makie.convert_arguments(P, x, y, z, v)
 end
 
 function _contour_plot(ϕ::LSM.LevelSet)
@@ -63,9 +65,9 @@ function _volume_plot(ϕ::LSM.LevelSet)
     msh = LSM.mesh(ϕ)
     x, y, z = LSM.xgrid(msh), LSM.ygrid(msh), LSM.zgrid(msh)
     v = LSM.values(ϕ)
-    # NOTE: volume gives a warning when passed an AbstractVector for x,y,z,
-    # and asks for a tuple instead
-    return extrema(x), extrema(y), extrema(z), v
+    # Return extrema as tuples - Makie will handle conversion
+    xlims, ylims, zlims = extrema(x), extrema(y), extrema(z)
+    return xlims, ylims, zlims, v
 end
 
 Makie.@recipe(LevelSetPlot, eq) do scene
