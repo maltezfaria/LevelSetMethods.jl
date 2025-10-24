@@ -55,4 +55,4 @@ end
 
 !!! tip "Plotting a `LevelSetEquation`"
     Calling `plot` on a [`LevelSetEquation`](@ref) defaults to plotting the `LevelSet` given by its
-    [`current_state`](@ref); exactly the same as calling `plot(current_state(equation))`.
+    `current_state`; exactly the same as calling `plot(current_state(equation))`.

@@ -4,17 +4,11 @@ using GLMakie
 using MMG_jll
 using MarchingCubes
 using Interpolations
+using NearestNeighbors
 using StaticArrays
 using DocumenterCitations
 
 bib = CitationBibliography(joinpath(@__DIR__, "src", "refs.bib"); style = :numeric)
-
-DocMeta.setdocmeta!(
-    LevelSetMethods,
-    :DocTestSetup,
-    :(using LevelSetMethods);
-    recursive = true,
-)
 
 const page_rename = Dict("developer.md" => "Developer docs") # Without the numbers
 const numbered_pages = [
@@ -23,7 +17,7 @@ const numbered_pages = [
 ]
 
 modules = [LevelSetMethods]
-for extension in [:MakieExt, :MMGSurfaceExt, :MMGVolumeExt, :InterpolationsExt]
+for extension in [:MakieExt, :MMGSurfaceExt, :MMGVolumeExt, :InterpolationsExt, :ReinitializationExt]
     ext = Base.get_extension(LevelSetMethods, extension)
     isnothing(ext) && "error loading $ext"
     push!(modules, ext)
@@ -37,8 +31,7 @@ makedocs(;
     format = Documenter.HTML(;
         canonical = "https://maltezfaria.github.io/LevelSetMethods.jl",
         collapselevel = 2,
-    ),
-    pages = vcat(
+    ), pages = vcat(
         "Home" => "index.md",
         "terms.md",
         "time-integrators.md",
