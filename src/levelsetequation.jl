@@ -233,3 +233,20 @@ function _compute_terms(terms, ϕ, I, t)
         return _compute_term(term, ϕ, I, t)
     end
 end
+
+"""
+    grad_norm(ϕ::LevelSet[, I])
+
+Compute the norm of the gradient of ϕ at index `I`, i.e. `|∇ϕ|`, or for all grid points
+if `I` is not provided.
+"""
+function grad_norm(ϕ::LevelSet)
+    msg = """level-set must have boundary conditions to compute gradient. See
+    `add_boundary_conditions`."""
+    has_boundary_conditions(ϕ) || error(msg)
+    idxs = eachindex(ϕ)
+    return map(i -> _compute_∇_norm(sign(ϕ[i]), ϕ, i), idxs)
+end
+function grad_norm(eq::LevelSetEquation)
+    return grad_norm(current_state(eq))
+end

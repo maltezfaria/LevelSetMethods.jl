@@ -96,8 +96,7 @@ Here is what the `.gif` file looks like:
 
 ![Dumbbell](ls_intro.gif)
 
-For more interesting applications and advanced usage, see the [examples section](@ref
-examples)!
+For more interesting applications and advanced usage, see the examples section!
 
 !!! note "Other resources"
     There is an almost one-to-one correspondance between each of the [`LevelSetTerm`](@ref)s
