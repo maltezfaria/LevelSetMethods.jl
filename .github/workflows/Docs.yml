@@ -8,7 +8,7 @@ on:
       - "docs/**"
       - "src/**"
       - ".github/workflows/Docs.yml"
-      - "*.toml"
+      - "**/*.toml"
     tags: ["*"]
   pull_request:
     branches:
@@ -16,7 +16,8 @@ on:
     paths:
       - "docs/**"
       - "src/**"
-      - "*.toml"
+      - ".github/workflows/Docs.yml"
+      - "**/*.toml"
     types: [opened, synchronize, reopened]
 
 concurrency:
