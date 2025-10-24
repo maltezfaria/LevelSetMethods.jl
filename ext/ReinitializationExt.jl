@@ -52,7 +52,8 @@ function _sample_interface(grid, f, ∇f, upsample, maxiter, ftol)
         lc, hc = grid[I], grid[Ip]
         samples = (lc .+ (hc .- lc) .* (SVector(j, k) .+ 0.5) ./ upsample for j in 0:(upsample - 1), k in 0:(upsample - 1))
         # Skip cells where all samples have the same sign
-        all(x -> f(x) > 0, samples) || all(x -> f(x) < 0, samples) && continue
+        s = samples |> first |> f |> sign
+        any(x -> f(x) * s < 0, samples) || continue
         # Go over samples and push them to the interface
         for x in samples
             pt = _project_to_interface(f, ∇f, x, maxiter, ftol)
@@ -66,7 +67,7 @@ function _project_to_interface(f, ∇f, x0, maxiter, ftol)
     x = x0
     for _ in 1:maxiter
         val = f(x)
-        val < ftol && break # close enough to the interface
+        abs(val) < ftol && break # close enough to the interface
         grad = ∇f(x)
         norm_grad = norm(grad)
         iszero(norm_grad) && break
