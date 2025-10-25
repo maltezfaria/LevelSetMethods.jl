@@ -50,8 +50,8 @@ function _sample_interface(grid, f, ∇f, upsample, maxiter, ftol)
     for I in CartesianIndices(LSM.size(grid) .- 1)
         Ip = CartesianIndex(Tuple(I) .+ 1)
         lc, hc = grid[I], grid[Ip]
-        samples = (lc .+ (hc .- lc) .* (SVector(j, k) .+ 0.5) ./ upsample for j in 0:(upsample - 1), k in 0:(upsample - 1))
-        # Skip cells where all samples have the same sign
+        # Use an (upsample + 1) x (upsample + 1) grid in the cell, always including endpoints
+        samples = (lc .+ (hc .- lc) .* SVector(j, k) ./ upsample for j in 0:upsample, k in 0:upsample)
         s = samples |> first |> f |> sign
         any(x -> f(x) * s < 0, samples) || continue
         # Go over samples and push them to the interface
