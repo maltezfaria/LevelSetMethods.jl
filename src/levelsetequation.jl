@@ -7,7 +7,7 @@ mutable struct LevelSetEquation
 end
 
 """
-    LevelSetEquation(; terms, levelset, boundary_conditions, t = 0, integrator = RK3())
+    LevelSetEquation(; terms, levelset, boundary_conditions, t = 0, integrator = RK2())
 
 Create a of a level-set equation of the form `ϕₜ + sum(terms) = 0`, where each `t ∈ terms`
 is a [`LevelSetTerm`](@ref) and `levelset` is the initial [`LevelSet`](@ref).
@@ -46,7 +46,7 @@ Current time 0.0
 
 ```
 """
-function LevelSetEquation(; terms, integrator = RK3(), levelset, t = 0, bc)
+function LevelSetEquation(; terms, integrator = RK2(), levelset, t = 0, bc)
     N = dimension(levelset)
     terms = _normalize_terms(terms, N)
     bc = _normalize_bc(bc, N)
