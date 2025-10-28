@@ -24,13 +24,14 @@ function LSM.reinitialize!(
     )
     grid = LSM.mesh(ϕ)
     vals = ϕ.vals
+    maxdist = maximum(LSM.meshsize(grid))
     itp = Interpolations.interpolate(ϕ)
     f(x) = itp(x...)
     ∇f(x) = Interpolations.gradient(itp, x...)
     ∇²f(x) = Interpolations.hessian(itp, x...)
 
     # Sample the interface
-    pts = _sample_interface(grid, f, ∇f, upsample, maxiters, ftol)
+    pts = _sample_interface(grid, f, ∇f, upsample, maxiters, ftol, maxdist)
     tree = KDTree(pts)
 
     for I in eachindex(grid)
@@ -39,13 +40,13 @@ function LSM.reinitialize!(
         idx, dist = nn(tree, x)
         x0 = pts[idx]
         # Refine with Newton's method
-        cp = _closest_point(f, ∇f, ∇²f, x, x0, maxiters, xtol, ftol)
+        cp = _closest_point(f, ∇f, ∇²f, x, x0, maxiters, xtol, ftol, maxdist)
         vals[I] = sign(vals[I]) * norm(x - cp)
     end
     return ϕ
 end
 
-function _sample_interface(grid, f, ∇f, upsample, maxiter, ftol)
+function _sample_interface(grid, f, ∇f, upsample, maxiter, ftol, maxdist)
     pts = Vector{SVector{LSM.dimension(grid), Float64}}()
     for I in CartesianIndices(LSM.size(grid) .- 1)
         Ip = CartesianIndex(Tuple(I) .+ 1)
@@ -56,29 +57,29 @@ function _sample_interface(grid, f, ∇f, upsample, maxiter, ftol)
         any(x -> f(x) * s < 0, samples) || continue
         # Go over samples and push them to the interface
         for x in samples
-            pt = _project_to_interface(f, ∇f, x, maxiter, ftol)
-            push!(pts, pt)
+            pt = _project_to_interface(f, ∇f, x, maxiter, ftol, maxdist)
+            isnothing(pt) || push!(pts, pt)
         end
     end
     return pts
 end
 
-function _project_to_interface(f, ∇f, x0, maxiter, ftol)
+function _project_to_interface(f, ∇f, x0, maxiter, ftol, maxdist)
     x = x0
     for _ in 1:maxiter
         val = f(x)
         abs(val) < ftol && break # close enough to the interface
         grad = ∇f(x)
         norm_grad = norm(grad)
-        iszero(norm_grad) && break
         δx = val * grad / norm_grad^2
+        norm(δx) > maxdist && (return nothing) # too far from interface
         x = x - δx
     end
-    f(x) > ftol && @warn "projection to interface did not converge to $ftol at x=$x"
+    f(x) > ftol && (return nothing) # did not converge
     return x
 end
 
-function _closest_point(f, ∇f, ∇²f, xq::SVector, x0::SVector, maxiters, xtol, ftol)
+function _closest_point(f, ∇f, ∇²f, xq::SVector, x0::SVector, maxiters, xtol, ftol, maxdist)
     x = x0
     ∇p_x0 = ∇f(x0)
     λ = dot(xq - x0, ∇p_x0) / dot(∇p_x0, ∇p_x0)
@@ -105,7 +106,7 @@ function _closest_point(f, ∇f, ∇²f, xq::SVector, x0::SVector, maxiters, xto
         δλ = δ[end]
 
         # Update variables
-        α = 1.0 # TODO: reduce step size if not diverging?
+        α = 1.0 # TODO: reduce step size if diverging?
         x = x + α * δx
         λ = λ + α * δλ
 

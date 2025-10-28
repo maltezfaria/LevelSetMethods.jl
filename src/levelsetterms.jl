@@ -21,19 +21,31 @@ function _compute_cfl(term::LevelSetTerm, ϕ, t)
     return dt
 end
 
-struct AdvectionTerm{V, S <: SpatialScheme} <: LevelSetTerm
+struct AdvectionTerm{V, S <: SpatialScheme, F} <: LevelSetTerm
     velocity::V
     scheme::S
+    update_func::F
 end
 velocity(adv::AdvectionTerm) = adv.velocity
 scheme(adv::AdvectionTerm) = adv.scheme
+update_func(adv::AdvectionTerm) = adv.update_func
 
 """
-    AdvectionTerm(𝐮, scheme = WENO5())
+    AdvectionTerm(𝐮[, scheme = WENO5(), update_func = nothing])
 
 Advection term representing  `𝐮 ⋅ ∇ϕ`. Available `scheme`s are `Upwind` and `WENO5`.
+
+If passed, `update_func` will be called as `update_func(𝐮, ϕ, t)` before computing the term
+at each stage of the time evolution. This can be used to update the velocity field `𝐮`
+depending not only on `t`, but also on the current level set `ϕ`.
 """
-AdvectionTerm(𝐮, scheme = WENO5()) = AdvectionTerm(𝐮, scheme)
+AdvectionTerm(𝐮, scheme = WENO5(), func = (x...) -> nothing) = AdvectionTerm(𝐮, scheme, func)
+
+function update_term!(term::AdvectionTerm, ϕ, t)
+    u = velocity(term)
+    f = update_func(term)
+    return f(u, ϕ, t)
+end
 
 Base.show(io::IO, t::AdvectionTerm) = print(io, "𝐮 ⋅ ∇ ϕ")
 

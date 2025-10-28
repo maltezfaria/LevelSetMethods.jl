@@ -159,6 +159,7 @@ number_of_buffers(fe::ForwardEuler) = 1
     Δt = min(Δt, Δt_cfl)
     while tc <= tf - eps(tc)
         Δt = min(Δt, tf - tc) # if needed, take a smaller time-step to exactly land on tf
+        _update_terms!(terms, ϕ, tc)
         for I in eachindex(ϕ)
             buffer[I] = _compute_terms(terms, ϕ, I, tc)
             buffer[I] = ϕ[I] - Δt * buffer[I] # muladd?
@@ -181,11 +182,13 @@ function _integrate!(ϕ::LevelSet, buffers, integrator::RK2, terms, tc, tf, Δt)
     Δt = min(Δt, Δt_cfl)
     while tc <= tf - eps(tc)
         Δt = min(Δt, tf - tc) # if needed, take a smaller time-step to exactly land on tf
+        _update_terms!(terms, ϕ, tc)
         for I in eachindex(ϕ)
             tmp = _compute_terms(terms, ϕ, I, tc)
             buffer1[I] = ϕ[I] - Δt * tmp
             buffer2[I] = ϕ[I] - 0.5 * Δt * tmp
         end
+        _update_terms!(terms, buffer1, tc + Δt)
         for I in eachindex(ϕ)
             tmp = _compute_terms(terms, buffer1, I, tc + Δt)
             buffer2[I] -= 0.5 * Δt * tmp
@@ -207,19 +210,22 @@ function _integrate!(ϕ::LevelSet, buffers, integrator::RK3, terms, tc, tf, Δt)
     Δt = min(Δt, Δt_cfl)
     while tc <= tf - eps(tc)
         Δt = min(Δt, tf - tc) # if needed, take a smaller time-step to exactly land on tf
+        _update_terms!(terms, ϕ, tc)
         for I in eachindex(ϕ)
             tmp = _compute_terms(terms, ϕ, I, tc)
-            buffer1[I] = ϕ[I] - Δt * tmp # ϕ(t + Δt)
+            buffer1[I] = ϕ[I] - Δt * tmp
         end
+        _update_terms!(terms, buffer1, tc + Δt)
         for I in eachindex(ϕ)
             tmp = _compute_terms(terms, buffer1, I, tc + Δt)
-            buffer2[I] = buffer1[I] - Δt * tmp # ϕ(t + 2Δt)
-            buffer2[I] = 1 / 4 * buffer2[I] + 3 / 4 * ϕ[I] # ϕ(t + Δt/2) = 3/4 ϕ(t) + 1/4 ϕ(t + 2Δt)
+            buffer2[I] = buffer1[I] - Δt * tmp
+            buffer2[I] = 1 / 4 * buffer2[I] + 3 / 4 * ϕ[I]
         end
+        _update_terms!(terms, buffer2, tc + 1 / 2 * Δt)
         for I in eachindex(ϕ)
-            tmp = _compute_terms(terms, buffer2, I, tc + 3 / 2 * Δt)
-            buffer1[I] = buffer2[I] - Δt * tmp # ϕ(t + 3/2 Δt)
-            ϕ[I] = 1 / 3 * ϕ[I] + 2 / 3 * buffer1[I] # ϕ(t + Δt) = 1/2 ϕ(t) + 2/3 ϕ(t + 3/2 Δt)
+            tmp = _compute_terms(terms, buffer2, I, tc + 1 / 2 * Δt)
+            buffer1[I] = buffer2[I] - Δt * tmp
+            ϕ[I] = 1 / 3 * ϕ[I] + 2 / 3 * buffer1[I]
         end
         tc += Δt
         @debug tc, Δt
@@ -233,6 +239,15 @@ function _compute_terms(terms, ϕ, I, t)
         return _compute_term(term, ϕ, I, t)
     end
 end
+
+_update_terms!(terms, ϕ, t) = foreach(term -> update_term!(term, ϕ, t), terms)
+
+"""
+    update_term!(term::LevelSetTerm, ϕ, t)
+
+Called before computing the term at each stage of the time evolution.
+"""
+update_term!(term::LevelSetTerm, ϕ, t) = nothing
 
 """
     grad_norm(ϕ::LevelSet[, I])
