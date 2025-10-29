@@ -72,8 +72,8 @@ function _project_to_interface(f, ∇f, x0, maxiter, ftol, maxdist)
         grad = ∇f(x)
         norm_grad = norm(grad)
         δx = val * grad / norm_grad^2
-        norm(δx) > maxdist && (return nothing) # too far from interface
         x = x - δx
+        norm(x - x0) > maxdist && (return nothing) # too far from starting point
     end
     f(x) > ftol && (return nothing) # did not converge
     return x
@@ -106,7 +106,7 @@ function _closest_point(f, ∇f, ∇²f, xq::SVector, x0::SVector, maxiters, xto
         δλ = δ[end]
 
         # Update variables
-        α = 1.0 # TODO: reduce step size if diverging?
+        α = min(1.0, maxdist / norm(δx)) # step size control
         x = x + α * δx
         λ = λ + α * δλ
 
