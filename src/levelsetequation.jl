@@ -3,11 +3,13 @@ mutable struct LevelSetEquation
     integrator::TimeIntegrator
     state::MeshField
     t::Float64
+    reinit_freq::Union{Nothing, Int}
     buffers
 end
 
 """
-    LevelSetEquation(; terms, levelset, boundary_conditions, t = 0, integrator = RK2())
+    LevelSetEquation(; terms, levelset, boundary_conditions, t = 0, integrator = RK2(),
+    reinit_freq = nothing)
 
 Create a of a level-set equation of the form `ϕₜ + sum(terms) = 0`, where each `t ∈ terms`
 is a [`LevelSetTerm`](@ref) and `levelset` is the initial [`LevelSet`](@ref).
@@ -26,6 +28,10 @@ right boundary. The same logic applies to the other dimensions.
 
 The optional parameter `t` specifies the initial time of the simulation, and `integrator` is
 the [`TimeIntegrator`](@ref) used to evolve the level-set equation.
+
+Reinitialization of the level-set function can be performed every
+`reinit_freq` time steps. By default, no reinitialization is performed. Using
+this feature requires the `ReinitializationExt` to be loaded.
 
 ```jldoctest; output = true
 using LevelSetMethods, StaticArrays
@@ -46,7 +52,14 @@ Current time 0.0
 
 ```
 """
-function LevelSetEquation(; terms, integrator = RK2(), levelset, t = 0, bc)
+function LevelSetEquation(;
+        terms,
+        integrator = RK2(),
+        levelset,
+        t = 0,
+        bc,
+        reinit_freq = nothing,
+    )
     N = dimension(levelset)
     terms = _normalize_terms(terms, N)
     bc = _normalize_bc(bc, N)
@@ -55,7 +68,7 @@ function LevelSetEquation(; terms, integrator = RK2(), levelset, t = 0, bc)
     # create buffers for the time-integrator
     nb = number_of_buffers(integrator)
     buffers = ntuple(_ -> deepcopy(state), nb)
-    return LevelSetEquation(terms, integrator, state, t, buffers)
+    return LevelSetEquation(terms, integrator, state, t, reinit_freq, buffers)
 end
 
 function _normalize_terms(terms, dim)
@@ -119,6 +132,7 @@ time_integrator(ls) = ls.integrator
 terms(ls) = ls.terms
 boundary_conditions(ls) = boundary_conditions(ls.state)
 mesh(ls::LevelSetEquation) = mesh(ls.state)
+reinit_freq(ls::LevelSetEquation) = ls.reinit_freq
 
 """
     integrate!(ls::LevelSetEquation,tf,Δt=Inf)
@@ -141,9 +155,10 @@ function integrate!(ls::LevelSetEquation, tf, Δt = Inf)
     ϕ = current_state(ls)
     buf = buffers(ls)
     integrator = time_integrator(ls)
+    rfreq = reinit_freq(ls)
     # dynamic dispatch. Should not be a problem provided enough computation is
     # done inside of the function below
-    out = _integrate!(ϕ, buf, integrator, ls.terms, tc, tf, Δt)
+    out = _integrate!(ϕ, buf, integrator, ls.terms, rfreq, tc, tf, Δt)
     ls.t = tf
     # a copy may be needed if the last buffer is not the state
     out === ϕ || copy!(values(ϕ), values(out))
@@ -152,20 +167,23 @@ end
 
 number_of_buffers(fe::ForwardEuler) = 1
 
-@noinline function _integrate!(ϕ, buffers, integrator::ForwardEuler, terms, tc, tf, Δt)
+@noinline function _integrate!(ϕ, buffers, integrator::ForwardEuler, terms, rfreq, tc, tf, Δt_max)
     buffer = buffers[1]
     α = cfl(integrator)
-    Δt_cfl = α * compute_cfl(terms, ϕ, tc)
-    Δt = min(Δt, Δt_cfl)
+    nsteps = 0
     while tc <= tf - eps(tc)
-        Δt = min(Δt, tf - tc) # if needed, take a smaller time-step to exactly land on tf
+        !isnothing(rfreq) && mod(nsteps, rfreq) == 0 && reinitialize!(ϕ)
+        # update terms and compute an appropriate time-step
         _update_terms!(terms, ϕ, tc)
+        Δt_cfl = α * compute_cfl(terms, ϕ, tc)
+        Δt = min(Δt_max, Δt_cfl, tf - tc)
         for I in eachindex(ϕ)
             buffer[I] = _compute_terms(terms, ϕ, I, tc)
             buffer[I] = ϕ[I] - Δt * buffer[I] # muladd?
         end
         ϕ, buffer = buffer, ϕ # swap the roles, no copies
         tc += Δt
+        nsteps += 1
         @debug tc, Δt
     end
     # @assert tc ≈ tf
@@ -174,15 +192,20 @@ end
 
 number_of_buffers(fe::RK2) = 2
 
-function _integrate!(ϕ::LevelSet, buffers, integrator::RK2, terms, tc, tf, Δt)
+function _integrate!(ϕ::LevelSet, buffers, integrator::RK2, terms, rfreq, tc, tf, Δt_max)
     # Heun's method
     α = cfl(integrator)
     buffer1, buffer2 = buffers[1], buffers[2]
-    Δt_cfl = α * compute_cfl(terms, ϕ, tc)
-    Δt = min(Δt, Δt_cfl)
+    nsteps = 0
     while tc <= tf - eps(tc)
-        Δt = min(Δt, tf - tc) # if needed, take a smaller time-step to exactly land on tf
+        # handle reinitialization
+        !isnothing(rfreq) && mod(nsteps, rfreq) == 0 && reinitialize!(ϕ)
+
+        # update terms and compute an appropriate time-step
         _update_terms!(terms, ϕ, tc)
+        Δt_cfl = α * compute_cfl(terms, ϕ, tc)
+        Δt = min(Δt_max, Δt_cfl, tf - tc)
+
         for I in eachindex(ϕ)
             tmp = _compute_terms(terms, ϕ, I, tc)
             buffer1[I] = ϕ[I] - Δt * tmp
@@ -195,6 +218,7 @@ function _integrate!(ϕ::LevelSet, buffers, integrator::RK2, terms, tc, tf, Δt)
         end
         ϕ, buffer1, buffer2 = buffer2, ϕ, buffer1 # swap the roles, no copies
         tc += Δt
+        nsteps += 1
         @debug tc, Δt
     end
     # @assert tc ≈ tf
@@ -203,14 +227,16 @@ end
 
 number_of_buffers(fe::RK3) = 2
 
-function _integrate!(ϕ::LevelSet, buffers, integrator::RK3, terms, tc, tf, Δt)
+function _integrate!(ϕ::LevelSet, buffers, integrator::RK3, terms, rfreq, tc, tf, Δt_max)
     buffer1, buffer2 = buffers
     α = cfl(integrator)
-    Δt_cfl = α * compute_cfl(terms, ϕ, tc)
-    Δt = min(Δt, Δt_cfl)
+    nsteps = 0
     while tc <= tf - eps(tc)
-        Δt = min(Δt, tf - tc) # if needed, take a smaller time-step to exactly land on tf
+        !isnothing(rfreq) && mod(nsteps, rfreq) == 0 && reinitialize!(ϕ)
+        # update terms and compute an appropriate time-step
         _update_terms!(terms, ϕ, tc)
+        Δt_cfl = α * compute_cfl(terms, ϕ, tc)
+        Δt = min(Δt_max, Δt_cfl, tf - tc)
         for I in eachindex(ϕ)
             tmp = _compute_terms(terms, ϕ, I, tc)
             buffer1[I] = ϕ[I] - Δt * tmp
@@ -228,6 +254,7 @@ function _integrate!(ϕ::LevelSet, buffers, integrator::RK3, terms, tc, tf, Δt)
             ϕ[I] = 1 / 3 * ϕ[I] + 2 / 3 * buffer1[I]
         end
         tc += Δt
+        nsteps += 1
         @debug tc, Δt
     end
     # @assert tc ≈ tf

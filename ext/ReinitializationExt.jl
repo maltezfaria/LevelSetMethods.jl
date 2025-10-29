@@ -17,8 +17,8 @@ end
 
 function LSM.reinitialize!(
         ϕ::LSM.LevelSet;
-        upsample::Int = 4,
-        maxiters::Int = 10,
+        upsample::Int = 8,
+        maxiters::Int = 20,
         xtol::Float64 = 1.0e-8,
         ftol::Float64 = 1.0e-8,
     )
