@@ -10,17 +10,9 @@ function __init__()
     return @info "Loading extension for Newton reinitialization"
 end
 
-function LSM.reinitialize!(eq::LSM.LevelSetEquation; kwargs...)
-    LSM.reinitialize!(LSM.current_state(eq); kwargs...)
-    return eq
-end
-
 function LSM.reinitialize!(
-        ϕ::LSM.LevelSet;
-        upsample::Int = 8,
-        maxiters::Int = 20,
-        xtol::Float64 = 1.0e-8,
-        ftol::Float64 = 1.0e-8,
+        ϕ::LSM.LevelSet,
+        reinitializer::LSM.Reinitializer = LSM.Reinitializer(),
     )
     grid = LSM.mesh(ϕ)
     vals = ϕ.vals
@@ -31,7 +23,15 @@ function LSM.reinitialize!(
     ∇²f(x) = Interpolations.hessian(itp, x...)
 
     # Sample the interface
-    pts = _sample_interface(grid, f, ∇f, upsample, maxiters, ftol, maxdist)
+    pts = _sample_interface(
+        grid,
+        f,
+        ∇f,
+        reinitializer.upsample,
+        reinitializer.maxiters,
+        reinitializer.ftol,
+        maxdist,
+    )
     tree = KDTree(pts)
 
     for I in eachindex(grid)
@@ -40,10 +40,25 @@ function LSM.reinitialize!(
         idx, dist = nn(tree, x)
         x0 = pts[idx]
         # Refine with Newton's method
-        cp = _closest_point(f, ∇f, ∇²f, x, x0, maxiters, xtol, ftol, maxdist)
+        cp = _closest_point(
+            f,
+            ∇f,
+            ∇²f,
+            x,
+            x0,
+            reinitializer.maxiters,
+            reinitializer.xtol,
+            reinitializer.ftol,
+            maxdist,
+        )
         vals[I] = sign(vals[I]) * norm(x - cp)
     end
     return ϕ
+end
+
+function LSM.reinitialize!(eq::LSM.LevelSetEquation)
+    LSM.reinitialize!(LSM.current_state(eq), LSM.reinitializer(eq))
+    return eq
 end
 
 function _sample_interface(grid, f, ∇f, upsample, maxiter, ftol, maxdist)

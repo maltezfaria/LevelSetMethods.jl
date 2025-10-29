@@ -3,13 +3,13 @@ mutable struct LevelSetEquation
     integrator::TimeIntegrator
     state::MeshField
     t::Float64
-    reinit_freq::Union{Nothing, Int}
+    reinit::Union{Nothing, Reinitializer}
     buffers
 end
 
 """
     LevelSetEquation(; terms, levelset, boundary_conditions, t = 0, integrator = RK2(),
-    reinit_freq = nothing)
+    reinit = nothing)
 
 Create a of a level-set equation of the form `ϕₜ + sum(terms) = 0`, where each `t ∈ terms`
 is a [`LevelSetTerm`](@ref) and `levelset` is the initial [`LevelSet`](@ref).
@@ -29,9 +29,10 @@ right boundary. The same logic applies to the other dimensions.
 The optional parameter `t` specifies the initial time of the simulation, and `integrator` is
 the [`TimeIntegrator`](@ref) used to evolve the level-set equation.
 
-Reinitialization of the level-set function can be performed every
-`reinit_freq` time steps. By default, no reinitialization is performed. Using
-this feature requires the `ReinitializationExt` to be loaded.
+Reinitialization of the level-set function is controlled by the `reinit` parameter,
+a [`Reinitializer`](@ref) object that specifies both the reinitialization algorithm
+parameters and the frequency (in time steps). By default, no automatic reinitialization
+is performed. Using this feature requires the `ReinitializationExt` to be loaded.
 
 ```jldoctest; output = true
 using LevelSetMethods, StaticArrays
@@ -58,7 +59,7 @@ function LevelSetEquation(;
         levelset,
         t = 0,
         bc,
-        reinit_freq = nothing,
+        reinit = nothing,
     )
     N = dimension(levelset)
     terms = _normalize_terms(terms, N)
@@ -68,7 +69,7 @@ function LevelSetEquation(;
     # create buffers for the time-integrator
     nb = number_of_buffers(integrator)
     buffers = ntuple(_ -> deepcopy(state), nb)
-    return LevelSetEquation(terms, integrator, state, t, reinit_freq, buffers)
+    return LevelSetEquation(terms, integrator, state, t, reinit, buffers)
 end
 
 function _normalize_terms(terms, dim)
@@ -132,7 +133,7 @@ time_integrator(ls) = ls.integrator
 terms(ls) = ls.terms
 boundary_conditions(ls) = boundary_conditions(ls.state)
 mesh(ls::LevelSetEquation) = mesh(ls.state)
-reinit_freq(ls::LevelSetEquation) = ls.reinit_freq
+reinitializer(ls::LevelSetEquation) = ls.reinit
 
 """
     integrate!(ls::LevelSetEquation,tf,Δt=Inf)
@@ -155,10 +156,10 @@ function integrate!(ls::LevelSetEquation, tf, Δt = Inf)
     ϕ = current_state(ls)
     buf = buffers(ls)
     integrator = time_integrator(ls)
-    rfreq = reinit_freq(ls)
+    reinit = reinitializer(ls)
     # dynamic dispatch. Should not be a problem provided enough computation is
     # done inside of the function below
-    out = _integrate!(ϕ, buf, integrator, ls.terms, rfreq, tc, tf, Δt)
+    out = _integrate!(ϕ, buf, integrator, ls.terms, reinit, tc, tf, Δt)
     ls.t = tf
     # a copy may be needed if the last buffer is not the state
     out === ϕ || copy!(values(ϕ), values(out))
@@ -167,12 +168,14 @@ end
 
 number_of_buffers(fe::ForwardEuler) = 1
 
-@noinline function _integrate!(ϕ, buffers, integrator::ForwardEuler, terms, rfreq, tc, tf, Δt_max)
+@noinline function _integrate!(ϕ, buffers, integrator::ForwardEuler, terms, reinit, tc, tf, Δt_max)
     buffer = buffers[1]
     α = cfl(integrator)
     nsteps = 0
     while tc <= tf - eps(tc)
-        !isnothing(rfreq) && mod(nsteps, rfreq) == 0 && reinitialize!(ϕ)
+        if !isnothing(reinit) && mod(nsteps, reinit.reinit_freq) == 0
+            reinitialize!(ϕ, reinit)
+        end
         # update terms and compute an appropriate time-step
         _update_terms!(terms, ϕ, tc)
         Δt_cfl = α * compute_cfl(terms, ϕ, tc)
@@ -192,14 +195,16 @@ end
 
 number_of_buffers(fe::RK2) = 2
 
-function _integrate!(ϕ::LevelSet, buffers, integrator::RK2, terms, rfreq, tc, tf, Δt_max)
+function _integrate!(ϕ::LevelSet, buffers, integrator::RK2, terms, reinit, tc, tf, Δt_max)
     # Heun's method
     α = cfl(integrator)
     buffer1, buffer2 = buffers[1], buffers[2]
     nsteps = 0
     while tc <= tf - eps(tc)
         # handle reinitialization
-        !isnothing(rfreq) && mod(nsteps, rfreq) == 0 && reinitialize!(ϕ)
+        if !isnothing(reinit) && mod(nsteps, reinit.reinit_freq) == 0
+            reinitialize!(ϕ, reinit)
+        end
 
         # update terms and compute an appropriate time-step
         _update_terms!(terms, ϕ, tc)
@@ -227,12 +232,14 @@ end
 
 number_of_buffers(fe::RK3) = 2
 
-function _integrate!(ϕ::LevelSet, buffers, integrator::RK3, terms, rfreq, tc, tf, Δt_max)
+function _integrate!(ϕ::LevelSet, buffers, integrator::RK3, terms, reinit, tc, tf, Δt_max)
     buffer1, buffer2 = buffers
     α = cfl(integrator)
     nsteps = 0
     while tc <= tf - eps(tc)
-        !isnothing(rfreq) && mod(nsteps, rfreq) == 0 && reinitialize!(ϕ)
+        if !isnothing(reinit) && mod(nsteps, reinit.reinit_freq) == 0
+            reinitialize!(ϕ, reinit)
+        end
         # update terms and compute an appropriate time-step
         _update_terms!(terms, ϕ, tc)
         Δt_cfl = α * compute_cfl(terms, ϕ, tc)
