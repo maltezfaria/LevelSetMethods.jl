@@ -17,8 +17,9 @@ import LevelSetMethods as LSM
     )
     @test abs(LSM.volume(ϕ) - π / 4) < 1.0e-2
 
+    reinit = LSM.Reinitializer()
     # check that we recover a signed distance function
-    LSM.reinitialize!(eq; upsample = 4, maxiters = 20, xtol = 1.0e-10, ftol = 1.0e-10)
+    LSM.reinitialize!(ϕ, reinit)
     max_er, max_idx = findmax(eachindex(grid)) do i
         x = grid[i]
         norm(ϕ[i] - sdf(x))

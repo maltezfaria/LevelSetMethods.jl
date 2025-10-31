@@ -10,7 +10,6 @@ Here is an example of how to construct such an interpolant:
 
 ```@example interpolations
 using LevelSetMethods, Interpolations
-LevelSetMethods.set_makie_theme!()
 a, b = (-2, -2), (2, 2)
 ϕ   = LevelSetMethods.star(CartesianGrid(a, b, (50, 50)))
 itp = interpolate(ϕ, BSpline(Cubic())) # create the interpolant
@@ -27,6 +26,7 @@ This can be used e.g. to plot the level-set function using `Makie`:
 
 ```@example interpolations
 using GLMakie
+LevelSetMethods.set_makie_theme!()
 xx = yy = -2:0.01:2
 contour(xx, yy, [itp(x,y) for x in xx, y in yy]; levels = [0], linewidth = 2)
 ```

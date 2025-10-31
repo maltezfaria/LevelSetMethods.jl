@@ -11,3 +11,13 @@ Base.@kwdef struct Reinitializer
     ftol::Float64 = 1.0e-8
     reinit_freq::Int = 1
 end
+
+function Base.show(io::IO, ::MIME"text/plain", r::Reinitializer)
+    println(io, "Reinitializer")
+    println(io, "  ├─ upsample: $(r.upsample)")
+    println(io, "  ├─ maxiters: $(r.maxiters)")
+    println(io, "  ├─ xtol: $(r.xtol)")
+    println(io, "  ├─ ftol: $(r.ftol)")
+    print(io, "  ╰─ reinit_freq: $(r.reinit_freq)")
+    return io
+end

@@ -6,9 +6,11 @@ A typical term in a level-set evolution equation.
 abstract type LevelSetTerm end
 
 function compute_cfl(terms, ϕ, t)
-    return minimum(terms) do term
+    Δt = minimum(terms) do term
         return _compute_cfl(term, ϕ, t)
     end
+    @assert Δt > 0 "invalid time-step based on CFL condition: Δt = $Δt"
+    return Δt
 end
 
 # generic method, loops over indices

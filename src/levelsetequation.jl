@@ -195,7 +195,7 @@ end
 
 number_of_buffers(fe::RK2) = 2
 
-function _integrate!(ϕ::LevelSet, buffers, integrator::RK2, terms, reinit, tc, tf, Δt_max)
+@noinline function _integrate!(ϕ::LevelSet, buffers, integrator::RK2, terms, reinit, tc, tf, Δt_max)
     # Heun's method
     α = cfl(integrator)
     buffer1, buffer2 = buffers[1], buffers[2]
