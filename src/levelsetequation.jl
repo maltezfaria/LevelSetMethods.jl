@@ -310,7 +310,7 @@ function _fill_advection_velocity_components!(out, term::AdvectionTerm{V}, ϕ, t
         for I in eachindex(ϕ)
             vI = vel[I]
             for dim in 1:N
-                out[dim][I] = _velocity_component(vI, dim, N)
+                out[dim][I] = vI[dim]
             end
         end
     elseif V <: Function
@@ -318,7 +318,7 @@ function _fill_advection_velocity_components!(out, term::AdvectionTerm{V}, ϕ, t
         for I in eachindex(ϕ)
             vI = vel(g[I], t)
             for dim in 1:N
-                out[dim][I] = _velocity_component(vI, dim, N)
+                out[dim][I] = vI[dim]
             end
         end
     else
