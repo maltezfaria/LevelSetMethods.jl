@@ -144,6 +144,34 @@ end
 fig
 ```
 
+As with `AdvectionTerm`, you can provide an update callback to mutate a mesh-based speed
+field before each stage of time integration:
+
+```@example normal-motion-term
+vfield = MeshField(x -> 0.0, grid)
+term = NormalMotionTerm(vfield, (v, ϕ, t) -> (values(v) .= 0.25 + 0.1 * t))
+term
+```
+
+In Stefan problems, the speed `v` may only be known near the interface
+`ϕ = 0`. You can extend that interface speed to a band around the interface using the
+[`extend_along_normals!`](@ref), and then pass it to `NormalMotionTerm`:
+
+```@example normal-motion-term
+ϕext = LevelSetMethods.star(grid)
+v = zeros(Float64, size(grid)...)
+Δ = minimum(LevelSetMethods.meshsize(grid))
+frozen = abs.(values(ϕext)) .<= 1.5Δ
+for I in CartesianIndices(v)
+    frozen[I] || continue
+    x = grid[I]
+    v[I] = 0.2 + 0.1 * cos(2π * atan(x[2], x[1]))
+end
+extend_along_normals!(v, ϕext; frozen, nb_iters = 80)
+term = NormalMotionTerm(MeshField(v, grid, nothing))
+term
+```
+
 ## [Curvature motion](@id curvature)
 
 This terms models the motion of the level-set in the normal direction with a velocity that

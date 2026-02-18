@@ -146,16 +146,29 @@ function _compute_cfl(term::CurvatureTerm, ϕ, I, t)
 end
 
 """
-    struct NormalMotionTerm{V,M} <: LevelSetTerm
+    struct NormalMotionTerm{V,F} <: LevelSetTerm
 
 Level-set advection term representing  `v |∇ϕ|`. This `LevelSetTerm` should be
 used for internally generated velocity fields; for externally generated velocities you may
 use `AdvectionTerm` instead.
+
+If passed, `update_func` will be called as `update_func(v, ϕ, t)` before computing the term
+at each stage of the time evolution.
 """
-@kwdef struct NormalMotionTerm{V} <: LevelSetTerm
+@kwdef struct NormalMotionTerm{V, F} <: LevelSetTerm
     speed::V
+    update_func::F = (x...) -> nothing
 end
 speed(adv::NormalMotionTerm) = adv.speed
+update_func(term::NormalMotionTerm) = term.update_func
+
+NormalMotionTerm(v) = NormalMotionTerm(v, (x...) -> nothing)
+
+function update_term!(term::NormalMotionTerm, ϕ, t)
+    v = speed(term)
+    f = update_func(term)
+    return f(v, ϕ, t)
+end
 
 Base.show(io::IO, t::NormalMotionTerm) = print(io, "v|∇ϕ|")
 
