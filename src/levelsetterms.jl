@@ -63,7 +63,7 @@ Base.show(io::IO, t::AdvectionTerm) = print(io, "𝐮 ⋅ ∇ ϕ")
     # for dimension dim, compute the upwind derivative and multiply by the
     # velocity
     return sum(1:N) do dim
-        v = 𝐮[dim]
+        v = _velocity_component(𝐮, dim, N)
         if v > 0
             if sch === Upwind()
                 return v * D⁻(ϕ, I, dim)
@@ -95,8 +95,20 @@ function _compute_cfl(term::AdvectionTerm{V}, ϕ, I, t) where {V}
         error("velocity field type $V not supported")
     end
     Δx = meshsize(ϕ)
+    if 𝐮 isa Real
+        dimension(ϕ) == 1 ||
+            error("scalar advection velocity is only supported for one-dimensional fields")
+        return 1 / (abs(𝐮) / Δx[1])
+    end
     return 1 / maximum(abs.(𝐮) ./ Δx)
 end
+
+@inline function _velocity_component(𝐮::Real, dim, N)
+    N == 1 || error("scalar advection velocity is only supported for one-dimensional fields")
+    dim == 1 || error("invalid advection dimension $dim for scalar velocity")
+    return 𝐮
+end
+@inline _velocity_component(𝐮, dim, N) = 𝐮[dim]
 
 """
     struct CurvatureTerm{V,M} <: LevelSetTerm

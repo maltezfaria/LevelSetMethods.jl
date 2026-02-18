@@ -261,6 +261,230 @@ function _integrate!(ϕ::LevelSet, buffers, integrator::RK3, terms, rfreq, tc, t
     return ϕ
 end
 
+number_of_buffers(::SemiImplicitI2OE) = 1
+
+function _integrate!(ϕ::LevelSet, buffers, integrator::SemiImplicitI2OE, terms, rfreq, tc, tf, Δt_max)
+    _validate_i2oe_setup(ϕ, terms)
+    term = only(terms)
+    vals = values(ϕ)
+    old_vals = values(buffers[1])
+    T = float(eltype(vals))
+    N = dimension(ϕ)
+    velocity_components = ntuple(_ -> zeros(T, size(vals)), N)
+
+    α = cfl(integrator)
+    nsteps = 0
+    while tc <= tf - eps(tc)
+        !isnothing(rfreq) && mod(nsteps, rfreq) == 0 && reinitialize!(ϕ)
+        _update_terms!(terms, ϕ, tc)
+        Δt_cfl = α * compute_cfl(terms, ϕ, tc)
+        Δt = min(Δt_max, Δt_cfl, tf - tc)
+
+        copy!(old_vals, vals)
+        _fill_advection_velocity_components!(velocity_components, term, ϕ, tc)
+        _i2oe_global_step!(vals, old_vals, velocity_components, ϕ, Δt)
+
+        tc += Δt
+        nsteps += 1
+        @debug tc, Δt
+    end
+    return ϕ
+end
+
+function _validate_i2oe_setup(ϕ::LevelSet, terms)
+    length(terms) == 1 && first(terms) isa AdvectionTerm || throw(
+        ArgumentError("SemiImplicitI2OE requires exactly one AdvectionTerm"),
+    )
+    all(size(values(ϕ)) .>= 3) || throw(
+        ArgumentError("SemiImplicitI2OE requires at least 3 grid nodes along each dimension"),
+    )
+    return nothing
+end
+
+function _fill_advection_velocity_components!(out, term::AdvectionTerm{V}, ϕ, t) where {V}
+    vel = velocity(term)
+    N = dimension(ϕ)
+    if V <: MeshField
+        mesh(vel) == mesh(ϕ) ||
+            throw(ArgumentError("advection velocity field must be defined on the same mesh"))
+        for I in eachindex(ϕ)
+            vI = vel[I]
+            for dim in 1:N
+                out[dim][I] = _velocity_component(vI, dim, N)
+            end
+        end
+    elseif V <: Function
+        g = mesh(ϕ)
+        for I in eachindex(ϕ)
+            vI = vel(g[I], t)
+            for dim in 1:N
+                out[dim][I] = _velocity_component(vI, dim, N)
+            end
+        end
+    else
+        error("velocity field type $V not supported")
+    end
+    return out
+end
+
+function _i2oe_global_step!(vals, old_vals, velocity_components, ϕ, Δt)
+    # Coupled I2OE update: solve one global sparse system built from all neighbors.
+    T = eltype(vals)
+    Δ = meshsize(ϕ)
+    N = dimension(ϕ)
+    mₚ = prod(Δ)
+    fac = T(Δt / (2 * mₚ))
+    bcs = boundary_conditions(ϕ)
+    grid = mesh(ϕ)
+    LI = LinearIndices(vals)
+    nb_nodes = length(vals)
+    rows = Int[]
+    cols = Int[]
+    coeffs = T[]
+    rhs = zeros(T, nb_nodes)
+    sizehint!(rows, nb_nodes * (2N + 1))
+    sizehint!(cols, nb_nodes * (2N + 1))
+    sizehint!(coeffs, nb_nodes * (2N + 1))
+
+    for I in eachindex(ϕ)
+        row = LI[I]
+        uold_p = old_vals[I]
+        diag = one(T)
+        rhsp = uold_p
+        for dim in 1:N
+            area = _i2oe_face_measure(Δ, dim)
+            rel_m = _i2oe_neighbor_relation(I, dim, -1, vals, bcs, grid)
+            rel_p = _i2oe_neighbor_relation(I, dim, +1, vals, bcs, grid)
+
+            vface_m = _i2oe_face_velocity(velocity_components[dim], I, rel_m, dim)
+            vface_p = _i2oe_face_velocity(velocity_components[dim], I, rel_p, dim)
+
+            a_m = area * vface_m
+            a_p = -area * vface_p
+            diag, rhsp = _i2oe_add_side_contrib!(
+                rows,
+                cols,
+                coeffs,
+                LI,
+                old_vals,
+                row,
+                rel_m,
+                a_m,
+                fac,
+                diag,
+                rhsp,
+                uold_p,
+            )
+            diag, rhsp = _i2oe_add_side_contrib!(
+                rows,
+                cols,
+                coeffs,
+                LI,
+                old_vals,
+                row,
+                rel_p,
+                a_p,
+                fac,
+                diag,
+                rhsp,
+                uold_p,
+            )
+        end
+        push!(rows, row)
+        push!(cols, row)
+        push!(coeffs, diag)
+        rhs[row] = rhsp
+    end
+
+    A = sparse(rows, cols, coeffs, nb_nodes, nb_nodes)
+    copy!(vals, reshape(A \ rhs, size(vals)))
+    return vals
+end
+
+function _i2oe_add_side_contrib!(
+        rows,
+        cols,
+        coeffs,
+        LI,
+        old_vals,
+        row,
+        rel,
+        a,
+        fac,
+        diag,
+        rhsp,
+        uold_p,
+    )
+    ain = max(a, zero(a))
+    aout = min(a, zero(a))
+
+    α, β, idx, γ = rel
+    if ain != 0
+        diag += fac * ain * (1 - α)
+        if β != 0
+            push!(rows, row)
+            push!(cols, LI[idx])
+            push!(coeffs, -fac * ain * β)
+        end
+        rhsp += fac * ain * γ
+    end
+
+    if aout != 0
+        uold_q = _i2oe_neighbor_value(old_vals, uold_p, rel)
+        rhsp -= fac * aout * (uold_p - uold_q)
+    end
+    return diag, rhsp
+end
+
+function _i2oe_neighbor_value(old_vals, uold_p, rel)
+    α, β, idx, γ = rel
+    uold_idx = isnothing(idx) ? zero(uold_p) : old_vals[idx]
+    return α * uold_p + β * uold_idx + γ
+end
+
+function _i2oe_neighbor_relation(I, dim, side, vals, bcs, grid)
+    T = float(eltype(vals))
+    ax = axes(vals, dim)
+    Ioff = side < 0 ? _decrement_index(I, dim) : _increment_index(I, dim)
+    if Ioff[dim] in ax
+        return (zero(T), one(T), Ioff, zero(T))
+    end
+
+    bc = side < 0 ? bcs[dim][1] : bcs[dim][2]
+    if bc isa PeriodicBC
+        Iq = _wrap_index_periodic(Ioff, ax, dim)
+        return (zero(T), one(T), Iq, zero(T))
+    elseif bc isa NeumannBC
+        Iq = _wrap_index_neumann(Ioff, ax, dim)
+        return (zero(T), one(T), Iq, zero(T))
+    elseif bc isa NeumannGradientBC
+        Ion, Iin, dist = _wrap_index_neumann_gradient(Ioff, ax, dim)
+        Ion == I || throw(
+            ArgumentError("SemiImplicitI2OE expected nearest ghost cell for NeumannGradientBC"),
+        )
+        return (one(T) + T(dist), -T(dist), Iin, zero(T))
+    elseif bc isa DirichletBC
+        xghost = _getindex(grid, Ioff)
+        return (zero(T), zero(T), nothing, T(bc.f(xghost)))
+    else
+        error("boundary condition $bc is not supported by SemiImplicitI2OE")
+    end
+end
+
+function _i2oe_face_velocity(velcomp, I, rel, dim)
+    α, β, idx, _ = rel
+    if isnothing(idx) || α != 0 || β != 1
+        return velcomp[I]
+    end
+    return 0.5 * (velcomp[I] + velcomp[idx])
+end
+
+function _i2oe_face_measure(Δ, dim)
+    N = length(Δ)
+    N == 1 && return one(eltype(Δ))
+    return prod(Δ[d] for d in 1:N if d != dim)
+end
+
 function _compute_terms(terms, ϕ, I, t)
     return sum(terms) do term
         return _compute_term(term, ϕ, I, t)
