@@ -38,10 +38,6 @@ cfl(rk3::RK3) = rk3.cfl
 
 Semi-implicit finite-volume scheme of the I2OE family (Mikula et al.) for
 advection problems.
-
-The implementation uses directional sweeps and currently supports level-set
-equations with a single [`AdvectionTerm`](@ref) in any spatial dimension and
-all built-in boundary conditions.
 """
 @kwdef struct SemiImplicitI2OE <: TimeIntegrator
     cfl::Float64 = 2.0
