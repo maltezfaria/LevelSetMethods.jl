@@ -100,3 +100,82 @@ end
     )
     @test_throws ArgumentError integrate!(eq_small, 0.1)
 end
+
+@testset "SemiImplicitI2OE tolerates larger timesteps than explicit FE" begin
+    grid = CartesianGrid((0.0,), (1.0,), (401,))
+    ϕ0 = LevelSet(grid) do (x,)
+        sin(2π * x) + 0.2 * cos(4π * x)
+    end
+    vel = MeshField(x -> SVector(1.0), grid)
+    tf = 0.5
+
+    eq_semi = LevelSetEquation(;
+        terms = (AdvectionTerm(vel, Upwind()),),
+        integrator = SemiImplicitI2OE(cfl = 2.0),
+        levelset = deepcopy(ϕ0),
+        bc = PeriodicBC(),
+    )
+    eq_explicit = LevelSetEquation(;
+        terms = (AdvectionTerm(vel, Upwind()),),
+        integrator = ForwardEuler(cfl = 2.0),
+        levelset = deepcopy(ϕ0),
+        bc = PeriodicBC(),
+    )
+
+    # Same high CFL for both methods; semi-implicit remains stable while FE becomes unstable/inaccurate.
+    integrate!(eq_semi, tf)
+    integrate!(eq_explicit, tf)
+
+    ϕ_ref = LevelSet(grid) do (x,)
+        xshift = mod(x - tf, 1.0)
+        sin(2π * xshift) + 0.2 * cos(4π * xshift)
+    end
+    vals_ref = values(ϕ_ref)
+    vals_semi = values(LevelSetMethods.current_state(eq_semi))
+    vals_explicit = values(LevelSetMethods.current_state(eq_explicit))
+
+    err_semi = maximum(abs.(vals_semi .- vals_ref))
+    err_explicit = maximum(abs.(vals_explicit .- vals_ref))
+    @test err_semi < 0.2
+    @test !all(isfinite, vals_explicit) || err_explicit > 0.5
+end
+
+@testset "SemiImplicitI2OE outperforms explicit FE at high CFL in 2D" begin
+    grid = CartesianGrid((0.0, 0.0), (1.0, 1.0), (121, 121))
+    ϕ0 = LevelSet(grid) do (x, y)
+        sin(2π * x) + 0.25 * cos(4π * y)
+    end
+    vel = MeshField(x -> SVector(0.9, -0.55), grid)
+    tf = 0.25
+    cfl_high = 4.0
+
+    eq_semi = LevelSetEquation(;
+        terms = (AdvectionTerm(vel, Upwind()),),
+        integrator = SemiImplicitI2OE(cfl = cfl_high),
+        levelset = deepcopy(ϕ0),
+        bc = PeriodicBC(),
+    )
+    eq_explicit = LevelSetEquation(;
+        terms = (AdvectionTerm(vel, Upwind()),),
+        integrator = ForwardEuler(cfl = cfl_high),
+        levelset = deepcopy(ϕ0),
+        bc = PeriodicBC(),
+    )
+
+    integrate!(eq_semi, tf)
+    integrate!(eq_explicit, tf)
+
+    ϕ_ref = LevelSet(grid) do (x, y)
+        xshift = mod(x - 0.9 * tf, 1.0)
+        yshift = mod(y + 0.55 * tf, 1.0)
+        sin(2π * xshift) + 0.25 * cos(4π * yshift)
+    end
+    vals_ref = values(ϕ_ref)
+    vals_semi = values(LevelSetMethods.current_state(eq_semi))
+    vals_explicit = values(LevelSetMethods.current_state(eq_explicit))
+    err_semi = maximum(abs.(vals_semi .- vals_ref))
+    err_explicit = maximum(abs.(vals_explicit .- vals_ref))
+
+    @test err_semi < 0.05
+    @test err_explicit > 3 * err_semi
+end
