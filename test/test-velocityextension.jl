@@ -1,6 +1,5 @@
 using Test
 using LevelSetMethods
-using Statistics
 
 @testset "Normal Motion update hook" begin
     grid = CartesianGrid((-1.0, -1.0), (1.0, 1.0), (21, 21))
@@ -251,8 +250,10 @@ end
         push!(kinks, v[Ikink])
     end
 
-    @test mean(tips) < 0
-    @test mean(kinks) > 0
+    mean_tips = sum(tips) / length(tips)
+    mean_kinks = sum(kinks) / length(kinks)
+    @test mean_tips < 0
+    @test mean_kinks > 0
 
     # One short step with the extended velocity should reduce shape anisotropy.
     _radius_cv(ϕstate) = begin
@@ -265,7 +266,9 @@ end
                 push!(rs, sqrt(x[1]^2 + x[2]^2))
             end
         end
-        return std(rs) / mean(rs)
+        mean_rs = sum(rs) / length(rs)
+        std_rs = sqrt(sum((r - mean_rs)^2 for r in rs) / length(rs))
+        return std_rs / mean_rs
     end
     cv0 = _radius_cv(ϕb)
     term = NormalMotionTerm(MeshField(v, grid, nothing))
