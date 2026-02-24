@@ -8,6 +8,7 @@ include("boundaryconditions.jl")
 include("meshfield.jl")
 include("levelset.jl")
 include("derivatives.jl")
+include("velocityextension.jl")
 include("levelsetterms.jl")
 include("timestepping.jl")
 include("levelsetequation.jl")
@@ -22,6 +23,7 @@ export CartesianGrid,
     AdvectionTerm,
     CurvatureTerm,
     NormalMotionTerm,
+    extend_along_normals!,
     ReinitializationTerm,
     ForwardEuler,
     RK2,
