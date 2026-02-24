@@ -46,6 +46,6 @@ makedocs(;
     plugins = [bib],
 )
 
-deploydocs(; repo = "github.com/maltezfaria/LevelSetMethods.jl", push_preview = true)
+deploydocs(; repo = "github.com/maltezfaria/LevelSetMethods.jl", devbranch = "main", push_preview = true)
 
 GLMakie.closeall()
