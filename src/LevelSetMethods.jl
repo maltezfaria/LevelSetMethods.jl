@@ -12,6 +12,7 @@ include("derivatives.jl")
 include("velocityextension.jl")
 include("levelsetterms.jl")
 include("timestepping.jl")
+include("reinitializer.jl")
 include("levelsetequation.jl")
 
 export CartesianGrid,
@@ -33,6 +34,7 @@ export CartesianGrid,
     Upwind,
     WENO5,
     LevelSetEquation,
+    Reinitializer,
     integrate!,
     current_time,
     reinitialize!
@@ -55,7 +57,7 @@ function export_volume_mesh end
 function export_surface_mesh end
 
 """
-    reinitialize!(ϕ::LevelSet; upsample=2, maxiters=10, xtol=1e-8)
+    reinitialize!(ϕ::LevelSet, reinitializer = Reinitializer())
 
 Reinitializes the level set `ϕ` to a signed distance, modifying it in place.
 
@@ -68,25 +70,18 @@ for more details.
 ## Arguments
 
   - `ϕ`: The level set to reinitialize.
-
-## Keyword Arguments
-
-  - `upsample`: number of samples to take in each cell when sampling the interface.
-    Higher values yield better initial guesses for the closest point search, but increase
-    the computational cost.
-  - `maxiters`: maximum number of iterations to use in the Newton's method
-    to find the closest point on the interface.
-  - `xtol`: convergence tolerance for the Newton's method. The iterations stop when
-    the change in position is less than `xtol`.
+  - `reinitializer`: Configuration for the reinitialization. Defaults to `Reinitializer()`.
+    See [`Reinitializer`](@ref) for details.
 
 !!! note
     This functionality is provided by the `ReinitializationExt` module, which
     requires loading `Interpolations.jl` and `NearestNeighbors.jl`.
 """
-function reinitialize! end
+function reinitialize!(ϕ, reinitializer)
+    error("Reinitialization extension not loaded. Please load the ReinitializationExt module to use this functionality.")
+end
 
 # tomatoes tomatos ...
 reinitialise!(args...; kwargs...) = reinitialize!(args...; kwargs...)
-
 
 end # module
