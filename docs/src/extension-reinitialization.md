@@ -10,7 +10,7 @@ After loading the required dependencies for this extension (`Interpolations` and
 `NearestNeighbors`), simply call `reinitialize!` on a `LevelSet` or a `LevelSetEquation` to
 reinitialize the level set function in-place:
 
-```julia
+```@example reinit
 using LevelSetMethods
 using GLMakie
 using NearestNeighbors
@@ -37,7 +37,7 @@ fig
 
 You can easily check that the reinitialized level set function is indeed a signed distance:
 
-```julia
+```@example reinit
 max_er = maximum(eachindex(grid)) do i
   abs(ϕ[i] - sdf[i])
 end
