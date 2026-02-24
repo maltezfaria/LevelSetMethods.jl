@@ -1,6 +1,7 @@
 module LevelSetMethods
 
 using LinearAlgebra
+using SparseArrays
 using StaticArrays
 
 include("meshes.jl")
@@ -28,6 +29,7 @@ export CartesianGrid,
     ForwardEuler,
     RK2,
     RK3,
+    SemiImplicitI2OE,
     Upwind,
     WENO5,
     LevelSetEquation,
