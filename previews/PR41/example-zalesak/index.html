@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Zalesak disk · LevelSetMethods.jl</title><meta name="title" content="Zalesak disk · LevelSetMethods.jl"/><meta property="og:title" content="Zalesak disk · LevelSetMethods.jl"/><meta property="twitter:title" content="Zalesak disk · LevelSetMethods.jl"/><meta name="description" content="Documentation for LevelSetMethods.jl."/><meta property="og:description" content="Documentation for LevelSetMethods.jl."/><meta property="twitter:description" content="Documentation for LevelSetMethods.jl."/><meta property="og:url" content="https://maltezfaria.github.io/LevelSetMethods.jl/example-zalesak/"/><meta property="twitter:url" content="https://maltezfaria.github.io/LevelSetMethods.jl/example-zalesak/"/><link rel="canonical" href="https://maltezfaria.github.io/LevelSetMethods.jl/example-zalesak/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">LevelSetMethods.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../terms/">Level-set terms</a></li><li><a class="tocitem" href="../time-integrators/">Time integration</a></li><li><a class="tocitem" href="../boundary-conditions/">Boundary conditions</a></li><li><span class="tocitem">Extensions</span><ul><li><a class="tocitem" href="../extension-makie/">Makie extension</a></li><li><a class="tocitem" href="../extension-mmg/">MMG extension</a></li></ul></li><li><span class="tocitem">Examples</span><ul><li class="is-active"><a class="tocitem" href>Zalesak disk</a><ul class="internal"><li><a class="tocitem" href="#Setting-up-the-Grid-and-Disk"><span>Setting up the Grid and Disk</span></a></li><li><a class="tocitem" href="#Setting-Up-the-Level-Set-Equation"><span>Setting Up the Level Set Equation</span></a></li><li><a class="tocitem" href="#Evolving-the-Zalesak-Disk"><span>Evolving the Zalesak Disk</span></a></li><li><a class="tocitem" href="#Three-dimensional-Zalesak-Disk"><span>Three-dimensional Zalesak Disk</span></a></li></ul></li><li><a class="tocitem" href="../example-shape-optim/">Shape optimization: a primer</a></li></ul></li><li><a class="tocitem" href="../95-reference/">Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li class="is-active"><a href>Zalesak disk</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Zalesak disk</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/maltezfaria/LevelSetMethods.jl/blob/main/docs/src/example-zalesak.md#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="zalesak"><a class="docs-heading-anchor" href="#zalesak">Zalesak disk</a><a id="zalesak-1"></a><a class="docs-heading-anchor-permalink" href="#zalesak" title="Permalink"></a></h1><p>This example demonstrates the setup and simulation of a Zalesak disk, a standard benchmark in computational fluid dynamics, using the <code>LevelSetMethods.jl</code>.</p><h2 id="Setting-up-the-Grid-and-Disk"><a class="docs-heading-anchor" href="#Setting-up-the-Grid-and-Disk">Setting up the Grid and Disk</a><a id="Setting-up-the-Grid-and-Disk-1"></a><a class="docs-heading-anchor-permalink" href="#Setting-up-the-Grid-and-Disk" title="Permalink"></a></h2><p>First, we create a Cartesian grid to represent the computational domain. We define a circular disk with a rectangular cut to form the Zalesak disk.</p><pre><code class="language-julia hljs"># Define the computational grid
+grid = CartesianGrid((-1.5, -1.5), (1.5, 1.5), (100, 100))
+# Define the center and radius of the circular disk
+center = (-0.75, 0)
+radius = 0.5
+# Define the height and width of the rectangular notch
+h = 1.0
+w = 0.2
+# Create the circular disk and rectangular notch
+disk = LevelSetMethods.circle(grid; center, radius)
+rec = LevelSetMethods.rectangle(grid; center = center .- (0, radius), width = (w, h))
+# Use set difference to carve out the notch in the disk
+ϕ = setdiff(disk, rec)
+plot(ϕ)</code></pre><img src="afb74955.png" alt="Example block output"/><h2 id="Setting-Up-the-Level-Set-Equation"><a class="docs-heading-anchor" href="#Setting-Up-the-Level-Set-Equation">Setting Up the Level Set Equation</a><a id="Setting-Up-the-Level-Set-Equation-1"></a><a class="docs-heading-anchor-permalink" href="#Setting-Up-the-Level-Set-Equation" title="Permalink"></a></h2><p>We use the level set method to evolve the disk over time with a velocity field that simulates rotation:</p><pre><code class="language-julia hljs"># Define the advection equation with a rotational velocity field
+eq = LevelSetEquation(;
+    levelset = ϕ,
+    terms = AdvectionTerm((x, t) -&gt; (-x[2], x[1])),
+    bc = NeumannBC(),
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Level-set equation given by
+
+ 	 ϕₜ + 𝐮 ⋅ ∇ ϕ = 0
+
+Current time 0.0</code></pre><h2 id="Evolving-the-Zalesak-Disk"><a class="docs-heading-anchor" href="#Evolving-the-Zalesak-Disk">Evolving the Zalesak Disk</a><a id="Evolving-the-Zalesak-Disk-1"></a><a class="docs-heading-anchor-permalink" href="#Evolving-the-Zalesak-Disk" title="Permalink"></a></h2><p>To evolve the Zalesak disk, we integrate the level set equation over time. We will visualize the evolution using <code>GLMakie</code>:</p><pre><code class="language-julia hljs">obs = Observable(eq)
+fig = Figure()
+ax = Axis(fig[1, 1])
+plot!(ax, obs)
+framerate = 30
+t0 = current_time(eq)
+tf = 2*π
+timestamps = range(t0, tf; step = 1 / framerate)
+record(fig, joinpath(@__DIR__, &quot;zalesak2d.gif&quot;), timestamps) do t_
+    integrate!(eq, t_)
+    return obs[] = eq
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">&quot;/home/runner/work/LevelSetMethods.jl/LevelSetMethods.jl/docs/build/zalesak2d.gif&quot;</code></pre><p><img src="../zalesak2d.gif" alt="Zalesak 2D"/></p><p>We see some small smearing of the disk due to numerical diffusion; this is a common issue, and the situation would be much worse with a low-order upwind scheme.</p><h2 id="Three-dimensional-Zalesak-Disk"><a class="docs-heading-anchor" href="#Three-dimensional-Zalesak-Disk">Three-dimensional Zalesak Disk</a><a id="Three-dimensional-Zalesak-Disk-1"></a><a class="docs-heading-anchor-permalink" href="#Three-dimensional-Zalesak-Disk" title="Permalink"></a></h2><p>The same example can be run in 3D, but the solution takes longer to compute and visualize.</p><div class="admonition is-warning"><header class="admonition-header">Performance Warning</header><div class="admonition-body"><p>The 3D example below may take a minute or two to run.</p></div></div><pre><code class="language-julia hljs"># 3D Zalesak&#39;s sphere example
+grid = CartesianGrid((-1, -1, -1), (1, 1, 1), (50, 50, 50))
+center = (-1 / 3, 0, 0)
+radius = 0.5
+disk = LevelSetMethods.sphere(grid; center, radius)
+rec = LevelSetMethods.rectangle(
+    grid;
+    center = center .+ (0, radius, 0),
+    width = (1 / 3, 1.0, 2),
+)
+ϕ = setdiff(disk, rec)
+eq = LevelSetEquation(;
+    levelset = ϕ,
+    terms = AdvectionTerm((x, t) -&gt; π * SVector(x[2], -x[1], 0)),
+    bc = NeumannBC(),
+)
+LevelSetMethods.set_makie_theme!()
+eq.t = 0
+obs = Observable(eq)
+fig = Figure()
+ax = Axis3(fig[1, 1])
+plot!(ax, obs)
+framerate = 30
+tf = 2
+timestamps = range(0, tf, tf * framerate)
+record(fig, joinpath(@__DIR__, &quot;zalesak3d.gif&quot;), timestamps) do t_
+    integrate!(eq, t_)
+    return obs[] = eq
+end</code></pre><p><img src="../zalesak3d.gif" alt="Zalesak 3D"/></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../extension-mmg/">« MMG extension</a><a class="docs-footer-nextpage" href="../example-shape-optim/">Shape optimization: a primer »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.8.0 on <span class="colophon-date" title="Wednesday 13 November 2024 17:24">Wednesday 13 November 2024</span>. Using Julia version 1.11.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

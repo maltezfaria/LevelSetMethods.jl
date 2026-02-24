@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Shape optimization: a primer · LevelSetMethods.jl</title><meta name="title" content="Shape optimization: a primer · LevelSetMethods.jl"/><meta property="og:title" content="Shape optimization: a primer · LevelSetMethods.jl"/><meta property="twitter:title" content="Shape optimization: a primer · LevelSetMethods.jl"/><meta name="description" content="Documentation for LevelSetMethods.jl."/><meta property="og:description" content="Documentation for LevelSetMethods.jl."/><meta property="twitter:description" content="Documentation for LevelSetMethods.jl."/><meta property="og:url" content="https://maltezfaria.github.io/LevelSetMethods.jl/example-shape-optim/"/><meta property="twitter:url" content="https://maltezfaria.github.io/LevelSetMethods.jl/example-shape-optim/"/><link rel="canonical" href="https://maltezfaria.github.io/LevelSetMethods.jl/example-shape-optim/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">LevelSetMethods.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../terms/">Level-set terms</a></li><li><a class="tocitem" href="../time-integrators/">Time integration</a></li><li><a class="tocitem" href="../boundary-conditions/">Boundary conditions</a></li><li><span class="tocitem">Extensions</span><ul><li><a class="tocitem" href="../extension-makie/">Makie extension</a></li><li><a class="tocitem" href="../extension-mmg/">MMG extension</a></li></ul></li><li><span class="tocitem">Examples</span><ul><li><a class="tocitem" href="../example-zalesak/">Zalesak disk</a></li><li class="is-active"><a class="tocitem" href>Shape optimization: a primer</a><ul class="internal"><li><a class="tocitem" href="#Isoperimetric-inequality-as-a-shape-optimization-problem"><span>Isoperimetric inequality as a shape optimization problem</span></a></li><li><a class="tocitem" href="#Numerical-solution-using-the-level-set-method"><span>Numerical solution using the level-set method</span></a></li></ul></li></ul></li><li><a class="tocitem" href="../95-reference/">Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li class="is-active"><a href>Shape optimization: a primer</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Shape optimization: a primer</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/maltezfaria/LevelSetMethods.jl/blob/main/docs/src/example-shape-optim.md#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="example-shape-optim"><a class="docs-heading-anchor" href="#example-shape-optim">Shape optimization: a primer</a><a id="example-shape-optim-1"></a><a class="docs-heading-anchor-permalink" href="#example-shape-optim" title="Permalink"></a></h1><h2 id="Isoperimetric-inequality-as-a-shape-optimization-problem"><a class="docs-heading-anchor" href="#Isoperimetric-inequality-as-a-shape-optimization-problem">Isoperimetric inequality as a shape optimization problem</a><a id="Isoperimetric-inequality-as-a-shape-optimization-problem-1"></a><a class="docs-heading-anchor-permalink" href="#Isoperimetric-inequality-as-a-shape-optimization-problem" title="Permalink"></a></h2><p>We consider in this example the <em>isoperimetric inequality</em> which states that among all closed surfaces enclosing a fixed area with volume <span>$V_0 &gt; 0$</span>, the sphere is the one with minimal perimeter. We show here how to demonstrate this result through numerical optimization.</p><div class="admonition is-warning"><header class="admonition-header">Warning</header><div class="admonition-body"><p>This example is purely illustrative. The optimization method used here has not been extensively tested. Coupling the <a href="https://github.com/maltezfaria/LevelSetMethods.jl">LevelSetMethods</a> toolbox to any simulation package makes it possible to solve PDE-constrained optimization problems (see for instance [<a href="../#allaire2004structural">3</a>]).</p></div></div><p>To do this, we first define the problem mathematically:</p><p class="math-container">\[    \begin{array}{rl}
+        \displaystyle\min_{\Omega \subset \mathbb{R}^d} &amp; P(\Omega)
+        \\
+        \text{u.c.} &amp; V(\Omega) = V_0
+    \end{array},\qquad\text{(1)}\]</p><p>where <span>$P(\Omega), V(\Omega)$</span> are the perimeter and volume of <span>$\Omega$</span> defined by</p><p class="math-container">\[    V(\Omega) = \int_{\Omega} \:\text{d}\mathbf{x}
+    \quad\text{and}\quad
+    P(\Omega) = \int_{\partial \Omega} \:\text{d}\mathbf{s}
+    .\]</p><p>The optimization problem <span>$\text{(1)}$</span> can be solved using the augmented Lagrangian approach by minimizing iteratively the following functional:</p><p class="math-container">\[    f(\Omega) = P(\Omega) + \lambda (V(\Omega) - V_0) + \frac{\mu}{2} (V(\Omega) - V_0)^2
+    \qquad\text{(2)}\]</p><p>where <span>$\mu$</span> is a parameter updated during the course of the optimization. To minimize <span>$\text{(2)}$</span>, we use a gradient-based algorithm. For this, we need to define what a <em>small variation</em> of <span>$\Omega$</span> is. As such, for any shape <span>$\Omega \subset \mathbb{R}^d$</span> we define (following Hadamard method) its deformation <span>$\Omega_{\boldsymbol{\theta}}$</span> by a small vector field <span>$\boldsymbol{\theta} \in W^{1,\infty}(\mathbb{R}^d, \mathbb{R}^d)$</span> as:</p><p class="math-container">\[    \Omega_{\boldsymbol{\theta}}
+    = (\text{Id} + \boldsymbol{\theta})(\Omega)
+    = \{\mathbf{x} + \boldsymbol{\theta}(\mathbf{x}), \mathbf{x} \in \Omega\}.\]</p><p>The following first-order Taylor expansion can then be obtained:</p><p class="math-container">\[    f(\Omega_{\boldsymbol{\theta}})
+    =
+    f(\Omega)
+    +
+    \int_{\partial \Omega}
+    \left(
+        \kappa + (\lambda + \mu (V(\Omega) - V_0))
+    \right) \boldsymbol{\theta} \cdot \mathbf{n}
+    \:\text{d}\mathbf{s}
+    + o(\boldsymbol{\theta})
+    .\]</p><p>In other words, using <span>$\boldsymbol{\theta} = - (\kappa + (\lambda + \mu (V(\Omega) - V_0))) \mathbf{n}$</span> and a small enough coefficient <span>$\tau &gt; 0$</span>, <span>$f(\Omega_{\tau\boldsymbol{\theta}})$</span> is necessary smaller than <span>$f(\Omega)$</span>.</p><h2 id="Numerical-solution-using-the-level-set-method"><a class="docs-heading-anchor" href="#Numerical-solution-using-the-level-set-method">Numerical solution using the level-set method</a><a id="Numerical-solution-using-the-level-set-method-1"></a><a class="docs-heading-anchor-permalink" href="#Numerical-solution-using-the-level-set-method" title="Permalink"></a></h2><p>If <span>$\Omega$</span> is given by the level-set function <span>$\phi_0 : \R^d \to \R$</span> then one associated with <span>$\Omega_{\tau\boldsymbol{\theta}}$</span> is given by <span>$\phi(\cdot, \tau)$</span> solution of</p><p class="math-container">\[    \partial_t \phi - \kappa |\nabla \phi| - (\lambda + \mu (V(\Omega) - V_0)) |\nabla \phi| = 0\]</p><p>with <span>$\phi(\cdot, t = 0) = \phi_0$</span>. In practice, it is easier to deal with deformations of fixed amplitude <span>$s$</span>, i.e. <span>$\|\tau\mathbf{\theta}\|_{L^\infty} = \delta$</span>. The value of <span>$\tau$</span> is therefore set at each iteration as <span>$\tau = \delta/\|\mathbf{\theta}\|_{L^\infty}$</span>.</p><p>This optimization method is implemented in the following Julia code:</p><pre><code class="language-julia hljs">using LevelSetMethods
+using LinearAlgebra
+
+a = (-1.0, -1.0)
+b = (+1.0, +1.0)
+n = (50, 50)
+grid = CartesianGrid(a, b, n)
+
+ϕ = LevelSetMethods.star(grid)
+
+term1 = NormalMotionTerm(MeshField(X -&gt; 0.0, grid))
+term2 = CurvatureTerm(MeshField(X -&gt; -1.0, grid))
+terms = (term1, term2)
+
+bc = NeumannGradientBC()
+integrator = ForwardEuler(0.5)
+eq = LevelSetEquation(; terms, integrator, levelset = ϕ, t = 0, bc)
+
+using GLMakie
+
+nit = 200
+anim = with_theme(LevelSetMethods.makie_theme()) do
+    λ, μ = 0.0, 0.1
+    c = 1.1
+    V0 = 0.5
+    R0 = sqrt(V0/π)
+    P0 = 2π*R0
+    δ = 0.25
+
+    eq.t = 0
+    obs = Observable(eq)
+    fig = Figure()
+    ax = Axis(fig[1, 1])
+    plot!(ax, obs)
+    arc!([0; 0], R0, 0, 2π)
+
+    record(fig, joinpath(@__DIR__,&quot;optimization.gif&quot;), 1:nit) do it
+        P = LevelSetMethods.perimeter(ϕ)
+        V = LevelSetMethods.volume(ϕ)
+
+        term1 = NormalMotionTerm(MeshField(X -&gt; -(λ + μ * (V - V0)), grid))
+        eq.terms = (term1, term2)
+
+        τ = δ * LevelSetMethods.compute_cfl(eq.terms, eq.state, eq.t)
+        integrate!(eq, eq.t + τ)
+
+        λ += μ * (V - V0)
+        μ *= c
+        return obs[] = eq
+    end
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">&quot;/home/runner/work/LevelSetMethods.jl/LevelSetMethods.jl/docs/build/optimization.gif&quot;</code></pre><p><img src="../optimization.gif" alt="Optimization"/></p><p>Different values and updates for the <span>$\lambda$</span> and <span>$\mu$</span> coefficients can be used to control the extent to which the optimization focuses on minimizing the objective or satisfying the constraint. Taking a smaller time step can also limit the oscillations observed at the end of optimization.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../example-zalesak/">« Zalesak disk</a><a class="docs-footer-nextpage" href="../95-reference/">Reference »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.8.0 on <span class="colophon-date" title="Monday 18 November 2024 19:33">Monday 18 November 2024</span>. Using Julia version 1.11.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
