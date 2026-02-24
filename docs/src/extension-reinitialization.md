@@ -12,7 +12,7 @@ reinitialize the level set function in-place:
 
 ```julia
 using LevelSetMethods
-using CairoMakie
+using GLMakie
 using NearestNeighbors
 using Interpolations
 
