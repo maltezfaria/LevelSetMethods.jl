@@ -270,7 +270,16 @@ end
 
 number_of_buffers(::SemiImplicitI2OE) = 1
 
-function _integrate!(ϕ::LevelSet, buffers, integrator::SemiImplicitI2OE, terms, rfreq, tc, tf, Δt_max)
+function _integrate!(
+        ϕ::LevelSet,
+        buffers,
+        integrator::SemiImplicitI2OE,
+        terms,
+        reinit,
+        tc,
+        tf,
+        Δt_max,
+    )
     _validate_i2oe_setup(ϕ, terms)
     term = only(terms)
     vals = values(ϕ)
@@ -282,7 +291,9 @@ function _integrate!(ϕ::LevelSet, buffers, integrator::SemiImplicitI2OE, terms,
     α = cfl(integrator)
     nsteps = 0
     while tc <= tf - eps(tc)
-        !isnothing(rfreq) && mod(nsteps, rfreq) == 0 && reinitialize!(ϕ)
+        if !isnothing(reinit) && mod(nsteps, reinit.reinit_freq) == 0
+            reinitialize!(ϕ, reinit)
+        end
         _update_terms!(terms, ϕ, tc)
         Δt_cfl = α * compute_cfl(terms, ϕ, tc)
         Δt = min(Δt_max, Δt_cfl, tf - tc)

@@ -57,17 +57,27 @@ function LSM.reinitialize!(
 end
 
 function LSM.reinitialize!(eq::LSM.LevelSetEquation)
-    LSM.reinitialize!(LSM.current_state(eq), LSM.reinitializer(eq))
+    reinit = LSM.reinitializer(eq)
+    if isnothing(reinit)
+        LSM.reinitialize!(LSM.current_state(eq), LSM.Reinitializer())
+    else
+        LSM.reinitialize!(LSM.current_state(eq), reinit)
+    end
     return eq
 end
 
 function _sample_interface(grid, f, ∇f, upsample, maxiter, ftol, maxdist)
-    pts = Vector{SVector{LSM.dimension(grid), Float64}}()
+    N = LSM.dimension(grid)
+    pts = Vector{SVector{N, Float64}}()
+    ξ_ranges = ntuple(_ -> 0:upsample, N)
     for I in CartesianIndices(LSM.size(grid) .- 1)
         Ip = CartesianIndex(Tuple(I) .+ 1)
         lc, hc = grid[I], grid[Ip]
-        # Use an (upsample + 1) x (upsample + 1) grid in the cell, always including endpoints
-        samples = (lc .+ (hc .- lc) .* SVector(j, k) ./ upsample for j in 0:upsample, k in 0:upsample)
+        # Use an (upsample + 1)^N tensor-product grid in the cell, always including endpoints.
+        samples = (
+            lc .+ (hc .- lc) .* SVector{N, Float64}(Tuple(ξi)) ./ upsample for
+            ξi in Iterators.product(ξ_ranges...)
+        )
         s = samples |> first |> f |> sign
         any(x -> f(x) * s < 0, samples) || continue
         # Go over samples and push them to the interface
@@ -90,7 +100,7 @@ function _project_to_interface(f, ∇f, x0, maxiter, ftol, maxdist)
         x = x - δx
         norm(x - x0) > maxdist && (return nothing) # too far from starting point
     end
-    f(x) > ftol && (return nothing) # did not converge
+    abs(f(x)) > ftol && (return nothing) # did not converge
     return x
 end
 
