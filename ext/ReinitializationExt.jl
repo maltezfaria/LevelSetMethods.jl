@@ -76,7 +76,7 @@ function _sample_interface(grid, f, ∇f, upsample, maxiter, ftol, maxdist)
         # Use an (upsample + 1)^N tensor-product grid in the cell, always including endpoints.
         samples = (
             lc .+ (hc .- lc) .* SVector{N, Float64}(Tuple(ξi)) ./ upsample for
-            ξi in Iterators.product(ξ_ranges...)
+                ξi in Iterators.product(ξ_ranges...)
         )
         s = samples |> first |> f |> sign
         any(x -> f(x) * s < 0, samples) || continue

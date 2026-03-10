@@ -52,14 +52,14 @@ end
         reinit = LSM.Reinitializer(; reinit_freq = 2),
     )
 
-    @test _returns_true_or_false(() -> LSM.integrate!(eq, 1e-3, 1e-3))
+    @test _returns_true_or_false(() -> LSM.integrate!(eq, 1.0e-3, 1.0e-3))
 end
 
 @testset "3D Newton reinitialization should run and recover SDF" begin
     grid = LSM.CartesianGrid((-1.0, -1.0, -1.0), (1.0, 1.0, 1.0), (31, 31, 31))
     sdf(x) = sqrt(x[1]^2 + x[2]^2 + x[3]^2) - 0.45
     ϕ = LSM.LevelSet(x -> (x[1]^2 + x[2]^2 + x[3]^2) - 0.45^2, grid)
-    reinit = LSM.Reinitializer(; upsample = 4, maxiters = 20, xtol = 1e-8, ftol = 1e-8)
+    reinit = LSM.Reinitializer(; upsample = 4, maxiters = 20, xtol = 1.0e-8, ftol = 1.0e-8)
 
     @test _returns_true_or_false(() -> LSM.reinitialize!(ϕ, reinit))
 
@@ -67,5 +67,5 @@ end
         x = grid[i]
         abs(ϕ[i] - sdf(x))
     end
-    @test max_er < 5e-3
+    @test max_er < 5.0e-3
 end
