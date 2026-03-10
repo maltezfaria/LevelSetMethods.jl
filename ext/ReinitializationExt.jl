@@ -58,11 +58,8 @@ end
 
 function LSM.reinitialize!(eq::LSM.LevelSetEquation)
     reinit = LSM.reinitializer(eq)
-    if isnothing(reinit)
-        LSM.reinitialize!(LSM.current_state(eq), LSM.Reinitializer())
-    else
-        LSM.reinitialize!(LSM.current_state(eq), reinit)
-    end
+    isnothing(reinit) && error("no reinitializer specified in the equation.")
+    LSM.reinitialize!(LSM.current_state(eq), reinit)
     return eq
 end
 
