@@ -462,6 +462,7 @@ end
 
 function _i2oe_neighbor_relation(I, dim, side, vals, bcs, grid)
     T = float(eltype(vals))
+    N = ndims(vals)
     ax = axes(vals, dim)
     Ioff = side < 0 ? _decrement_index(I, dim) : _increment_index(I, dim)
     if Ioff[dim] in ax
@@ -473,10 +474,13 @@ function _i2oe_neighbor_relation(I, dim, side, vals, bcs, grid)
         Iq = _wrap_index_periodic(Ioff, ax, dim)
         return (zero(T), one(T), Iq, zero(T))
     elseif bc isa NeumannBC
-        Iq = _wrap_index_neumann(Ioff, ax, dim)
+        Iq = CartesianIndex(ntuple(s -> s == dim ? clamp(Ioff[s], first(ax), last(ax)) : Ioff[s], N))
         return (zero(T), one(T), Iq, zero(T))
     elseif bc isa NeumannGradientBC
-        Ion, Iin, dist = _wrap_index_neumann_gradient(Ioff, ax, dim)
+        i, a, b = Ioff[dim], first(ax), last(ax)
+        Ion_d, Iin_d, dist = i < a ? (a, a + 1, a - i) : (b, b - 1, i - b)
+        Ion = CartesianIndex(ntuple(s -> s == dim ? Ion_d : Ioff[s], N))
+        Iin = CartesianIndex(ntuple(s -> s == dim ? Iin_d : Ioff[s], N))
         Ion == I || throw(
             ArgumentError("SemiImplicitI2OE expected nearest ghost cell for NeumannGradientBC"),
         )
