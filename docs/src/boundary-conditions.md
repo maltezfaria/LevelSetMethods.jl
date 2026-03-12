@@ -2,11 +2,17 @@
 
 The following boundary conditions are available:
 
-```@example
-using LevelSetMethods
-using InteractiveUtils # hide
-subtypes(LevelSetMethods.BoundaryCondition)
-```
+| Type | Description |
+| ---- | ----------- |
+| [`PeriodicBC`](@ref) | Periodic (wrap-around) |
+| [`DirichletBC`](@ref) | Prescribed boundary value |
+| [`ExtrapolationBC{P}`](@ref ExtrapolationBC) | P-th order one-sided polynomial extrapolation |
+| `NeumannBC` | Alias for `ExtrapolationBC{1}` (constant extension, ∂ϕ/∂n = 0) |
+| `NeumannGradientBC` | Alias for `ExtrapolationBC{2}` (linear extrapolation, ∂²ϕ/∂n² = 0) |
+
+`ExtrapolationBC{P}` uses the `P` nearest interior cells to build a degree `P-1` polynomial
+and extrapolates it into the ghost region. Higher `P` gives smoother outflow at the cost of
+a wider stencil.
 
 When constructing a level-set equation, you can pass up to $2^d$ boundary conditions, where
 $d$ is the dimension of the space. The following convention is followed:
@@ -54,6 +60,21 @@ To combine both boundary conditions you can use
 ```@example boundary-conditions
 bc = (NeumannBC(), PeriodicBC()) # Neumann in x, periodic in y
 eq   = LevelSetEquation(; levelset = deepcopy(ϕ₀), bc, terms = AdvectionTerm((x,t) -> (1,1)))
+fig = Figure(; size = (1200, 300))
+for (n,t) in enumerate([0.0, 0.5, 0.75, 1.0])
+    integrate!(eq, t)
+    ax = Axis(fig[1,n], title = "t = $t")
+    plot!(ax, eq)
+end
+fig
+```
+
+For higher-order outflow you can use `ExtrapolationBC{P}` directly. For example,
+`ExtrapolationBC{5}` fits a degree-4 polynomial through the 5 nearest interior cells:
+
+```@example boundary-conditions
+bc = ExtrapolationBC(5)
+eq   = LevelSetEquation(; levelset = deepcopy(ϕ₀), bc, terms = AdvectionTerm((x,t) -> (1,0)))
 fig = Figure(; size = (1200, 300))
 for (n,t) in enumerate([0.0, 0.5, 0.75, 1.0])
     integrate!(eq, t)
