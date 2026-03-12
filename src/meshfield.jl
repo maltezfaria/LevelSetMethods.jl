@@ -121,6 +121,7 @@ function _wrap_index_periodic(I::CartesianIndex{N}, ax, dim) where {N}
     end |> CartesianIndex
 end
 
+
 Base.setindex!(ϕ::MeshField, vals, I...) = setindex!(values(ϕ), vals, I...)
 
 function _get_index(ϕ::MeshField, I::CartesianIndex)
