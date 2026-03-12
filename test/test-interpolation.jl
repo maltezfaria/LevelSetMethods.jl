@@ -38,8 +38,6 @@ using Test
         hess_f(x) = SMatrix{2, 2}(2.0, 0.0, 0.0, 4.0)
 
         ϕ = LevelSet(f, grid)
-        ϕ = LevelSetMethods.add_boundary_conditions(ϕ, ntuple(_ -> (PeriodicBC(), PeriodicBC()), 2))
-
         itp = interpolate(ϕ, 3)
         x_test = SVector(0.15, -0.25)
 
@@ -56,7 +54,6 @@ using Test
         # f(x) = x^2 + 2y^2 - 0.5 (Exactly quadratic)
         f(x) = x[1]^2 + 2 * x[2]^2 - 0.5
         ϕ = LevelSet(f, grid)
-        ϕ = LevelSetMethods.add_boundary_conditions(ϕ, ntuple(_ -> (PeriodicBC(), PeriodicBC()), 2))
 
         # Request Quadratic (K=2) on a Cubic stencil (stencil_K=3)
         # Since f is quadratic, the least-squares fit should be exact!
@@ -78,8 +75,6 @@ using Test
         grad_f(x) = SVector(2 * x[1], 2 * x[2], 2 * x[3])
 
         ϕ = LevelSet(f, grid)
-        ϕ = LevelSetMethods.add_boundary_conditions(ϕ, ntuple(_ -> (PeriodicBC(), PeriodicBC()), 3))
-
         itp = interpolate(ϕ, 3)
         x_test = SVector(0.1, -0.2, 0.3)
 
@@ -92,27 +87,28 @@ using Test
     end
 
     @testset "Convex Hull & proven_empty" begin
-        grid = CartesianGrid((-1.0, -1.0), (1.0, 1.0), (21, 21))
-        f(x) = x[1]^2 + x[2]^2 - 0.25
+        grid = CartesianGrid((-1.0, -1.0), (1.0, 1.0), (20, 20))
+        f(x) = x[1]
         ϕ = LevelSet(f, grid)
-        ϕ = LevelSetMethods.add_boundary_conditions(ϕ, ntuple(_ -> (PeriodicBC(), PeriodicBC()), 2))
         itp = interpolate(ϕ, 3)
 
-        I_interface = CartesianIndex(16, 11)
-        m, M = LevelSetMethods.cell_extrema(itp, I_interface)
-        @test m < 0 && M > 0
-        @test !LevelSetMethods.proven_empty(itp, I_interface; surface = true)
-
-        I_inside = CartesianIndex(11, 11)
+        I_inside = CartesianIndex(1, 1)
         m, M = LevelSetMethods.cell_extrema(itp, I_inside)
         @test M < 0
-        @test LevelSetMethods.proven_empty(itp, I_inside; surface = true)
-        @test !LevelSetMethods.proven_empty(itp, I_inside; surface = false)
+        @test LevelSetMethods.proven_empty(itp, I_inside; surface = true) # no surface
+        @test !LevelSetMethods.proven_empty(itp, I_inside; surface = false) # fully inside
 
         I_outside = CartesianIndex(20, 20)
         m, M = LevelSetMethods.cell_extrema(itp, I_outside)
         @test m > 0
         @test LevelSetMethods.proven_empty(itp, I_outside; surface = true)
         @test LevelSetMethods.proven_empty(itp, I_outside; surface = false)
+
+        # cell crossing the interface
+        I_interface = CartesianIndex(10, 4)
+        m, M = LevelSetMethods.cell_extrema(itp, I_interface)
+        @test m < 0 && M > 0
+        @test !LevelSetMethods.proven_empty(itp, I_interface; surface = true)
+        @test !LevelSetMethods.proven_empty(itp, I_interface; surface = false)
     end
 end

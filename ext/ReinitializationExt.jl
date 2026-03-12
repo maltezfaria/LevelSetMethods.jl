@@ -17,18 +17,7 @@ function LSM.reinitialize!(
     vals = ϕ.vals
     maxdist = maximum(LSM.meshsize(grid))
 
-    # Ensure we have boundary conditions for the interpolation patch
-    ϕ_bc = if !LSM.has_boundary_conditions(ϕ)
-        N = LSM.dimension(ϕ)
-        bc = ntuple(_ -> (LSM.NeumannGradientBC(), LSM.NeumannGradientBC()), N)
-        LSM.add_boundary_conditions(ϕ, bc)
-    else
-        ϕ
-    end
-
-    # Snapshot for consistent interpolation
-    ϕ_snap = deepcopy(ϕ_bc)
-    itp = LSM.interpolate(ϕ_snap, 3)
+    itp = LSM.interpolate(ϕ, 3)
 
     # Sample the interface
     pts = _sample_interface(

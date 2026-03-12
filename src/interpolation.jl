@@ -116,8 +116,9 @@ end
 """
     struct PiecewisePolynomialInterpolation{Φ, N, T}
 
-A high-performance piecewise polynomial interpolant for a `MeshField`.
-`matrix` is the precomputed transformation mapping patch grid-values to cell-local Bernstein coefficients.
+A piecewise polynomial interpolant for a `MeshField`.
+
+See [`interpolate`](@ref).
 """
 mutable struct PiecewisePolynomialInterpolation{Φ, N, T}
     ϕ::Φ
@@ -240,8 +241,32 @@ end
 @inline (itp::PiecewisePolynomialInterpolation)(x::Vararg{Real}) = itp(SVector(x))
 @inline (itp::PiecewisePolynomialInterpolation)(x::Tuple) = itp(SVector(x))
 
-function interpolate(ϕ, order::Int = 3)
-    return PiecewisePolynomialInterpolation(ϕ, order)
+"""
+    interpolate(ϕ::MeshField, order::Int = 3)
+
+Create a piecewise polynomial interpolant of the given `order` for `ϕ`.
+
+A deep copy of `ϕ` is made so that the interpolant is independent of future
+modifications to `ϕ`. If `ϕ` has no boundary conditions, `ExtrapolationBC{3}`
+is added automatically on all sides.
+
+The returned object `itp` behaves like a function and supports:
+- `itp(x)`: evaluate the interpolant at point `x`
+- [`gradient`](@ref)`(itp, x)`: gradient at `x` (via `make_interpolant` + ForwardDiff)
+- [`make_interpolant`](@ref)`(itp, I)`: return the local `BernsteinPolynomial` for cell `I`,
+  which itself supports `p(x)`, [`gradient`](@ref)`(p, x)`,
+  [`value_and_gradient`](@ref)`(p, x)`, [`value_gradient_hessian`](@ref)`(p, x)`
+- [`cell_extrema`](@ref)`(itp, I)`: min/max of the interpolant over cell `I`
+- [`proven_empty`](@ref)`(itp, I)`: check whether cell `I` can be skipped
+"""
+function interpolate(ϕ::MeshField, order::Int = 3)
+    ϕ_copy = deepcopy(ϕ)
+    if !has_boundary_conditions(ϕ_copy)
+        N = dimension(mesh(ϕ_copy))
+        bc = ntuple(_ -> (ExtrapolationBC{3}(), ExtrapolationBC{3}()), N)
+        ϕ_copy = add_boundary_conditions(ϕ_copy, bc)
+    end
+    return PiecewisePolynomialInterpolation(ϕ_copy, order)
 end
 
 """
