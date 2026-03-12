@@ -1,6 +1,5 @@
 using Test
 using LinearAlgebra
-using Interpolations
 using NearestNeighbors
 import LevelSetMethods as LSM
 

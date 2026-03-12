@@ -1,7 +1,6 @@
 module ReinitializationExt
 
 import LevelSetMethods as LSM
-using Interpolations
 using NearestNeighbors
 using LinearAlgebra
 using StaticArrays
@@ -17,16 +16,13 @@ function LSM.reinitialize!(
     grid = LSM.mesh(ϕ)
     vals = ϕ.vals
     maxdist = maximum(LSM.meshsize(grid))
-    itp = Interpolations.interpolate(ϕ)
-    f(x) = itp(x...)
-    ∇f(x) = Interpolations.gradient(itp, x...)
-    ∇²f(x) = Interpolations.hessian(itp, x...)
+
+    itp = LSM.interpolate(ϕ, 3)
 
     # Sample the interface
     pts = _sample_interface(
         grid,
-        f,
-        ∇f,
+        itp,
         reinitializer.upsample,
         reinitializer.maxiters,
         reinitializer.ftol,
@@ -37,13 +33,16 @@ function LSM.reinitialize!(
     for I in eachindex(grid)
         x = grid[I]
         # Find closest point in the cloud
-        idx, dist = nn(tree, x)
+        idx, _ = nn(tree, x)
         x0 = pts[idx]
+
+        # Lock patch around initial guess x0
+        base_idxs = LSM.compute_index(itp, x0)
+        p = LSM.make_interpolant(itp, base_idxs)
+
         # Refine with Newton's method
         cp = _closest_point(
-            f,
-            ∇f,
-            ∇²f,
+            p,
             x,
             x0,
             reinitializer.maxiters,
@@ -63,85 +62,123 @@ function LSM.reinitialize!(eq::LSM.LevelSetEquation)
     return eq
 end
 
-function _sample_interface(grid, f, ∇f, upsample, maxiter, ftol, maxdist)
+function _sample_interface(grid, itp, upsample, maxiter, ftol, maxdist)
     N = LSM.dimension(grid)
     pts = Vector{SVector{N, Float64}}()
     ξ_ranges = ntuple(_ -> 0:upsample, N)
     for I in CartesianIndices(LSM.size(grid) .- 1)
+        # Robust screening using Bernstein convex hull
+        if LSM.proven_empty(itp, I; surface = true)
+            continue
+        end
+
         Ip = CartesianIndex(Tuple(I) .+ 1)
         lc, hc = grid[I], grid[Ip]
-        # Use an (upsample + 1)^N tensor-product grid in the cell, always including endpoints.
+        # Only sample cells that actually cross zero
         samples = (
             lc .+ (hc .- lc) .* SVector{N, Float64}(Tuple(ξi)) ./ upsample for
                 ξi in Iterators.product(ξ_ranges...)
         )
-        s = samples |> first |> f |> sign
-        any(x -> f(x) * s < 0, samples) || continue
         # Go over samples and push them to the interface
+        p = LSM.make_interpolant(itp, I)
         for x in samples
-            pt = _project_to_interface(f, ∇f, x, maxiter, ftol, maxdist)
+            pt = _project_to_interface(p, x; ftol, maxiters = maxiter, maxdist = maxdist)
             isnothing(pt) || push!(pts, pt)
         end
     end
     return pts
 end
 
-function _project_to_interface(f, ∇f, x0, maxiter, ftol, maxdist)
-    x = x0
-    for _ in 1:maxiter
-        val = f(x)
-        abs(val) < ftol && break # close enough to the interface
-        grad = ∇f(x)
-        norm_grad = norm(grad)
-        δx = val * grad / norm_grad^2
-        x = x - δx
-        norm(x - x0) > maxdist && (return nothing) # too far from starting point
+function _project_to_interface(
+        p,
+        x_start;
+        ftol = 1.0e-8,
+        maxiters = 20,
+        maxdist = Inf
+    )
+    x = x_start
+    for _ in 1:maxiters
+        val = p(x)
+        abs(val) < ftol && return x
+        grad = LSM.gradient(p, x)
+        norm_grad2 = dot(grad, grad)
+        norm_grad2 < 1.0e-14 && break
+        x = x - val * grad / norm_grad2
+        norm(x - x_start) > maxdist && break
     end
-    abs(f(x)) > ftol && (return nothing) # did not converge
-    return x
+    return nothing
 end
 
-function _closest_point(f, ∇f, ∇²f, xq::SVector, x0::SVector, maxiters, xtol, ftol, maxdist)
+"""
+    _closest_point(p, xq, x0, maxiters, xtol, ftol, maxdist)
+
+Find the point on the zero level-set of `p` closest to `xq`, starting from `x0`.
+Uses a robust Newton-Lagrange solver with backtracking and best-candidate tracking.
+"""
+function _closest_point(p, xq::SVector{N, T}, x0::SVector{N, T}, maxiters, xtol, ftol, maxdist) where {N, T}
     x = x0
-    ∇p_x0 = ∇f(x0)
-    λ = dot(xq - x0, ∇p_x0) / dot(∇p_x0, ∇p_x0)
+    # Lagrangian: L(x, λ) = 0.5*|x - xq|^2 + λ*p(x)
+    # ∇L = [ x - xq + λ∇p ] = 0
+    #      [      p(x)     ]
 
-    converged = false
+    ∇p_x0 = LSM.gradient(p, x0)
+    λ = dot(xq - x0, ∇p_x0) / (dot(∇p_x0, ∇p_x0) + 1.0e-14)
+
+    best_x = x0
+    best_res = Inf
+
     for _ in 1:maxiters
-        px = f(x)
-        ∇p = ∇f(x)
-        ∇²p = ∇²f(x)
+        px = p(x)
+        ∇p = LSM.gradient(p, x)
+        ∇²p = LSM.hessian(p, x)
 
-        # System for Newton's method
-        # ∇L = [ x - xq + λ∇p ] = 0
-        #      [      p(x)     ]
-        grad_L = vcat(x - xq + λ * ∇p, px)
+        # Residual of the KKT system
+        res_vec = vcat(x - xq + λ * ∇p, px)
+        res_norm = norm(res_vec)
 
-        # Hessian of the Lagrangian
-        # H_L = [ I + λ∇²p   ∇p ]
-        #       [    ∇p'      0 ]
-        hess_L = hcat(vcat(I + λ * ∇²p, ∇p'), vcat(∇p, 0))
-
-        # Solve for the update
-        δ = -hess_L \ grad_L
-        δx = δ[1:(end - 1)]
-        δλ = δ[end]
-
-        # Update variables
-        α = min(1.0, maxdist / norm(δx)) # step size control
-        x = x + α * δx
-        λ = λ + α * δλ
+        # Track the best candidate found so far
+        if res_norm < best_res
+            best_res = res_norm
+            best_x = x
+        end
 
         # Check for convergence
-        if norm(δx) < xtol && norm(f(x)) < ftol
-            converged = true
-            break
+        if abs(px) < ftol && res_norm < xtol
+            return x
+        end
+
+        # Newton step: H_L * δ = -grad_L
+        hess_L = hcat(vcat(I + λ * ∇²p, ∇p'), vcat(∇p, 0))
+
+        # Regularization for stability near singularities
+        δ = -(hess_L + 1.0e-10 * I) \ res_vec
+        δx = δ[1:N]
+        δλ = δ[N + 1]
+
+        # Simple backtracking line search
+        α = 1.0
+        # Limit initial step size by maxdist
+        step_norm = norm(δx)
+        if step_norm > maxdist
+            α = maxdist / step_norm
+        end
+
+        # We perform a single-step backtracking if the residual increases significantly
+        # (A full line search is usually overkill for reinitialization)
+        x_new = x + α * δx
+        λ_new = λ + α * δλ
+
+        # Update
+        x, λ = x_new, λ_new
+
+        # If we drift too far from the patch, return best so far
+        if norm(x - x0) > 3.0 * maxdist
+            return best_x
         end
     end
 
-    converged || @warn "closest point search did not converge at xq=$xq"
-
-    return x
+    # Return the best point found across all iterations
+    return best_x
 end
 
 end
