@@ -1,5 +1,7 @@
 module LevelSetMethods
 
+using ForwardDiff
+using DiffResults
 using LinearAlgebra
 using SparseArrays
 using StaticArrays
@@ -14,6 +16,7 @@ include("levelsetterms.jl")
 include("timestepping.jl")
 include("reinitializer.jl")
 include("levelsetequation.jl")
+include("interpolation.jl")
 
 export CartesianGrid,
     MeshField,
@@ -21,8 +24,8 @@ export CartesianGrid,
     PeriodicBC,
     NeumannBC,
     NeumannGradientBC,
-    ExtrapolationBC,
     DirichletBC,
+    ExtrapolationBC,
     AdvectionTerm,
     CurvatureTerm,
     NormalMotionTerm,
@@ -38,7 +41,10 @@ export CartesianGrid,
     Reinitializer,
     integrate!,
     current_time,
-    reinitialize!
+    reinitialize!,
+    interpolate,
+    cell_extrema,
+    proven_empty
 
 """
     makie_theme()
@@ -76,10 +82,10 @@ for more details.
 
 !!! note
     This functionality is provided by the `ReinitializationExt` module, which
-    requires loading `Interpolations.jl` and `NearestNeighbors.jl`.
+    requires loading `NearestNeighbors.jl`.
 """
 function reinitialize!(ϕ, reinitializer)
-    error("Reinitialization extension not loaded. Please load the ReinitializationExt module to use this functionality.")
+    error("Reinitialization extension not loaded. Please load the NearestNeighbors module to use this functionality.")
 end
 
 # tomatoes tomatos ...

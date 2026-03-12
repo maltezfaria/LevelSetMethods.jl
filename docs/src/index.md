@@ -106,6 +106,21 @@ For more interesting applications and advanced usage, see the examples section!
     inspiration from the great Matlab library `ToolboxLS` by Ian Mitchell
     [mitchell2007toolbox](@cite).
 
+## Optional Dependencies
+
+Some features of `LevelSetMethods.jl` are only available after loading certain
+optional dependencies:
+
+- **[Makie](https://docs.makie.org)**: Loading a `Makie` backend (like `GLMakie` or `CairoMakie`)
+  enables plotting recipes for level sets and equations. See [Makie extension](@ref extension-makie).
+- **[NearestNeighbors](https://github.com/KristofferC/NearestNeighbors.jl)**: Loading
+  `NearestNeighbors` enables high-order Newton-based reinitialization. See [Reinitialization](@ref extension-reinitialization).
+- **[MMG](https://github.com/fverdugo/MMG.jl)**: Loading `MMG_jll` and `MarchingCubes`
+  enables exporting level sets as volume or surface meshes. See [MMG extension](@ref extension-mmg).
+
+Note that **Interpolation** is now a built-in feature and does not require any
+external dependencies. See [Interpolation](@ref interpolation).
+
 ## Going further
 
 As illustrated above, the `LevelSetEquation` type is the main structure of this package.

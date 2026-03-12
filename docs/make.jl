@@ -3,7 +3,6 @@ using Documenter
 using GLMakie
 using MMG_jll
 using MarchingCubes
-using Interpolations
 using NearestNeighbors
 using StaticArrays
 using DocumenterCitations
@@ -17,11 +16,15 @@ const numbered_pages = [
 ]
 
 modules = [LevelSetMethods]
-for extension in [:MakieExt, :MMGSurfaceExt, :MMGVolumeExt, :InterpolationsExt, :ReinitializationExt]
+for extension in [:MakieExt, :MMGSurfaceExt, :MMGVolumeExt, :ReinitializationExt]
     ext = Base.get_extension(LevelSetMethods, extension)
-    isnothing(ext) && "error loading $ext"
-    push!(modules, ext)
+    if isnothing(ext)
+        @warn "extension $extension not loaded"
+    else
+        push!(modules, ext)
+    end
 end
+
 
 makedocs(;
     modules,
@@ -34,10 +37,11 @@ makedocs(;
     ), pages = vcat(
         "Home" => "index.md",
         "terms.md",
+        "interpolation.md",
         "time-integrators.md",
         "boundary-conditions.md",
         "Extensions" =>
-            ["extension-makie.md", "extension-mmg.md", "extension-interpolations.md", "extension-reinitialization.md"],
+            ["extension-makie.md", "extension-mmg.md", "extension-reinitialization.md"],
         "Examples" => ["example-zalesak.md", "example-shape-optim.md"],
         numbered_pages,
     ),
