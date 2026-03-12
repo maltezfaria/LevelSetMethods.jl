@@ -52,6 +52,40 @@ function _getindex(ϕ::MeshField, I::CartesianIndex{N}) where {N}
     return _getindexrec(ϕ, I, N)
 end
 
+# Ghost value at out-of-bounds index I (in dimension `dim`) by P-point Lagrange
+# extrapolation. A local coordinate is set up so that both boundaries look the
+# same: b is the boundary node, k ≥ 1 the distance to the ghost, and d = ±1
+# steps into the interior. The P stencil nodes then sit at positions 0,1,…,P-1
+# and the ghost at -k:
+#
+#   ghost    b   b+d  b+2d  …  b+(P-1)d
+#     |      |    |    |         |
+#    -k      0    1    2        P-1      ← local coordinate
+#
+# d = +1 for the left boundary, -1 for the right — the flip makes the right
+# boundary look identical to the left, so the same weights apply to both.
+# Node values are fetched via _getindexrec(dim-1), so BCs in other dimensions
+# are applied automatically (handles corner ghost points correctly).
+function _apply_extrapolation_bc(ϕ, I, ::ExtrapolationBC{P}, ax, dim) where {P}
+    k = I[dim] < first(ax) ? (first(ax) - I[dim]) : (I[dim] - last(ax))
+    b = I[dim] < first(ax) ? first(ax) : last(ax)
+    d = I[dim] < first(ax) ? 1 : -1   # direction into the interior
+    Ndim = length(Tuple(I))
+    result = zero(float(eltype(values(ϕ))))
+    for j in 0:(P - 1)
+        Ij = ntuple(s -> s == dim ? b + d * j : I[s], Ndim) |> CartesianIndex
+        Vj = _getindexrec(ϕ, Ij, dim - 1)
+        result += _lagrange_extrap_weight(j, k, P) * Vj
+    end
+    return result
+end
+
+# Recursive getindex with boundary conditions, processing one dimension per
+# call (dim = N down to 1). If I[dim] is in-bounds, recurse; if out-of-bounds,
+# apply the BC for that dimension then recurse to dim-1. Base case dim=0 does
+# the raw array lookup. Corner ghost points (out-of-bounds in multiple
+# dimensions) are handled correctly because each dimension's BC is applied in
+# turn.
 function _getindexrec(ϕ, I, dim)
     dim == 0 && return getindex(values(ϕ), I)
     bcs = boundary_conditions(ϕ)[dim]
@@ -61,14 +95,8 @@ function _getindexrec(ϕ, I, dim)
     if bc isa PeriodicBC
         I′ = _wrap_index_periodic(I, ax, dim)
         return _getindexrec(ϕ, I′, dim - 1)
-    elseif bc isa NeumannBC
-        I′ = _wrap_index_neumann(I, ax, dim)
-        return _getindexrec(ϕ, I′, dim - 1)
-    elseif bc isa NeumannGradientBC
-        Ion, Iin, dist = _wrap_index_neumann_gradient(I, ax, dim)
-        Von = _getindexrec(ϕ, Ion, dim - 1)
-        Vin = _getindexrec(ϕ, Iin, dim - 1)
-        return Von + dist * (Von - Vin)
+    elseif bc isa ExtrapolationBC
+        return _apply_extrapolation_bc(ϕ, I, bc, ax, dim)
     elseif bc isa DirichletBC
         grid = mesh(ϕ)
         x = _getindex(grid, I)
@@ -91,37 +119,6 @@ function _wrap_index_periodic(I::CartesianIndex{N}, ax, dim) where {N}
         end
         return I[d]
     end |> CartesianIndex
-end
-
-function _wrap_index_neumann(I::CartesianIndex{N}, ax, dim) where {N}
-    i = I[dim]
-    return ntuple(N) do d
-        if d == dim
-            if i < first(ax)
-                return (first(ax) + (first(ax) - i))
-            elseif i > last(ax)
-                return (last(ax) - (i - last(ax)))
-            end
-        end
-        return I[d]
-    end |> CartesianIndex
-end
-
-# return the two closest indices in the axis for the given dimension
-# as well as the distance from the closest one.
-function _wrap_index_neumann_gradient(I::CartesianIndex{N}, ax, dim) where {N}
-    i = I[dim]
-    a, b = first(ax), last(ax)
-    if i < a
-        Ion = ntuple(d -> d == dim ? a : I[d], N) |> CartesianIndex
-        Iin = ntuple(d -> d == dim ? a + 1 : I[d], N) |> CartesianIndex
-        return Ion, Iin, a - i
-    elseif i > b
-        Ion = ntuple(d -> d == dim ? b : I[d], N) |> CartesianIndex
-        Iin = ntuple(d -> d == dim ? b - 1 : I[d], N) |> CartesianIndex
-        return Ion, Iin, i - b
-    end
-    return I, I, 0
 end
 
 Base.setindex!(ϕ::MeshField, vals, I...) = setindex!(values(ϕ), vals, I...)
@@ -150,40 +147,6 @@ function _getindex(ϕ::CartesianMeshField, I::CartesianIndex{N}, ::PeriodicBC, d
     J = ntuple(N) do dir
         if dir == abs(d)
             d < 0 ? (last(ax) - (first(ax) - i)) : (first(ax) + (i - last(ax)))
-        else
-            I[dir]
-        end
-    end
-    return getindex(values(ϕ), CartesianIndex(J))
-end
-
-function _getindex(ϕ::CartesianMeshField, I::CartesianIndex{N}, ::NeumannBC, d) where {N}
-    ax = axes(ϕ)[abs(d)]
-    # compute mirror index to I[d]
-    i = I[abs(d)]
-    J = ntuple(N) do dir
-        if dir == abs(d)
-            d < 0 ? (first(ax) + (first(ax) - i)) : (last(ax) - (i - last(ax)))
-        else
-            I[dir]
-        end
-    end
-    return getindex(values(ϕ), CartesianIndex(J))
-end
-
-function _getindex(
-        ϕ::CartesianMeshField,
-        I::CartesianIndex{N},
-        ::NeumannGradientBC,
-        d,
-    ) where {N}
-    ax = axes(ϕ)[abs(d)]
-    # compute mirror index to I[d]
-    # TODO
-    i = I[abs(d)]
-    J = ntuple(N) do dir
-        if dir == abs(d)
-            d < 0 ? (first(ax) + (first(ax) - i)) : (last(ax) - (i - last(ax)))
         else
             I[dir]
         end
