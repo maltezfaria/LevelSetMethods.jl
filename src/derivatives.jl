@@ -29,6 +29,12 @@ along dimension `dim`.
     return (ϕ[Ip] - ϕ[I]) / h
 end
 
+"""
+    D⁺⁺(ϕ::CartesianMeshField, I, dim)
+
+Second-order forward finite difference scheme for first order derivative at grid point `I`
+along dimension `dim`.
+"""
 function D⁺⁺(ϕ::CartesianMeshField, I, dim)
     h = meshsize(ϕ, dim)
     Ip = _increment_index(I, dim)
@@ -48,6 +54,12 @@ function D⁻(ϕ::CartesianMeshField, I, dim)
     return (ϕ[I] - ϕ[Im]) / h
 end
 
+"""
+    D⁻⁻(ϕ::CartesianMeshField, I, dim)
+
+Second-order backward finite difference scheme for first order derivative at grid point `I`
+along dimension `dim`.
+"""
 function D⁻⁻(ϕ::CartesianMeshField, I, dim)
     h = meshsize(ϕ, dim)
     Im = _decrement_index(I, dim)
@@ -55,6 +67,12 @@ function D⁻⁻(ϕ::CartesianMeshField, I, dim)
     return (1.5 * ϕ[I] - 2 * ϕ[Im] + 1 / 2 * ϕ[Imm]) / h
 end
 
+"""
+    weno5⁻(ϕ::CartesianMeshField, I, dim)
+
+Fifth-order WENO (Weighted Essentially Non-Oscillatory) reconstruction of the
+derivative at grid point `I` along dimension `dim`, using a left-biased stencil.
+"""
 function weno5⁻(ϕ::CartesianMeshField, I, dim)
     # see section 3.4 of Osher-Fedwik
     Im = _decrement_index(I, dim)
@@ -88,6 +106,12 @@ function weno5⁻(ϕ::CartesianMeshField, I, dim)
     return ω1 * dϕ1 + ω2 * dϕ2 + ω3 * dϕ3
 end
 
+"""
+    weno5⁺(ϕ::CartesianMeshField, I, dim)
+
+Fifth-order WENO (Weighted Essentially Non-Oscillatory) reconstruction of the
+derivative at grid point `I` along dimension `dim`, using a right-biased stencil.
+"""
 function weno5⁺(ϕ::CartesianMeshField, I, dim)
     # see section 3.4 of Osher-Fedwik
     Im = _decrement_index(I, dim)

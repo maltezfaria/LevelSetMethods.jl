@@ -1,5 +1,5 @@
 """
-    LevelSet
+    const LevelSet
 
 Alias for [`MeshField`](@ref) with `vals` as an `AbstractArray` of `Real`s.
 """
@@ -175,23 +175,29 @@ function curvature(ϕ::LevelSet)
 end
 
 """
-    gradient(ϕ::LevelSet, I)
+    gradient(ϕ::LevelSet, I::CartesianIndex)
 
-Return the gradient vector ∇ϕ of ϕ at I
+Compute the gradient vector ``∇ϕ`` at grid index `I` using centered finite differences.
+Returns an `SVector` (or `Vector`) of derivatives.
 """
 function gradient(ϕ::LevelSet, I)
     N = dimension(ϕ)
     return [D⁰(ϕ, I, dim) for dim in 1:N]
 end
 
+"""
+    gradient(ϕ::LevelSet)
+
+Compute the gradient vector ``∇ϕ`` for all grid points.
+"""
 function gradient(ϕ::LevelSet)
     return [gradient(ϕ, I) for I in eachindex(ϕ)]
 end
 
 """
-    normal(ϕ::LevelSet, I)
+    normal(ϕ::LevelSet, I::CartesianIndex)
 
-Compute the unit exterior normal vector of ϕ at I using n = ∇ϕ/|∇ϕ|
+Compute the unit exterior normal vector ``\\mathbf{n} = \\frac{∇ϕ}{\\|∇ϕ\\|}`` at grid index `I`.
 """
 function normal(ϕ::LevelSet, I)
     ∇ϕ = gradient(ϕ, I)
@@ -201,7 +207,7 @@ end
 """
     normal(ϕ::LevelSet)
 
-Compute the unit exterior normal vector of ϕ using n = ∇ϕ/|∇ϕ|
+Compute the unit exterior normal vector ``\\mathbf{n} = \\frac{∇ϕ}{\\|∇ϕ\\|}`` for all grid points.
 
 ```julia
 using LevelSetMethods
@@ -230,15 +236,21 @@ function normal(ϕ::LevelSet)
 end
 
 """
-    hessian(ϕ::LevelSet, I)
+    hessian(ϕ::LevelSet, I::CartesianIndex)
 
-Return the Hessian matrix Hϕ of ϕ at I
+Compute the Hessian matrix ``\\mathbf{H}ϕ = ∇∇ϕ`` at grid index `I` using second-order
+finite differences. Returns a `Symmetric` matrix.
 """
 function hessian(ϕ::LevelSet, I)
     N = dimension(ϕ)
     return Symmetric([i == j ? D2⁰(ϕ, I, i) : D2(ϕ, I, (i, j)) for i in 1:N, j in 1:N])
 end
 
+"""
+    hessian(ϕ::LevelSet)
+
+Compute the Hessian matrix for all grid points.
+"""
 function hessian(ϕ::LevelSet)
     return [hessian(ϕ, I) for I in eachindex(ϕ)]
 end
@@ -252,22 +264,46 @@ are optional keyword arguments (e.g. the `center` or `radius` of a circle).
 
 =#
 
+"""
+    circle(grid; center = (0, 0), radius = 1)
+
+Create a 2D circle with the specified `center` and `radius` on a `grid`.
+Returns a [`LevelSet`](@ref) field.
+"""
 function circle(grid; center = (0, 0), radius = 1)
     dimension(grid) == 2 ||
         throw(ArgumentError("circle shape is only available in two dimensions"))
     return LevelSet(x -> sqrt(sum((x .- center) .^ 2)) - radius, grid)
 end
 
-function rectangle(grid; center = zero(0, 0), width = (1, 1))
+"""
+    rectangle(grid; center = (0, 0), width = (1, 1))
+
+Create a rectangle (or N-dimensional box) with the specified `center` and `width` on a `grid`.
+Returns a [`LevelSet`](@ref) field.
+"""
+function rectangle(grid; center = zero(grid.lc), width = (1, 1))
     return LevelSet(x -> maximum(abs.(x .- center) .- width ./ 2), grid)
 end
 
+"""
+    sphere(grid; center = (0, 0, 0), radius)
+
+Create a 3D sphere with the specified `center` and `radius` on a `grid`.
+Returns a [`LevelSet`](@ref) field.
+"""
 function sphere(grid; center = (0, 0, 0), radius)
     dimension(grid) == 3 ||
         throw(ArgumentError("sphere shape is only available in three dimensions"))
     return LevelSet(x -> sqrt(sum((x .- center) .^ 2)) - radius, grid)
 end
 
+"""
+    star(grid; radius = 1, deformation = 0.25, n = 5.0)
+
+Create a 2D star shape defined in polar coordinates by ``r = R(1 + d \\cos(nθ))``.
+Returns a [`LevelSet`](@ref) field.
+"""
 function star(grid; radius = 1, deformation = 0.25, n = 5.0)
     # dimension(grid) == 2 ||
     #     throw(ArgumentError("star shape is only available in two dimensions"))
@@ -278,6 +314,12 @@ function star(grid; radius = 1, deformation = 0.25, n = 5.0)
     end
 end
 
+"""
+    dumbbell(grid; width = 1, height = 0.2, radius = 0.25, center = (0, 0))
+
+Create a 2D dumbbell shape consisting of two circles connected by a rectangle.
+Returns a [`LevelSet`](@ref) field.
+"""
 function dumbbell(grid; width = 1, height = 1 / 5, radius = 1 / 4, center = (0, 0))
     cl = circle(grid; center = center .- (width / 2, 0), radius)
     cr = circle(grid; center = center .+ (width / 2, 0), radius)
@@ -285,6 +327,12 @@ function dumbbell(grid; width = 1, height = 1 / 5, radius = 1 / 4, center = (0, 
     return cl ∪ cr ∪ rec
 end
 
+"""
+    zalesak_disk(grid; center = (0, 0), radius = 0.5, width = 0.25, height = 1)
+
+Create a Zalesak disk (a circle with a rectangular slot cut out).
+Used for testing advection schemes. Returns a [`LevelSet`](@ref) field.
+"""
 function zalesak_disk(grid; center = (0, 0), radius = 0.5, width = 0.25, height = 1)
     dimension(grid) == 2 ||
         throw(ArgumentError("zalesak disk shape is only available in two dimensions"))
@@ -299,30 +347,74 @@ Set operations for level set functions.
 
 =#
 
+"""
+    union!(ϕ1::LevelSet, ϕ2::LevelSet)
+
+In-place union of two level sets: ``ϕ_1 = \\min(ϕ_1, ϕ_2)``.
+"""
 function Base.union!(ϕ1::LevelSet, ϕ2::LevelSet)
     v1, v2 = values(ϕ1), values(ϕ2)
     v1 .= min.(v1, v2)
     return ϕ1
 end
+
+"""
+    union(ϕ1::LevelSet, ϕ2::LevelSet)
+
+Return the union of two level sets: ``\\min(ϕ_1, ϕ_2)``.
+"""
 Base.union(ϕ1::LevelSet, ϕ2::LevelSet) = union!(deepcopy(ϕ1), ϕ2)
 
+"""
+    intersect!(ϕ1::LevelSet, ϕ2::LevelSet)
+
+In-place intersection of two level sets: ``ϕ_1 = \\max(ϕ_1, ϕ_2)``.
+"""
 function Base.intersect!(ϕ1::LevelSet, ϕ2::LevelSet)
     v1, v2 = values(ϕ1), values(ϕ2)
     v1 .= max.(v1, v2)
     return ϕ1
 end
+
+"""
+    intersect(ϕ1::LevelSet, ϕ2::LevelSet)
+
+Return the intersection of two level sets: ``\\max(ϕ_1, ϕ_2)``.
+"""
 Base.intersect(ϕ1::LevelSet, ϕ2::LevelSet) = intersect!(deepcopy(ϕ1), ϕ2)
 
+"""
+    complement!(ϕ::LevelSet)
+
+In-place complement of a level set (negates the values).
+"""
 function complement!(ϕ::LevelSet)
     v = values(ϕ)
     v .= -v
     return ϕ
 end
+
+"""
+    complement(ϕ::LevelSet)
+
+Return the complement of a level set (negates the values).
+"""
 complement(ϕ::LevelSet) = complement!(deepcopy(ϕ))
 
+"""
+    setdiff!(ϕ1::LevelSet, ϕ2::LevelSet)
+
+In-place set difference: ``ϕ_1 = \\max(ϕ_1, -ϕ_2)``.
+"""
 function Base.setdiff!(ϕ1::LevelSet, ϕ2::LevelSet)
     v1, v2 = values(ϕ1), values(ϕ2)
     v1 .= max.(v1, -v2)
     return ϕ1
 end
+
+"""
+    setdiff(ϕ1::LevelSet, ϕ2::LevelSet)
+
+Return the set difference: ``\\max(ϕ_1, -ϕ_2)``.
+"""
 Base.setdiff(ϕ1::LevelSet, ϕ2::LevelSet) = setdiff!(deepcopy(ϕ1), ϕ2)
