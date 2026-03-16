@@ -29,7 +29,7 @@ contour!(ax1, sdf; levels = [0.25, 0, 0.5], labels = true, labelsize = 14)
 contour!(ax2, ϕ; levels = [0.25, 0, 0.5], labels = true, labelsize = 14)
 
 # Reinitialize using Newton's method
-reinitialize!(ϕ)
+reinitialize!(ϕ, NewtonReinitializer())
 contour!(ax3, ϕ; levels = [0.25, 0, 0.5], labels = true, labelsize = 14)
 fig
 ```

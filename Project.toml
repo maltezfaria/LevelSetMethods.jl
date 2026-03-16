@@ -7,6 +7,7 @@ authors = ["Luiz M. Faria and Nicolas Lebbe"]
 DiffResults = "163ba53b-c6d8-5494-b064-1a9d43ac40c5"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+NearestNeighbors = "b8a86587-4115-5ab1-83bc-aa920d37bbce"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
@@ -14,13 +15,11 @@ StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 MMG_jll = "86086c02-e288-5929-a127-40944b0018b7"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 MarchingCubes = "299715c1-40a9-479a-aaf9-4a633d36f717"
-NearestNeighbors = "b8a86587-4115-5ab1-83bc-aa920d37bbce"
 
 [extensions]
 MMGSurfaceExt = ["MMG_jll", "MarchingCubes"]
 MMGVolumeExt = "MMG_jll"
 MakieExt = "Makie"
-ReinitializationExt = ["NearestNeighbors"]
 
 [compat]
 DiffResults = "1.1.0"
