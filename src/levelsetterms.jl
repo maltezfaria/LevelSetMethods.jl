@@ -5,6 +5,12 @@ A typical term in a level-set evolution equation.
 """
 abstract type LevelSetTerm end
 
+"""
+    compute_cfl(terms, ϕ::LevelSet, t)
+
+Compute the maximum stable time-step ``Δt`` for the given `terms` and level set `ϕ` at time `t`,
+based on the Courant-Friedrichs-Lewy (CFL) condition.
+"""
 function compute_cfl(terms, ϕ, t)
     Δt = minimum(terms) do term
         return _compute_cfl(term, ϕ, t)
@@ -234,34 +240,41 @@ function limiter(x, y)
 end
 
 """
-    struct ReinitializationTerm <: LevelSetTerm
+    struct EikonalReinitializationTerm <: LevelSetTerm
 
-Level-set term representing  `sign(ϕ) (|∇ϕ| - 1)`. This `LevelSetTerm` should be
-used for reinitializing the level set into a signed distance function: for a sufficiently
-large number of time steps this term allows one to solve the Eikonal equation |∇ϕ| = 1.
+A [`LevelSetTerm`](@ref) representing `sign(ϕ)(|∇ϕ| - 1)`, which drives the level set
+toward a signed distance function by solving the Eikonal equation `|∇ϕ| = 1` via
+pseudo-time marching.
 
-There are two ways of constructing a `ReinitializationTerm`:
+!!! note "Comparison with NewtonReinitializer"
+    [`NewtonReinitializer`](@ref) is generally preferred: it is applied between time steps
+    (not inside the PDE), preserves the interface to high order, and converges in a single
+    pass. `EikonalReinitializationTerm` is a simpler alternative that requires no
+    interpolation or KDTree, but needs many time steps to propagate corrections from the
+    interface and can cause mass loss.
 
-  - using `ReinitializationTerm(ϕ₀::LevelSet)` precomputes the `sign` term on the initial
-    level set `ϕ₀`, as in equation 7.5 of Osher and Fedkiw;
-  - using `ReinitializationTerm()` constructs a term that computes the `sign` term
-    on-the-fly at each time step, as in equation 7.6 of Osher and Fedkiw.
+There are two constructors:
+
+  - `EikonalReinitializationTerm(ϕ₀)`: freezes the sign from the initial level set `ϕ₀`
+    (equation 7.5 of Osher & Fedkiw). Recommended when the interface may drift.
+  - `EikonalReinitializationTerm()`: recomputes the sign from the current `ϕ` at each
+    step (equation 7.6 of Osher & Fedkiw).
 """
-struct ReinitializationTerm{T} <: LevelSetTerm
+struct EikonalReinitializationTerm{T} <: LevelSetTerm
     S₀::T
 end
 
-function ReinitializationTerm(ϕ₀::LevelSet)
+function EikonalReinitializationTerm(ϕ₀::LevelSet)
     Δx = minimum(meshsize(ϕ₀))
     # equation 7.5 of Osher and Fedkiw
     S₀ = map(CartesianIndices(mesh(ϕ₀))) do I
         return ϕ₀[I] / sqrt(ϕ₀[I]^2 + Δx^2)
     end
-    return ReinitializationTerm(S₀)
+    return EikonalReinitializationTerm(S₀)
 end
-ReinitializationTerm() = ReinitializationTerm(nothing)
+EikonalReinitializationTerm() = EikonalReinitializationTerm(nothing)
 
-function Base.show(io::IO, t::ReinitializationTerm)
+function Base.show(io::IO, t::EikonalReinitializationTerm)
     S₀ = t.S₀
     if isnothing(S₀)
         print(io, "sign(ϕ) (|∇ϕ| - 1)")
@@ -271,21 +284,22 @@ function Base.show(io::IO, t::ReinitializationTerm)
     return io
 end
 
-function _compute_term(term::ReinitializationTerm, ϕ, I, t)
+function _compute_term(term::EikonalReinitializationTerm, ϕ, I, t)
     S₀ = term.S₀
-    norm_∇ϕ = _compute_∇_norm(sign(ϕ[I]), ϕ, I)
     if isnothing(S₀)
-        # equation 7.6 of Osher and Fedkiw
+        # equation 7.6 of Osher and Fedkiw: sign computed from current ϕ
+        norm_∇ϕ = _compute_∇_norm(sign(ϕ[I]), ϕ, I)
         Δx = minimum(meshsize(ϕ))
         S = ϕ[I] / sqrt(ϕ[I]^2 + norm_∇ϕ^2 * Δx^2)
     else
-        # precomputed S₀ term
+        # equation 7.5 of Osher and Fedkiw: upwind direction must match frozen sign
+        norm_∇ϕ = _compute_∇_norm(sign(S₀[I]), ϕ, I)
         S = S₀[I]
     end
     return S * (norm_∇ϕ - 1.0)
 end
 
-_compute_cfl(term::ReinitializationTerm, ϕ, I, t) = minimum(meshsize(ϕ))
+_compute_cfl(term::EikonalReinitializationTerm, ϕ, I, t) = minimum(meshsize(ϕ))
 
 function _compute_∇_norm(v, ϕ, I)
     # FIXME: use version from NormalTerm

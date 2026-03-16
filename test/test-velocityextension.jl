@@ -137,7 +137,7 @@ function _run_curvature_extension_cycle!(
         integrator = ForwardEuler(cfl = 0.35),
     )
     eq_reinit = LevelSetEquation(;
-        terms = (ReinitializationTerm(),),
+        terms = (EikonalReinitializationTerm(),),
         levelset = ϕ,
         bc = PeriodicBC(),
         integrator = ForwardEuler(cfl = 0.45),
