@@ -6,6 +6,11 @@ time integrators.
 """
 abstract type TimeIntegrator end
 
+"""
+    struct ForwardEuler
+
+First-order explicit Forward Euler time integration scheme.
+"""
 @kwdef struct ForwardEuler <: TimeIntegrator
     cfl::Float64 = 0.5
 end

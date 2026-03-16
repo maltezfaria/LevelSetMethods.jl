@@ -83,4 +83,4 @@ struct DirichletBC{T} <: BoundaryCondition
 end
 
 DirichletBC() = DirichletBC(0.0)
-DirichletBC(a::Real) = DirichletBC(x -> float(a))
+DirichletBC(a::Real) = DirichletBC(_ -> float(a))

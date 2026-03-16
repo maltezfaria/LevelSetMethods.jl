@@ -21,7 +21,7 @@ bc = ntuple(_ -> (NeumannGradientBC(), NeumannGradientBC()), 2)
 itp = interpolate(ϕ) # cubic interpolation by default (order=3)
 ```
 
-The returned object is a [`PiecewisePolynomialInterpolation`](@ref), which is callable and
+The returned object is a [`PiecewisePolynomialInterpolation`](@ref LevelSetMethods.PiecewisePolynomialInterpolation), which is callable and
 efficient. Once constructed, the interpolant can be used to evaluate the level-set function
 anywhere inside (and even slightly outside, using boundary conditions) the grid:
 

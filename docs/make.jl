@@ -16,7 +16,7 @@ const numbered_pages = [
 ]
 
 modules = [LevelSetMethods]
-for extension in [:MakieExt, :MMGSurfaceExt, :MMGVolumeExt, :ReinitializationExt]
+for extension in [:MakieExt, :MMGSurfaceExt, :MMGVolumeExt]
     ext = Base.get_extension(LevelSetMethods, extension)
     if isnothing(ext)
         @warn "extension $extension not loaded"
@@ -40,8 +40,9 @@ makedocs(;
         "interpolation.md",
         "time-integrators.md",
         "boundary-conditions.md",
+        "reinitialization.md",
         "Extensions" =>
-            ["extension-makie.md", "extension-mmg.md", "extension-reinitialization.md"],
+            ["extension-makie.md", "extension-mmg.md"],
         "Examples" => ["example-zalesak.md", "example-shape-optim.md"],
         numbered_pages,
     ),

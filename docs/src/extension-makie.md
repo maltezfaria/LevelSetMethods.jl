@@ -49,7 +49,7 @@ Once again, you can manually customize the options by calling the `volume` funct
 
 ```@example volume3D
 with_theme(theme) do
-  volume(ϕ; algorithm = :iso, isovalue = 0.5)
+  Makie.volume(ϕ; algorithm = :iso, isovalue = 0.5)
 end
 ```
 

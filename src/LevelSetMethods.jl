@@ -5,18 +5,19 @@ using DiffResults
 using LinearAlgebra
 using SparseArrays
 using StaticArrays
+using NearestNeighbors
 
 include("meshes.jl")
 include("boundaryconditions.jl")
 include("meshfield.jl")
 include("levelset.jl")
 include("derivatives.jl")
+include("interpolation.jl")
+include("reinitializer.jl")
 include("velocityextension.jl")
 include("levelsetterms.jl")
 include("timestepping.jl")
-include("reinitializer.jl")
 include("levelsetequation.jl")
-include("interpolation.jl")
 
 export CartesianGrid,
     MeshField,
@@ -30,7 +31,7 @@ export CartesianGrid,
     CurvatureTerm,
     NormalMotionTerm,
     extend_along_normals!,
-    ReinitializationTerm,
+    EikonalReinitializationTerm,
     ForwardEuler,
     RK2,
     RK3,
@@ -38,13 +39,13 @@ export CartesianGrid,
     Upwind,
     WENO5,
     LevelSetEquation,
-    Reinitializer,
+    NewtonReinitializer,
     integrate!,
+    current_state,
     current_time,
     reinitialize!,
-    interpolate,
-    cell_extrema,
-    proven_empty
+    interpolate
+
 
 """
     makie_theme()
@@ -60,35 +61,20 @@ Set the `Makie` theme to [`LevelSetMethods.makie_theme()`](@ref).
 """
 function set_makie_theme! end
 
+"""
+    export_volume_mesh(eq::LevelSetEquation, filename; kwargs...)
+
+Export a 3D volume mesh of the interior domain (where ϕ < 0) to `filename`.
+Requires the `MMG` extension to be loaded.
+"""
 function export_volume_mesh end
+
+"""
+    export_surface_mesh(eq::LevelSetEquation, filename; kwargs...)
+
+Export a surface mesh of the 3D interface (where ϕ = 0) to `filename`.
+Requires the `MMG` extension to be loaded.
+"""
 function export_surface_mesh end
-
-"""
-    reinitialize!(ϕ::LevelSet, reinitializer = Reinitializer())
-
-Reinitializes the level set `ϕ` to a signed distance, modifying it in place.
-
-The method works by first sampling the zero-level set of the interface, and then for each
-grid point, finding the closest point on the interface using a Newton-based method. The
-distance to the closest point is then used as the new value of the level set at that grid
-point, with the sign determined by the original level set value. See [saye2014high](@cite)
-for more details.
-
-## Arguments
-
-  - `ϕ`: The level set to reinitialize.
-  - `reinitializer`: Configuration for the reinitialization. Defaults to `Reinitializer()`.
-    See [`Reinitializer`](@ref) for details.
-
-!!! note
-    This functionality is provided by the `ReinitializationExt` module, which
-    requires loading `NearestNeighbors.jl`.
-"""
-function reinitialize!(ϕ, reinitializer)
-    error("Reinitialization extension not loaded. Please load the NearestNeighbors module to use this functionality.")
-end
-
-# tomatoes tomatos ...
-reinitialise!(args...; kwargs...) = reinitialize!(args...; kwargs...)
 
 end # module

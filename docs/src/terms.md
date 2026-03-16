@@ -253,7 +253,7 @@ fig
 We will now evolve the level-set using the reinitialization term:
 
 ```@example reinitialization-term
-eq = LevelSetEquation(; terms = (ReinitializationTerm(),), levelset = deepcopy(ϕ), bc = PeriodicBC())
+eq = LevelSetEquation(; terms = (EikonalReinitializationTerm(),), levelset = deepcopy(ϕ), bc = PeriodicBC())
 fig = Figure(; size = (1200, 300))
 for (n,t) in enumerate([0.0, 0.25, 0.5, 0.75])
     integrate!(eq, t)
@@ -271,10 +271,10 @@ Alternatively, you can use a modified reinitialization term that applies the sig
   \phi_t + \text{sign}(\phi_0) \left( |\nabla \phi| - 1 \right) = 0
 ```
 
-To enable this behavior, simply pass a `LevelSet` object to the `ReinitializationTerm`:
+To enable this behavior, simply pass a `LevelSet` object to the `EikonalReinitializationTerm`:
 
 ```@example reinitialization-term
-eq = LevelSetEquation(; terms = (ReinitializationTerm(ϕ),), levelset = deepcopy(ϕ), bc = PeriodicBC())
+eq = LevelSetEquation(; terms = (EikonalReinitializationTerm(ϕ),), levelset = deepcopy(ϕ), bc = PeriodicBC())
 fig = Figure(; size = (1200, 300))
 for (n,t) in enumerate([0.0, 0.25, 0.5, 0.75])
     integrate!(eq, t)
@@ -285,3 +285,10 @@ fig
 ```
 
 The outcome closely matches that of the previous approach.
+
+!!! tip "Consider Newton reinitialization instead"
+    `EikonalReinitializationTerm` requires many pseudo-time steps to propagate corrections
+    away from the interface and can cause spurious mass loss. For most use cases,
+    [`NewtonReinitializer`](@ref) is a better choice: it samples the interface, builds a
+    KD-tree, and computes the exact signed distance in a single pass. See the
+    [Reinitialization](@ref reinitialization-newton) section for details.
