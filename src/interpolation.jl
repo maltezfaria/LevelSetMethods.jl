@@ -1,7 +1,3 @@
-using ForwardDiff
-using StaticArrays
-using LinearAlgebra: mul!, dot, norm
-
 struct BernsteinPolynomial{N, T} <: Function
     coeffs::Array{T, N}
     low_corner::SVector{N, T}
@@ -24,8 +20,6 @@ p(x_1,\\dots,x_D)=\\sum_{i_j=0}^{d_j}c_{i_1\\dots i_D}\\prod_{j=1}^D\\binom{d_j}
 where ``l_j = lc[j]`` and ``r_j = hc[j]`` are the lower and upper bounds of the
 hyperrectangle, respectively, and ``d_j = size(c)[j] - 1`` is the degree of the polynomial
 in dimension `j`.
-
-See also [`berninterp`]( @docs/src/95-reference.md).
 """
 function BernsteinPolynomial(c::AbstractArray, lc, hc)
     N = ndims(c)
@@ -87,31 +81,23 @@ end
     end
 end
 
-# --- Automatic Derivatives via ForwardDiff ---
-
-function gradient(p::BernsteinPolynomial, x)
+function gradient(p, x)
     return ForwardDiff.gradient(p, SVector{length(x)}(x))
 end
 
-function hessian(p::BernsteinPolynomial, x)
+function hessian(p, x)
     return ForwardDiff.hessian(p, SVector{length(x)}(x))
 end
 
-function value_and_gradient(p::BernsteinPolynomial, x)
-    x_vec = SVector{length(x)}(x)
-    res = DiffResults.GradientResult(x_vec)
-    ForwardDiff.gradient!(res, p, x_vec)
+function value_and_gradient(p, x)
+    res = ForwardDiff.gradient!(DiffResults.GradientResult(x), p, x)
     return DiffResults.value(res), DiffResults.gradient(res)
 end
 
-function value_gradient_hessian(p::BernsteinPolynomial, x)
-    x_vec = SVector{length(x)}(x)
-    res = DiffResults.HessianResult(x_vec)
-    ForwardDiff.hessian!(res, p, x_vec)
+function value_gradient_hessian(p, x)
+    res = ForwardDiff.hessian!(DiffResults.HessianResult(x), p, x)
     return DiffResults.value(res), DiffResults.gradient(res), DiffResults.hessian(res)
 end
-
-# --- Mesh-based Interpolation ---
 
 """
     struct PiecewisePolynomialInterpolation{Φ, N, T}
@@ -121,48 +107,43 @@ A piecewise polynomial interpolant for a `MeshField`.
 See [`interpolate`](@ref).
 """
 mutable struct PiecewisePolynomialInterpolation{Φ, N, T}
-    ϕ::Φ
-    mat::Matrix{T}
-    coeffs::Array{T, N}
-    vals::Array{T, N}
-    temp1::Array{T, N}
-    temp2::Array{T, N}
-    current_I::CartesianIndex{N}
+    ϕ::Φ                            # underlying mesh field
+    mat::Matrix{T}                  # map from grid to bernstein vals in 1D
+    coeffs::Array{T, N}             # buffer for bernstein coeffs
+    vals::Array{T, N}               # buffer for grid values in the stencil
+    Ic::CartesianIndex{N}           # multi-index of the currently loaded cell
+    temp1::Vector{T}
+    temp2::Vector{T}
+end
 
-    function PiecewisePolynomialInterpolation(ϕ::Φ, K::Int) where {Φ}
-        grid = mesh(ϕ)
-        N = dimension(grid)
-        T = eltype(ϕ)
+function PiecewisePolynomialInterpolation(ϕ::Φ, K::Int) where {Φ}
+    grid = mesh(ϕ)
+    N = dimension(grid)
+    T = eltype(ϕ)
 
-        stencil_K = isodd(K) ? K : K + 1
-        nc, nn = K + 1, stencil_K + 1
-        nodes = ntuple(i -> (i - 1) / stencil_K, Val(nn))
-        a, b = (stencil_K - 1) / (2 * stencil_K), (stencil_K + 1) / (2 * stencil_K)
-        B(i, k, x) = binomial(k, i) * (x^i) * ((1 - x)^(k - i))
-        V = [B(j - 1, K, (nodes[i] - a) / (b - a)) for i in 1:nn, j in 1:nc]
+    # Build a 1D interpolation matrix mapping `K+1` values at equispaced nodes in [0,1] and
+    # returning the coefficients of the Bernstein basis defined on the interval
+    # [floor(K/2)/K, ceil(K/2)/K], which is symmetric around 0.5 and contains the central
+    # node at 0.5. When K is even, we use a stencil of size K+1 and do a least-squares fit.
+    stencil_K = isodd(K) ? K : K + 1
+    nc, nv = K + 1, stencil_K + 1
+    nodes = ntuple(i -> (i - 1) / stencil_K, Val(nv))
+    a, b = (stencil_K - 1) / (2 * stencil_K), (stencil_K + 1) / (2 * stencil_K)
+    B = (i, k, x) -> binomial(k, i) * (x^i) * ((1 - x)^(k - i))
+    V = [B(j - 1, K, (nodes[i] - a) / (b - a)) for i in 1:nv, j in 1:nc]
 
-        mat = Matrix{T}(pinv(V))
-        coeffs = zeros(T, ntuple(_ -> nc, N))
-        vals = zeros(T, ntuple(_ -> nn, N))
+    mat = pinv(V)
+    coeffs = zeros(T, ntuple(_ -> nc, N))
+    vals = zeros(T, ntuple(_ -> nv, N))
 
-        # Intermediate buffers
-        if N == 1
-            temp1 = zeros(T, 0)
-            temp2 = zeros(T, 0)
-        elseif N == 2
-            temp1 = zeros(T, nc, nn)
-            temp2 = zeros(T, 0, 0)
-        elseif N == 3
-            temp1 = zeros(T, nc, nn, nn)
-            temp2 = zeros(T, nc, nc, nn)
-        else
-            error("N > 3 not supported yet")
-        end
+    # Intermediate buffers: each needs nc * nv^(N-1) elements (the largest intermediate size)
+    buf_size = N > 1 ? nc * nv^(N - 1) : 0
+    temp1 = zeros(T, buf_size)
+    temp2 = zeros(T, buf_size)
 
-        current_I = CartesianIndex(ntuple(_ -> 0, Val(N)))
+    Ic = CartesianIndex(ntuple(_ -> 0, Val(N)))
 
-        return new{Φ, N, T}(ϕ, mat, coeffs, vals, temp1, temp2, current_I)
-    end
+    return PiecewisePolynomialInterpolation(ϕ, mat, coeffs, vals, Ic, temp1, temp2)
 end
 
 Base.ndims(::PiecewisePolynomialInterpolation{Φ, N}) where {Φ, N} = N
@@ -181,6 +162,51 @@ function compute_index(itp::PiecewisePolynomialInterpolation, x)
     ) |> CartesianIndex
 end
 
+# Batched right-multiply by Aᵀ: for r in 1:n_batch, C[:,:,r] = B[:,:,r] * Aᵀ,
+# where C is (m, n) and B is (m, p), all stored flat in column-major order.
+# C and B are accessed via linear indexing (avoiding reshape on Array{T,N}, which allocates).
+function _rmult!(C, A::Matrix{T}, B, m, p, n, n_batch = 1) where {T}
+    return @inbounds for r in 1:n_batch
+        ob = (r - 1) * m * p
+        oc = (r - 1) * m * n
+        for j in 1:n
+            for i in 1:m
+                s = zero(T)
+                for k in 1:p
+                    s += A[j, k] * B[ob + (k - 1) * m + i]
+                end
+                C[oc + (j - 1) * m + i] = s
+            end
+        end
+    end
+end
+
+# Apply the N-fold Kronecker product (mat ⊗ mat ⊗ … ⊗ mat) to vals using the vec trick,
+# writing the result into coeffs. temp1 and temp2 are flat pre-allocated scratch buffers,
+# each of length nc * nv^(N-1).
+function _apply_kron!(
+        coeffs::AbstractArray{T, N},
+        mat::Matrix{T},
+        vals::Array{T, N},
+        temp1::Vector{T},
+        temp2::Vector{T},
+    ) where {T, N}
+    nc, nv = size(mat)
+    N == 1 && return mul!(coeffs, mat, vals)
+    # Apply mat along each dimension sequentially via batched right-multiply by matᵀ.
+    # After step k, dims 1..k have size nc and dims k+1..N have size nv.
+    _rmult!(temp1, mat, vals, 1, nv, nc, nv^(N - 1))
+    src, dst = temp1, temp2
+    for k in 2:N
+        n_left = nc^(k - 1)
+        n_right = k < N ? nv^(N - k) : 1
+        out = k < N ? dst : coeffs
+        _rmult!(out, mat, src, n_left, nv, nc, n_right)
+        src, dst = dst, src
+    end
+    return coeffs
+end
+
 """
     fill_coefficients!(itp::PiecewisePolynomialInterpolation, base_idxs::CartesianIndex)
 
@@ -195,27 +221,17 @@ Fill the internal buffer of `itp` with the Bernstein coefficients for the cell a
     nc, nn = size(mat)
     KS = nn - 1 # order of the interpolation stencil
     off = -(KS - 1) ÷ 2
-    vN = Val(N)
     # 1. Gather grid values into vals
     for I in CartesianIndices(itp.vals)
         J = CartesianIndex(ntuple(d -> base_idxs[d] + off + I[d] - 1, N))
         @inbounds itp.vals[I] = ϕ[J]
     end
 
-    # 2. Apply Tensor Transformation dimension-by-dimension using mul!
-    if N == 1
-        mul!(itp.coeffs, mat, itp.vals)
-    elseif N == 2
-        mul!(itp.temp1, mat, itp.vals)
-        mul!(itp.coeffs, itp.temp1, mat')
-    elseif N == 3
-        mul!(reshape(itp.temp1, nc, nn * nn), mat, reshape(itp.vals, nn, nn * nn))
-        for r in 1:nn
-            mul!(view(itp.temp2, :, :, r), view(itp.temp1, :, :, r), mat')
-        end
-        mul!(reshape(itp.coeffs, nc * nc, nc), reshape(itp.temp2, nc * nc, nn), mat')
-    end
-    return itp.current_I = base_idxs
+    # The Vandermonde matrix is a Kronecker product V = V₁ ⊗ … ⊗ V₁ so we use the vec
+    # trick to perform the multi-dimensional interpolation with N calls to mul!.
+    _apply_kron!(itp.coeffs, mat, itp.vals, itp.temp1, itp.temp2)
+    itp.Ic = base_idxs
+    return itp
 end
 
 """
@@ -224,7 +240,7 @@ end
 Create a `BernsteinPolynomial` for the cell at multi-index `I`.
 """
 function make_interpolant(itp::PiecewisePolynomialInterpolation{Φ, N}, I::CartesianIndex{N}) where {Φ, N}
-    I == itp.current_I || fill_coefficients!(itp, I)
+    I == itp.Ic || fill_coefficients!(itp, I)
     grid = mesh(itp.ϕ)
     h = meshsize(grid)
     lc = grid.lc .+ (SVector(Tuple(I)) .- 1) .* h
@@ -232,10 +248,12 @@ function make_interpolant(itp::PiecewisePolynomialInterpolation{Φ, N}, I::Carte
     return BernsteinPolynomial(itp.coeffs, lc, hc)
 end
 
+@inline _evaluate(p::P, x) where {P} = p(x)
+
 @inline function (itp::PiecewisePolynomialInterpolation)(x)
     I = compute_index(itp, x)
     p = make_interpolant(itp, I)
-    return p(x)
+    return _evaluate(p, x)
 end
 
 @inline (itp::PiecewisePolynomialInterpolation)(x::Vararg{Real}) = itp(SVector(x))
@@ -252,12 +270,11 @@ is added automatically on all sides.
 
 The returned object `itp` behaves like a function and supports:
 - `itp(x)`: evaluate the interpolant at point `x`
+- [`make_interpolant`](@ref)`(itp, I)`: return the local interpolant for cell `I`
 - [`gradient`](@ref)`(itp, x)`: gradient at `x` (via `make_interpolant` + ForwardDiff)
-- [`make_interpolant`](@ref)`(itp, I)`: return the local `BernsteinPolynomial` for cell `I`,
-  which itself supports `p(x)`, [`gradient`](@ref)`(p, x)`,
-  [`value_and_gradient`](@ref)`(p, x)`, [`value_gradient_hessian`](@ref)`(p, x)`
-- [`cell_extrema`](@ref)`(itp, I)`: min/max of the interpolant over cell `I`
-- [`proven_empty`](@ref)`(itp, I)`: check whether cell `I` can be skipped
+- [`hessian`](@ref)`(itp, x)`: hessian at `x` (via `make_interpolant` + ForwardDiff)
+- [`cell_extrema`](@ref)`(itp, I)`: lower and upper bounds of the interpolant in cell `I`
+
 """
 function interpolate(ϕ::MeshField, order::Int = 3)
     ϕ_copy = deepcopy(ϕ)
@@ -275,8 +292,8 @@ end
 Compute the minimum and maximum values of the interpolant in the cell `I`.
 """
 function cell_extrema(itp::PiecewisePolynomialInterpolation{Φ, N}, I::CartesianIndex{N}) where {Φ, N}
-    fill_coefficients!(itp, I)
-    return extrema(itp.coeffs)
+    p = make_interpolant(itp, I)
+    return extrema(coefficients(p))
 end
 
 """

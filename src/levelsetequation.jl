@@ -3,13 +3,12 @@ mutable struct LevelSetEquation
     integrator::TimeIntegrator
     state::MeshField
     t::Float64
-    reinit::Union{Nothing, Reinitializer}
+    reinit::Union{Nothing, NewtonReinitializer}
     buffers
 end
 
 """
-    LevelSetEquation(; terms, levelset, boundary_conditions, t = 0, integrator = RK2(),
-    reinit = nothing)
+    LevelSetEquation(; terms, levelset, bc, t = 0, integrator = RK2(), reinit = nothing)
 
 Create a of a level-set equation of the form `ϕₜ + sum(terms) = 0`, where each `t ∈ terms`
 is a [`LevelSetTerm`](@ref) and `levelset` is the initial [`LevelSet`](@ref).
@@ -29,10 +28,10 @@ right boundary. The same logic applies to the other dimensions.
 The optional parameter `t` specifies the initial time of the simulation, and `integrator` is
 the [`TimeIntegrator`](@ref) used to evolve the level-set equation.
 
-Reinitialization of the level-set function is controlled by the `reinit` parameter,
-a [`Reinitializer`](@ref) object that specifies both the reinitialization algorithm
-parameters and the frequency (in time steps). By default, no automatic reinitialization
-is performed. Using this feature requires the `ReinitializationExt` to be loaded.
+Reinitialization is controlled by the `reinit` keyword, which accepts:
+- `nothing` (default): no automatic reinitialization.
+- an `Int`: reinitialization every `reinit` steps using [`NewtonReinitializer`](@ref) with default settings.
+- a [`NewtonReinitializer`](@ref): full control over algorithm parameters and frequency.
 
 ```jldoctest; output = true
 using LevelSetMethods, StaticArrays
@@ -64,6 +63,7 @@ function LevelSetEquation(;
     N = dimension(levelset)
     terms = _normalize_terms(terms, N)
     bc = _normalize_bc(bc, N)
+    reinit = _normalize_reinit(reinit)
     # append boundary conditions to the state
     state = add_boundary_conditions(levelset, bc)
     # create buffers for the time-integrator
@@ -71,6 +71,10 @@ function LevelSetEquation(;
     buffers = ntuple(_ -> deepcopy(state), nb)
     return LevelSetEquation(terms, integrator, state, t, reinit, buffers)
 end
+
+_normalize_reinit(::Nothing) = nothing
+_normalize_reinit(r::NewtonReinitializer) = r
+_normalize_reinit(freq::Int) = NewtonReinitializer(; reinit_freq = freq)
 
 function _normalize_terms(terms, dim)
     if isa(terms, LevelSetTerm) # single term
@@ -126,14 +130,79 @@ function Base.show(io::IO, eq::LevelSetEquation)
 end
 
 # getters
+
+"""
+    current_state(eq::LevelSetEquation)
+
+Return the current state of the level-set equation (a [`LevelSet`](@ref)).
+"""
 current_state(ls::LevelSetEquation) = ls.state
-current_time(ls::LevelSetEquation) = ls.t[]
+
+"""
+    current_time(eq::LevelSetEquation)
+
+Return the current time of the simulation.
+"""
+current_time(ls::LevelSetEquation) = ls.t
+
+"""
+    buffers(eq::LevelSetEquation)
+
+Return the internal buffers used by the time-integrator.
+"""
 buffers(ls::LevelSetEquation) = ls.buffers
+
+"""
+    time_integrator(eq::LevelSetEquation)
+
+Return the [`TimeIntegrator`](@ref) of the equation.
+"""
 time_integrator(ls) = ls.integrator
+
+"""
+    terms(eq::LevelSetEquation)
+
+Return the tuple of [`LevelSetTerm`](@ref)s of the equation.
+"""
 terms(ls) = ls.terms
+
+"""
+    boundary_conditions(eq::LevelSetEquation)
+
+Return the boundary conditions of the equation.
+"""
 boundary_conditions(ls) = boundary_conditions(ls.state)
+
+"""
+    mesh(eq::LevelSetEquation)
+
+Return the underlying [`CartesianGrid`](@ref) of the equation.
+"""
 mesh(ls::LevelSetEquation) = mesh(ls.state)
+
+"""
+    reinitializer(eq::LevelSetEquation)
+
+Return the [`NewtonReinitializer`](@ref) (if any) attached to the equation.
+"""
 reinitializer(ls::LevelSetEquation) = ls.reinit
+
+# Convenience delegations to current state
+interpolate(eq::LevelSetEquation, order::Int = 3) = interpolate(current_state(eq), order)
+volume(eq::LevelSetEquation) = volume(current_state(eq))
+perimeter(eq::LevelSetEquation) = perimeter(current_state(eq))
+
+"""
+    reinitialize!(eq::LevelSetEquation)
+
+Reinitialize the current state of the level-set equation using its attached [`NewtonReinitializer`](@ref).
+"""
+function reinitialize!(eq::LevelSetEquation)
+    r = reinitializer(eq)
+    isnothing(r) && error("no reinitializer specified in the equation.")
+    reinitialize!(current_state(eq), r)
+    return eq
+end
 
 """
     integrate!(ls::LevelSetEquation,tf,Δt=Inf)
@@ -173,9 +242,7 @@ number_of_buffers(fe::ForwardEuler) = 1
     α = cfl(integrator)
     nsteps = 0
     while tc <= tf - eps(tc)
-        if !isnothing(reinit) && mod(nsteps, reinit.reinit_freq) == 0
-            reinitialize!(ϕ, reinit)
-        end
+        reinitialize!(ϕ, reinit, nsteps)
         # update terms and compute an appropriate time-step
         _update_terms!(terms, ϕ, tc)
         Δt_cfl = α * compute_cfl(terms, ϕ, tc)
@@ -201,10 +268,7 @@ number_of_buffers(fe::RK2) = 2
     buffer1, buffer2 = buffers[1], buffers[2]
     nsteps = 0
     while tc <= tf - eps(tc)
-        # handle reinitialization
-        if !isnothing(reinit) && mod(nsteps, reinit.reinit_freq) == 0
-            reinitialize!(ϕ, reinit)
-        end
+        reinitialize!(ϕ, reinit, nsteps)
 
         # update terms and compute an appropriate time-step
         _update_terms!(terms, ϕ, tc)
@@ -237,9 +301,7 @@ function _integrate!(ϕ::LevelSet, buffers, integrator::RK3, terms, reinit, tc, 
     α = cfl(integrator)
     nsteps = 0
     while tc <= tf - eps(tc)
-        if !isnothing(reinit) && mod(nsteps, reinit.reinit_freq) == 0
-            reinitialize!(ϕ, reinit)
-        end
+        reinitialize!(ϕ, reinit, nsteps)
         # update terms and compute an appropriate time-step
         _update_terms!(terms, ϕ, tc)
         Δt_cfl = α * compute_cfl(terms, ϕ, tc)
@@ -291,9 +353,7 @@ function _integrate!(
     α = cfl(integrator)
     nsteps = 0
     while tc <= tf - eps(tc)
-        if !isnothing(reinit) && mod(nsteps, reinit.reinit_freq) == 0
-            reinitialize!(ϕ, reinit)
-        end
+        reinitialize!(ϕ, reinit, nsteps)
         _update_terms!(terms, ϕ, tc)
         Δt_cfl = α * compute_cfl(terms, ϕ, tc)
         Δt = min(Δt_max, Δt_cfl, tf - tc)
@@ -518,7 +578,8 @@ _update_terms!(terms, ϕ, t) = foreach(term -> update_term!(term, ϕ, t), terms)
 """
     update_term!(term::LevelSetTerm, ϕ, t)
 
-Called before computing the term at each stage of the time evolution.
+Update the internal state of a `LevelSetTerm` before computing its contribution.
+This is called at each stage of the time integration.
 """
 update_term!(term::LevelSetTerm, ϕ, t) = nothing
 
