@@ -113,8 +113,6 @@ optional dependencies:
 
 - **[Makie](https://docs.makie.org)**: Loading a `Makie` backend (like `GLMakie` or `CairoMakie`)
   enables plotting recipes for level sets and equations. See [Makie extension](@ref extension-makie).
-- **[NearestNeighbors](https://github.com/KristofferC/NearestNeighbors.jl)**: Loading
-  `NearestNeighbors` enables high-order Newton-based reinitialization. See [Reinitialization](@ref extension-reinitialization).
 - **[MMG](https://github.com/JuliaBinaryWrappers/MMG_jll.jl.git)**: Loading `MMG_jll` and `MarchingCubes`
   enables exporting level sets as volume or surface meshes. See [MMG extension](@ref extension-mmg).
 

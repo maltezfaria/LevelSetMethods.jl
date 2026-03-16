@@ -44,11 +44,7 @@ export CartesianGrid,
     current_state,
     current_time,
     reinitialize!,
-    interpolate,
-    volume,
-    perimeter,
-    cell_extrema,
-    proven_empty
+    interpolate
 
 
 """

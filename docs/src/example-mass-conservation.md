@@ -30,7 +30,7 @@ w = 0.2
 disk = LevelSetMethods.circle(grid; center, radius)
 rec = LevelSetMethods.rectangle(grid; center = center .- (0, radius), width = (w, h))
 ϕ₀ = setdiff(disk, rec)
-V₀ = volume(ϕ₀)
+V₀ = LevelSetMethods.volume(ϕ₀)
 tf = 2π   # one full revolution
 nframes = 50
 timestamps = range(0, tf; length = nframes + 1)
@@ -48,7 +48,7 @@ function track_volume(integrator)
     V[1] = V₀
     for (i, t) in enumerate(timestamps[2:end])
         integrate!(eq, t)
-        V[i + 1] = volume(current_state(eq))
+        V[i + 1] = LevelSetMethods.volume(current_state(eq))
     end
     return (V .- V₀) ./ V₀
 end

@@ -285,3 +285,10 @@ fig
 ```
 
 The outcome closely matches that of the previous approach.
+
+!!! tip "Consider Newton reinitialization instead"
+    `EikonalReinitializationTerm` requires many pseudo-time steps to propagate corrections
+    away from the interface and can cause spurious mass loss. For most use cases,
+    [`NewtonReinitializer`](@ref) is a better choice: it samples the interface, builds a
+    KD-tree, and computes the exact signed distance in a single pass. See the
+    [Reinitialization](@ref reinitialization-newton) section for details.
