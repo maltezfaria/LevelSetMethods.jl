@@ -14,7 +14,7 @@ end
 """
     CartesianGrid(lc, hc, n)
 
-Create a uniform cartesian grid with lower corner `lc`, upper corner `hc` and and `n` nodes
+Create a uniform cartesian grid with lower corner `lc`, upper corner `hc` and `n` nodes
 in each direction.
 
 # Examples
@@ -35,12 +35,18 @@ function CartesianGrid(lc, hc, n)
     length(lc) == length(hc) == length(n) ||
         throw(ArgumentError("all arguments must have the same length"))
     N = length(lc)
-    lc_ = SVector{N, eltype(lc)}(lc...)
-    hc_ = SVector{N, eltype(hc)}(hc...)
-    n = ntuple(i -> Int(n[i]), N)
-    return CartesianGrid(promote(lc_, hc_)..., n)
+    lc_ = SVector{N}(lc)
+    hc_ = SVector{N}(hc)
+    n_ = ntuple(i -> Int(n[i]), N)
+    return CartesianGrid(promote(lc_, hc_)..., n_)
 end
 
+"""
+    grid1d(g::CartesianGrid[, dim::Integer])
+
+Return a `LinRange` of the coordinates along the given dimension `dim`.
+If `dim` is not provided, return a tuple of `LinRange`s for all dimensions.
+"""
 grid1d(g::CartesianGrid{N}) where {N} = ntuple(i -> grid1d(g, i), N)
 grid1d(g::CartesianGrid, dim) = LinRange(g.lc[dim], g.hc[dim], g.n[dim])
 
@@ -50,11 +56,17 @@ xgrid(g::CartesianGrid) = grid1d(g, 1)
 ygrid(g::CartesianGrid) = grid1d(g, 2)
 zgrid(g::CartesianGrid) = grid1d(g, 3)
 
+"""
+    meshsize(g::CartesianGrid[, dim::Integer])
+
+Return the spacing between grid nodes along the given dimension `dim`.
+If `dim` is not provided, return a `SVector` of spacings for all dimensions.
+"""
 meshsize(g::CartesianGrid) = (g.hc .- g.lc) ./ (g.n .- 1)
 meshsize(g::CartesianGrid, dim) = (g.hc[dim] - g.lc[dim]) / (g.n[dim] - 1)
 
 Base.size(g::CartesianGrid) = g.n
-Base.length(g) = prod(size(g))
+Base.length(g::CartesianGrid) = prod(size(g))
 
 function Base.getindex(g::CartesianGrid{N}, I::CartesianIndex{N}) where {N}
     I ∈ CartesianIndices(g) || throw(ArgumentError("index $I is out of bounds"))

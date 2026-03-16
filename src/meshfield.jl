@@ -3,6 +3,10 @@
 
 A field described by its discrete values on a mesh.
 
+- `vals`: the discrete values of the field (typically an `AbstractArray`).
+- `mesh`: the underlying mesh (e.g. [`CartesianGrid`](@ref)).
+- `bcs`: boundary conditions, used for indexing outside the mesh bounds.
+
 `Base.getindex` of an `MeshField` is overloaded to handle indices that lie outside the
 `CartesianIndices` of its `MeshField` by using `bcs`.
 """
@@ -20,8 +24,13 @@ boundary_conditions(ϕ::MeshField) = ϕ.bcs
 
 meshsize(ϕ::MeshField, args...) = meshsize(mesh(ϕ), args...)
 
+"""
+    add_boundary_conditions(ϕ::MeshField, bcs)
+
+Return a new `MeshField` with the given boundary conditions `bcs`.
+The underlying data `values(ϕ)` is aliased (shared) with the original field.
+"""
 add_boundary_conditions(ϕ::MeshField, bcs) = MeshField(values(ϕ), mesh(ϕ), bcs)
-remove_boundary_conditions(ϕ::MeshField) = MeshField(values(ϕ), mesh(ϕ), nothing)
 
 """
     MeshField(f::Function, m)
@@ -66,14 +75,13 @@ end
 # boundary look identical to the left, so the same weights apply to both.
 # Node values are fetched via _getindexrec(dim-1), so BCs in other dimensions
 # are applied automatically (handles corner ghost points correctly).
-function _apply_extrapolation_bc(ϕ, I, ::ExtrapolationBC{P}, ax, dim) where {P}
+function _apply_extrapolation_bc(ϕ, I::CartesianIndex{N}, ::ExtrapolationBC{P}, ax, dim) where {N, P}
     k = I[dim] < first(ax) ? (first(ax) - I[dim]) : (I[dim] - last(ax))
     b = I[dim] < first(ax) ? first(ax) : last(ax)
     d = I[dim] < first(ax) ? 1 : -1   # direction into the interior
-    Ndim = length(Tuple(I))
     result = zero(float(eltype(values(ϕ))))
     for j in 0:(P - 1)
-        Ij = ntuple(s -> s == dim ? b + d * j : I[s], Ndim) |> CartesianIndex
+        Ij = ntuple(s -> s == dim ? b + d * j : I[s], Val(N)) |> CartesianIndex
         Vj = _getindexrec(ϕ, Ij, dim - 1)
         result += _lagrange_extrap_weight(j, k, P) * Vj
     end
