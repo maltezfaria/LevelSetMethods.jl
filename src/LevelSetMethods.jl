@@ -14,6 +14,7 @@ include("levelset.jl")
 include("derivatives.jl")
 include("interpolation.jl")
 include("reinitializer.jl")
+include("narrowband.jl")
 include("velocityextension.jl")
 include("levelsetterms.jl")
 include("timestepping.jl")
@@ -30,6 +31,7 @@ export AdvectionTerm,
     LevelSet,
     LevelSetEquation,
     MeshField,
+    NarrowBandLevelSet,
     NeumannBC,
     LinearExtrapolationBC,
     NewtonReinitializer,
