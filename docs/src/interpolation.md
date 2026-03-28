@@ -15,13 +15,13 @@ using LevelSetMethods
 a, b = (-2.0, -2.0), (2.0, 2.0)
 ϕ   = LevelSetMethods.star(CartesianGrid(a, b, (50, 50)))
 # Add boundary conditions for safe evaluation near edges
-bc = ntuple(_ -> (NeumannGradientBC(), NeumannGradientBC()), 2)
+bc = ntuple(_ -> (LinearExtrapolationBC(), LinearExtrapolationBC()), 2)
 ϕ = LevelSetMethods.add_boundary_conditions(ϕ, bc)
 
 itp = interpolate(ϕ) # cubic interpolation by default (order=3)
 ```
 
-The returned object is a [`PiecewisePolynomialInterpolation`](@ref LevelSetMethods.PiecewisePolynomialInterpolation), which is callable and
+The returned object is a [`PiecewisePolynomialInterpolant`](@ref LevelSetMethods.PiecewisePolynomialInterpolant), which is callable and
 efficient. Once constructed, the interpolant can be used to evaluate the level-set function
 anywhere inside (and even slightly outside, using boundary conditions) the grid:
 
@@ -69,7 +69,7 @@ P1, P2 = (-1.0, 0.0, 0.0), (1.0, 0.0, 0.0)
 b = 1.05
 f = (x) -> norm(x .- P1)*norm(x .- P2) - b^2
 ϕ3 = LevelSet(f, grid)
-bc3 = ntuple(_ -> (NeumannGradientBC(), NeumannGradientBC()), 3)
+bc3 = ntuple(_ -> (LinearExtrapolationBC(), LinearExtrapolationBC()), 3)
 ϕ3 = LevelSetMethods.add_boundary_conditions(ϕ3, bc3)
 
 itp3 = interpolate(ϕ3)

@@ -18,3 +18,4 @@ sandbox
 *.msh
 *.sol
 *.mesh
+*.markdown-preview.html

@@ -93,9 +93,9 @@ term1 = NormalMotionTerm(MeshField(X -> 0.0, grid))
 term2 = CurvatureTerm(MeshField(X -> -1.0, grid))
 terms = (term1, term2)
 
-bc = NeumannGradientBC()
+bc = LinearExtrapolationBC()
 integrator = ForwardEuler(0.5)
-eq = LevelSetEquation(; terms, integrator, levelset = ϕ, t = 0, bc)
+eq = LevelSetEquation(; terms, integrator, ic = ϕ, t = 0, bc)
 
 using GLMakie
 
