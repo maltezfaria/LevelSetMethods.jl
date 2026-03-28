@@ -132,13 +132,13 @@ function _run_curvature_extension_cycle!(
 
     eq_motion = LevelSetEquation(;
         terms = (NormalMotionTerm(speed, update_speed),),
-        levelset = ϕ,
+        ic = ϕ,
         bc = PeriodicBC(),
         integrator = ForwardEuler(cfl = 0.35),
     )
     eq_reinit = LevelSetEquation(;
         terms = (EikonalReinitializationTerm(),),
-        levelset = ϕ,
+        ic = ϕ,
         bc = PeriodicBC(),
         integrator = ForwardEuler(cfl = 0.45),
     )
@@ -176,7 +176,7 @@ end
         ϕ;
         nsteps = 3,
         dt_motion = 1.2e-3,
-        dt_reinit = 0.2 * Δ,
+        dt_reinit = Δ,
         ext_iters = 30,
     )
 
@@ -274,7 +274,7 @@ end
     term = NormalMotionTerm(MeshField(v, grid, nothing))
     eq = LevelSetEquation(;
         terms = (term,),
-        levelset = ϕ,
+        ic = ϕ,
         bc = PeriodicBC(),
         integrator = ForwardEuler(cfl = 0.3),
     )
