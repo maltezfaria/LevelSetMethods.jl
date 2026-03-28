@@ -38,7 +38,7 @@ function extend_along_normals!(
     bc = if has_boundary_conditions(ϕ)
         boundary_conditions(ϕ)
     else
-        ntuple(_ -> (NeumannGradientBC(), NeumannGradientBC()), N)
+        ntuple(_ -> (LinearExtrapolationBC(), LinearExtrapolationBC()), N)
     end
     ϕw = has_boundary_conditions(ϕ) ? ϕ : add_boundary_conditions(ϕ, bc)
     Fw = MeshField(F, mesh(ϕ), bc)
@@ -93,7 +93,7 @@ function _normalize_frozen_mask(frozen, ϕ::LevelSet, interface_band, Δ)
 end
 
 function _signed_normal_components(ϕ::LevelSet, Δ, min_norm)
-    N = dimension(ϕ)
+    N = ndims(ϕ)
     T = float(eltype(values(ϕ)))
     components = ntuple(_ -> Array{T}(undef, size(values(ϕ))), N)
     min_norm² = min_norm^2
