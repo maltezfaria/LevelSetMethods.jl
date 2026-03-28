@@ -1,4 +1,20 @@
 """
+    struct NarrowBandDomain{T} <: AbstractDomain
+
+Domain for a narrow-band level set.
+
+- `halfwidth`: half-width of the narrow band, typically on the order of a few grid spacings.
+- `extrap_order`: polynomial order used to extrapolate values at indices inside the grid but
+  outside the band (default: `1`).
+
+Active indices are the keys of the associated values dict and need not be stored separately.
+"""
+struct NarrowBandDomain{T} <: AbstractDomain
+    halfwidth::T
+    extrap_order::Int
+end
+
+"""
     const NarrowBandLevelSet{N, T, B}
 
 Alias for [`MeshField`](@ref) on a `CartesianGrid{N,T}` with values stored as
