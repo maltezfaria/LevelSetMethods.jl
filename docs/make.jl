@@ -36,14 +36,21 @@ makedocs(;
         collapselevel = 2,
     ), pages = vcat(
         "Home" => "index.md",
-        "terms.md",
-        "interpolation.md",
-        "time-integrators.md",
-        "boundary-conditions.md",
-        "reinitialization.md",
-        "Extensions" =>
-            ["extension-makie.md", "extension-mmg.md"],
-        "Examples" => ["example-zalesak.md", "example-shape-optim.md"],
+        "Tutorial" => "tutorial.md",
+        "Guides" => [
+            "levelsets.md",
+            "terms.md",
+            "time-integrators.md",
+            "boundary-conditions.md",
+            "reinitialization.md",
+            "levelsetequation.md",
+        ],
+        "Examples" => [
+            "example-zalesak.md",
+            "example-mass-conservation.md",
+            "example-shape-optim.md",
+        ],
+        "Extensions" => ["extension-makie.md", "extension-mmg.md"],
         numbered_pages,
     ),
     pagesonly = true, # ignore .md files not in the pages list
