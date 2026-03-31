@@ -10,6 +10,8 @@ const LevelSet{N, T, B} =
 
 LevelSet(f::Function, grid, bc = nothing) = MeshField(f, grid, bc)
 
+active_indices(ϕ::LevelSet) = CartesianIndices(mesh(ϕ))
+
 """
     _ensure_boundary_conditions(ϕ)
 

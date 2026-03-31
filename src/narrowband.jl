@@ -204,14 +204,26 @@ function _lagrange_extrap_from(nb::NarrowBandLevelSet{N, T}, I, dim, anchor, sid
     return result
 end
 
-"""
-    _candidate_cells(nb::NarrowBandLevelSet)
+function active_cells(nb::NarrowBandLevelSet)
+    grid = mesh(nb)
+    cell_axes = cellindices(grid)
+    active_nodes = active_indices(nb)
+    active_cells = Set{CartesianIndex}()
 
-Return the active node indices as candidate cells for interface sampling.
-Since the band covers all nodes within `halfwidth` of the interface, all interface
-cells have at least one active node.
-"""
-_candidate_cells(nb::NarrowBandLevelSet) = active_indices(nb)
+    for I in cell_axes
+        N = ndims(grid)
+        all_corners_active = true
+        for offset in Iterators.product(ntuple(_ -> 0:1, Val(N))...)
+            corner_idx = I + CartesianIndex(offset)
+            if !(corner_idx in active_nodes)
+                all_corners_active = false
+                break
+            end
+        end
+        all_corners_active && push!(active_cells, I)
+    end
+    return active_cells
+end
 
 reinitialize!(nb::NarrowBandLevelSet, ::Nothing, _) = nb
 

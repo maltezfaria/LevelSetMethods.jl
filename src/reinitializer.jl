@@ -80,7 +80,7 @@ function NewtonSDF(
         ftol = 1.0e-8
     )
     grid = mesh(itp.ϕ)
-    pts = _sample_interface(grid, itp, _candidate_cells(itp.ϕ), upsample, maxiters, ftol)
+    pts = _sample_interface(grid, itp, active_cells(itp.ϕ), upsample, maxiters, ftol)
     tree = KDTree(pts)
     return NewtonSDF(itp, tree, pts, upsample, maxiters, xtol, ftol)
 end
@@ -107,7 +107,7 @@ buffers, upsample density, and solver tolerances.
 function update!(sdf::NewtonSDF, ϕ)
     update!(sdf.itp, ϕ)
     grid = mesh(sdf.itp.ϕ)
-    sdf.pts = _sample_interface(grid, sdf.itp, _candidate_cells(sdf.itp.ϕ), sdf.upsample, sdf.maxiters, sdf.ftol)
+    sdf.pts = _sample_interface(grid, sdf.itp, active_cells(sdf.itp.ϕ), sdf.upsample, sdf.maxiters, sdf.ftol)
     sdf.tree = KDTree(sdf.pts)
     return sdf
 end
@@ -144,13 +144,13 @@ function _closest_point_on_interface(sdf::NewtonSDF, x, max_retries = 3)
 end
 
 """
-    _candidate_cells(ϕ)
+    active_cells(ϕ)
 
-Return the cell indices to sample when building the interface. For a full-grid level set,
-this is all cells; for a narrow band, only cells adjacent to active nodes. Dispatch point
-for NewtonSDF construction.
+Return the cell indices that are active for interface sampling. A cell is active if all
+its corners are active indices. For a full-grid level set, this is all cells; for a narrow
+band, only cells where all corners are within the band. Dispatch point for NewtonSDF construction.
 """
-_candidate_cells(ϕ) = cellindices(mesh(ϕ))
+active_cells(ϕ) = cellindices(mesh(ϕ))
 
 """
     _sample_interface(grid, itp, cells, upsample, maxiters, ftol)

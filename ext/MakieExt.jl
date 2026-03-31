@@ -104,21 +104,13 @@ function _nb_to_dense(nb::LSM.NarrowBandLevelSet{N, T}) where {N, T}
 end
 
 # Collect active cell rectangles for 2D narrow band.
-# A cell (lower-corner index I) is active if any of its 4 corners is an active node.
 function _active_cell_rects(nb::LSM.NarrowBandLevelSet{2})
     grid = LSM.mesh(nb)
     h = LSM.meshsize(grid)
-    cell_axes = LSM.cellindices(grid)
     rects = Rect2f[]
-    seen = Set{CartesianIndex{2}}()
-    for J in LSM.active_indices(nb)
-        for di in 0:1, dj in 0:1
-            I = CartesianIndex(J[1] - di, J[2] - dj)
-            (I ∈ cell_axes && I ∉ seen) || continue
-            push!(seen, I)
-            x, y = grid[I]
-            push!(rects, Rect2f(x, y, h[1], h[2]))
-        end
+    for I in LSM.active_cells(nb)
+        x, y = grid[I]
+        push!(rects, Rect2f(x, y, h[1], h[2]))
     end
     return rects
 end
