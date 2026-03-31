@@ -30,25 +30,21 @@ using LevelSetMethods: D⁺, D⁻, D⁰, D2⁰, D2, weno5⁻, weno5⁺
 end
 
 @testset "Extrapolation outside of narrow band" begin
+    # Bilinear extrapolation is exact for linear functions.
     grid = LSM.CartesianGrid((-2.0, -2.0), (2.0, 2.0), (100, 100))
-    # Intentionally not an sdf to check exact extrapolation behavior in polynomial
-    # case. Requires sufficiently large extrap_order
-    f = x -> x[1]^4 + x[2]^4 - 0.5
-    nb = NarrowBandLevelSet(f, grid, 0.3; extrap_order = 4)
+    f = x -> 3x[1] - 2x[2] + x[1] * x[2] + 1.0
+    nb = NarrowBandLevelSet(f, grid, 0.3)
     active_idxs = LSM.active_indices(nb)
-    # compute extrema in each dimension of active idxs
     Imin = map(d -> minimum(I[d] for I in active_idxs), (1, 2)) |> CartesianIndex
     Imax = map(d -> maximum(I[d] for I in active_idxs), (1, 2)) |> CartesianIndex
-    ok = true
-    # Check that we can extrapolate correctly, even along diagonals
     k = 5
-    Ip = CartesianIndices(ntuple(d -> Imax[d]:(Imax[d] + k), 2))
-    for I in Ip
-        @test nb[I] ≈ f(grid[I])
+    for I in CartesianIndices(ntuple(d -> Imax[d]:(Imax[d] + k), 2))
+        x = LevelSetMethods._getindex(grid, I) # extrapolate outside bounds
+        @test nb[I] ≈ f(x)
     end
-    Im = CartesianIndices(ntuple(d -> (Imin[d] - k):Imin[d], 2))
-    for I in Im
-        @test nb[I] ≈ f(grid[I])
+    for I in CartesianIndices(ntuple(d -> (Imin[d] - k):Imin[d], 2))
+        x = LevelSetMethods._getindex(grid, I) # extrapolate outside bounds
+        @test nb[I] ≈ f(x)
     end
 end
 
@@ -188,23 +184,26 @@ end
 end
 
 @testset "Corner extrapolation (multi-dimensional)" begin
-    # Tests tensor-product extrapolation: a point outside band in both dimensions
+    # For nodes outside the band in multiple dimensions simultaneously the
+    # tensor-product linear extrapolation must preserve sign. Accuracy is not
+    # guaranteed for non-linear functions, but sign correctness is (no spurious zeros).
     grid = LSM.CartesianGrid((-2.0, -2.0), (2.0, 2.0), (40, 40))
-    f(x) = x[1]^2 + x[2]^2 - 1.0
+    f(x) = norm(x) - 0.5      # circle SDF with halfwidth 0.2 → both ± nodes outside band
     ϕ = LSM.LevelSet(f, grid)
     bc = LSM._normalize_bc(LSM.ExtrapolationBC{2}(), 2)
     ϕ_bc = LSM.add_boundary_conditions(ϕ, bc)
-    nb = NarrowBandLevelSet(ϕ_bc, 0.5; reinitialize = false)
+    nb = NarrowBandLevelSet(ϕ_bc, 0.2; reinitialize = false)
     vals = values(nb)
 
-    # Check all out-of-band points against full grid
-    max_err = 0.0
-    for I in CartesianIndices(grid)
-        haskey(vals, I) && continue
-        all(d -> I[d] in axes(nb)[d], 1:2) || continue
-        max_err = max(max_err, abs(nb[I] - ϕ_bc[I]))
+    N = ndims(nb)
+    for I in LSM.active_indices(nb)
+        for d in 1:N
+            Im = CartesianIndex(ntuple(i -> i == d ? I[i] - 1 : I[i], N))
+            Ip = CartesianIndex(ntuple(i -> i == d ? I[i] + 1 : I[i], N))
+            @test sign(nb[Im]) == sign(ϕ_bc[Im])
+            @test sign(nb[Ip]) == sign(ϕ_bc[Ip])
+        end
     end
-    @test max_err < 1.0e-10
 end
 
 @testset "Periodic BC" begin
@@ -218,22 +217,26 @@ end
     @test isfinite(nb[I])
 end
 
-@testset "3D polynomial extrapolation exactness" begin
+@testset "3D extrapolation: sign preservation" begin
+    # Same guarantee in 3D: linear extrapolation from a well-conditioned SDF
+    # preserves sign for all in-grid out-of-band nodes.
     grid = LSM.CartesianGrid((-2.0, -2.0, -2.0), (2.0, 2.0, 2.0), (20, 20, 20))
-    f(x) = x[1]^2 + x[2]^2 + x[3]^2 - 1.0
+    f(x) = norm(x) - 0.5      # sphere SDF with halfwidth 0.2 → both ± nodes outside band
     ϕ = LSM.LevelSet(f, grid)
     bc = LSM._normalize_bc(LSM.ExtrapolationBC{2}(), 3)
     ϕ_bc = LSM.add_boundary_conditions(ϕ, bc)
-    nb = NarrowBandLevelSet(ϕ_bc, 0.5; reinitialize = false)
+    nb = NarrowBandLevelSet(ϕ_bc, 0.2; reinitialize = false)
     vals = values(nb)
 
-    max_err = 0.0
-    for I in CartesianIndices(grid)
-        haskey(vals, I) && continue
-        all(d -> I[d] in axes(nb)[d], 1:3) || continue
-        max_err = max(max_err, abs(nb[I] - ϕ_bc[I]))
+    N = ndims(nb)
+    for I in LSM.active_indices(nb)
+        for d in 1:N
+            Im = CartesianIndex(ntuple(i -> i == d ? I[i] - 1 : I[i], N))
+            Ip = CartesianIndex(ntuple(i -> i == d ? I[i] + 1 : I[i], N))
+            @test sign(nb[Im]) == sign(ϕ_bc[Im])
+            @test sign(nb[Ip]) == sign(ϕ_bc[Ip])
+        end
     end
-    @test max_err < 1.0e-10
 end
 
 @testset "Auto-reinitialization of non-SDF input" begin

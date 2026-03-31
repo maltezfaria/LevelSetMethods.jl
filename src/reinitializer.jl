@@ -127,8 +127,8 @@ If the first solve does not converge (e.g. because the closest point lies on a
 neighbouring polynomial patch), a single retry is attempted using the best iterate
 from the failed solve as a new seed on its own patch.
 """
-function _closest_point_on_interface(sdf::NewtonSDF, x, max_retries = 2)
-    safeguard_dist = maximum(meshsize(mesh(sdf.itp.ϕ)))
+function _closest_point_on_interface(sdf::NewtonSDF, x, max_retries = 3)
+    safeguard_dist = 1.5 * maximum(meshsize(mesh(sdf.itp.ϕ)))
     idx, _ = nn(sdf.tree, x)
     cp = sdf.pts[idx]
     cell = compute_index(sdf.itp, cp)
@@ -171,7 +171,10 @@ function _sample_interface(grid::CartesianGrid{N, T}, itp, cells, upsample, maxi
         )
         for x in samples
             pt = _project_to_interface(itp, x, maxiters, ftol, safeguard_dist)
-            isnothing(pt) || push!(pts, pt)
+            isnothing(pt) && continue
+            I_pt = compute_index(itp, pt)
+            I_pt in cells || continue
+            push!(pts, pt)
         end
     end
     return pts
@@ -252,7 +255,7 @@ function _closest_point(p::F, xq::SVector{N, T}, x0::SVector{N, T}, maxiters, xt
         x, λ = x + α * δx, λ + α * δλ
 
         # If we drift too far from the patch, return best so far
-        if norm(x - x0) > 3 * safeguard_dist
+        if norm(x - x0) > safeguard_dist
             return best_x, false
         end
     end

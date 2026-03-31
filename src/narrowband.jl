@@ -4,14 +4,11 @@
 Domain for a narrow-band level set.
 
 - `halfwidth`: half-width of the narrow band, typically on the order of a few grid spacings.
-- `extrap_order`: polynomial order used to extrapolate values at indices inside the grid but
-  outside the band (default: `1`).
 
 Active indices are the keys of the associated values dict and need not be stored separately.
 """
 struct NarrowBandDomain{T} <: AbstractDomain
     halfwidth::T
-    extrap_order::Int
 end
 
 """
@@ -26,14 +23,24 @@ const NarrowBandLevelSet{N, T, B} =
 
 active_indices(nb::NarrowBandLevelSet) = keys(values(nb))
 halfwidth(nb::NarrowBandLevelSet) = domain(nb).halfwidth
-extrap_order(nb::NarrowBandLevelSet) = domain(nb).extrap_order
 Base.eachindex(nb::NarrowBandLevelSet) = active_indices(nb)
 _eachindex(::NarrowBandDomain, nb) = active_indices(nb)
 Base.eltype(::NarrowBandLevelSet{N, T}) where {N, T} = T
 
+# Build the active-index dict by evaluating `f_at_idx(I)` at every grid node and
+# keeping only those where `|v| < γ`. `f_at_idx` is either `I -> ϕ[I]` (LevelSet path)
+# or `I -> f(grid[I])` (function path).
+function _nb_dict(f_at_idx, grid::CartesianGrid{N}, γ::T) where {N, T}
+    vals = Dict{CartesianIndex{N}, T}()
+    for I in CartesianIndices(grid)
+        v = T(f_at_idx(I))
+        abs(v) < γ && (vals[I] = v)
+    end
+    return vals
+end
 
 """
-    NarrowBandLevelSet(ϕ::LevelSet, halfwidth::Real; reinitialize = true, extrap_order = 1)
+    NarrowBandLevelSet(ϕ::LevelSet, halfwidth::Real; reinitialize = true)
 
 Construct a `NarrowBandLevelSet` from a full-grid `LevelSet`. Active nodes are those
 where `|ϕ[I]| < halfwidth`. Boundary conditions are inherited from `ϕ`.
@@ -41,7 +48,7 @@ where `|ϕ[I]| < halfwidth`. Boundary conditions are inherited from `ϕ`.
 If `reinitialize` is `true` (the default), `ϕ` is first reinitialized to a signed
 distance function using [`NewtonReinitializer`](@ref).
 """
-function NarrowBandLevelSet(ϕ::LevelSet, halfwidth::Real; reinitialize::Bool = true, extrap_order::Int = 2)
+function NarrowBandLevelSet(ϕ::LevelSet, halfwidth::Real; reinitialize::Bool = true)
     bcs = boundary_conditions(ϕ)   # preserve the caller's BCs (may be nothing)
     if reinitialize
         ϕ = deepcopy(ϕ)
@@ -52,28 +59,21 @@ function NarrowBandLevelSet(ϕ::LevelSet, halfwidth::Real; reinitialize::Bool = 
         reinitialize!(ϕ, NewtonReinitializer())
     end
     grid = mesh(ϕ)
-    N = ndims(grid)
     T = float(eltype(ϕ))
     γ = T(halfwidth)
-    vals_dict = Dict{CartesianIndex{N}, T}()
-    for I in CartesianIndices(grid)
-        v = T(ϕ[I])
-        abs(v) < γ && (vals_dict[I] = v)
-    end
-    dom = NarrowBandDomain(γ, extrap_order)
-    return MeshField(vals_dict, grid, bcs, dom)
+    vals = _nb_dict(I -> ϕ[I], grid, γ)
+    return MeshField(vals, grid, bcs, NarrowBandDomain(γ))
 end
 
 """
-    NarrowBandLevelSet(ϕ::LevelSet; nlayers = 8, reinitialize = true, extrap_order = 1)
+    NarrowBandLevelSet(ϕ::LevelSet; nlayers = 3, reinitialize = true)
 
 Construct a `NarrowBandLevelSet` with halfwidth automatically computed as
 `nlayers * minimum(meshsize(ϕ))`. `nlayers` sets the number of cell layers
 on each side of the interface included in the band.
 """
-function NarrowBandLevelSet(ϕ::LevelSet; nlayers::Int = 3, reinitialize::Bool = true, extrap_order::Int = 2)
-    Δx = minimum(meshsize(ϕ))
-    return NarrowBandLevelSet(ϕ, nlayers * Δx; reinitialize, extrap_order)
+function NarrowBandLevelSet(ϕ::LevelSet; nlayers::Int = 3, reinitialize::Bool = true)
+    return NarrowBandLevelSet(ϕ, nlayers * minimum(meshsize(ϕ)); reinitialize)
 end
 
 """
@@ -88,17 +88,11 @@ keeping only those where `|f(x)| < halfwidth`. No dense array is allocated.
     function. Otherwise the band width will depend on the gradient of `f` near the interface
     and may not correspond to a fixed number of cell layers.
 """
-function NarrowBandLevelSet(f, grid::CartesianGrid, halfwidth::Real; bc = nothing, extrap_order::Int = 2)
-    N = ndims(grid)
+function NarrowBandLevelSet(f, grid::CartesianGrid, halfwidth::Real; bc = nothing)
     T = float(eltype(eltype(grid)))
     γ = T(halfwidth)
-    vals_dict = Dict{CartesianIndex{N}, T}()
-    for I in CartesianIndices(grid)
-        v = T(f(grid[I]))
-        abs(v) < γ && (vals_dict[I] = v)
-    end
-    dom = NarrowBandDomain(γ, extrap_order)
-    return MeshField(vals_dict, grid, bc, dom)
+    vals = _nb_dict(I -> f(grid[I]), grid, γ)
+    return MeshField(vals, grid, bc, NarrowBandDomain(γ))
 end
 
 """
@@ -111,9 +105,8 @@ Construct a `NarrowBandLevelSet` with halfwidth automatically computed as
     The `nlayers` interpretation is only correct if `f` is already a signed distance
     function. Otherwise the band width in cell layers will not match `nlayers`.
 """
-function NarrowBandLevelSet(f, grid::CartesianGrid; nlayers::Int = 8, bc = nothing, extrap_order::Int = 2)
-    Δx = minimum(meshsize(grid))
-    return NarrowBandLevelSet(f, grid, nlayers * Δx; bc, extrap_order)
+function NarrowBandLevelSet(f, grid::CartesianGrid; nlayers::Int = 8, bc = nothing)
+    return NarrowBandLevelSet(f, grid, nlayers * minimum(meshsize(grid)); bc)
 end
 
 """
@@ -140,27 +133,33 @@ end
     _extrapolate_nb_rec(nb::NarrowBandLevelSet, I, max_dim) -> value or nothing
 
 Approximate the value at an in-grid index `I` that is not stored in the band
-dict, by Lagrange extrapolation from nearby band values.
+dict, by bilinear/trilinear (degree-1) Lagrange extrapolation from nearby band values.
 
 The algorithm processes dimensions `1` through `max_dim` in order. For each
 dimension, it searches outward from `I` (nearest first, both sides) for an
-anchor point where a stencil of `extrap_order + 1` consecutive values can be
-assembled, and Lagrange-extrapolates back to `I`.
+anchor point in the dict and uses the two consecutive nodes starting there
+(anchor and anchor+step) as a linear stencil.
 
 Stencil values are resolved by calling `_extrapolate_nb_rec` recursively with
 `max_dim = dim - 1`, so each stencil point can itself be extrapolated using
 lower dimensions. This produces a tensor-product extrapolation that handles
-indices outside the band in multiple dimensions simultaneously. For example,
-in 2D, a point outside the band in both x and y is resolved by first
-extrapolating each y-stencil point in x, then extrapolating in y from those.
+indices outside the band in multiple dimensions simultaneously.
 
-Returns `nothing` if no dimension yields a valid stencil, signaling the caller
-to try other approaches or error.
+Returns `nothing` if no dimension yields a valid stencil.
+
+# Why degree 1 and no higher?
+Outside the band, `|ϕ| ≥ halfwidth`. The only property we need from extrapolated
+ghost values is sign correctness (no spurious zeros). Linear extrapolation from a
+well-conditioned SDF preserves sign as long as `halfwidth > Δx`, which any
+reasonable band satisfies. Quadratic or higher extrapolation introduces polynomial
+oscillations that can flip the sign, creating false interface crossings that corrupt
+`NewtonSDF` and cause the band to migrate or collapse.
 """
 function _extrapolate_nb_rec(nb::NarrowBandLevelSet{N, T}, I::CartesianIndex{N}, max_dim) where {N, T}
     haskey(values(nb), I) && return values(nb)[I]
     grid_axes = axes(nb)
-    P = extrap_order(nb)
+    # Degree-1 (linear) stencil — see docstring for why we never go higher.
+    P = 1
     for dim in 1:max_dim
         for k in 1:length(grid_axes[dim])
             for side in (-1, 1)
