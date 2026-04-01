@@ -14,37 +14,40 @@ include("levelset.jl")
 include("derivatives.jl")
 include("interpolation.jl")
 include("reinitializer.jl")
+include("narrowband.jl")
 include("velocityextension.jl")
 include("levelsetterms.jl")
 include("timestepping.jl")
+include("logging.jl")
 include("levelsetequation.jl")
 
-export CartesianGrid,
-    MeshField,
-    LevelSet,
-    PeriodicBC,
-    NeumannBC,
-    NeumannGradientBC,
-    DirichletBC,
-    ExtrapolationBC,
-    AdvectionTerm,
+export AdvectionTerm,
+    CartesianGrid,
     CurvatureTerm,
-    NormalMotionTerm,
-    extend_along_normals!,
+    DirichletBC,
     EikonalReinitializationTerm,
+    ExtrapolationBC,
     ForwardEuler,
+    LevelSet,
+    LevelSetEquation,
+    MeshField,
+    NarrowBandLevelSet,
+    NeumannBC,
+    LinearExtrapolationBC,
+    NewtonReinitializer,
+    NormalMotionTerm,
+    PeriodicBC,
     RK2,
     RK3,
     SemiImplicitI2OE,
     Upwind,
     WENO5,
-    LevelSetEquation,
-    NewtonReinitializer,
-    integrate!,
     current_state,
     current_time,
-    reinitialize!,
-    interpolate
+    extend_along_normals!,
+    integrate!,
+    interpolate,
+    reinitialize!
 
 
 """

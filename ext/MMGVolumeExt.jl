@@ -46,7 +46,7 @@ function LSM.export_volume_mesh(
         hmax = nothing,
         hausd = nothing,
     )
-    N = LSM.dimension(ϕ)
+    N = ndims(ϕ)
     if N != 2 && N != 3
         throw(ArgumentError("export_mesh of $N dimensional level-set not supported."))
     end

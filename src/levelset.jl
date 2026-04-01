@@ -1,16 +1,29 @@
 """
-    const LevelSet
+    const LevelSet{N, T, B}
 
-Alias for [`MeshField`](@ref) with `vals` as an `AbstractArray` of `Real`s.
+Alias for [`MeshField`](@ref) on a `CartesianGrid{N,T}` with values stored as
+an `Array{T,N}` and a [`FullDomain`](@ref). `B` is the type of the boundary
+conditions.
 """
-const LevelSet{V <: AbstractArray{<:Real}, M, B} = MeshField{V, M, B}
+const LevelSet{N, T, B} =
+    MeshField{Array{T, N}, CartesianGrid{N, T}, B, FullDomain}
 
-function LevelSet(f::Function, m)
-    vals = map(f, m)
-    return MeshField(vals, m, nothing)
+LevelSet(f::Function, grid, bc = nothing) = MeshField(f, grid, bc)
+
+active_indices(ϕ::LevelSet) = CartesianIndices(mesh(ϕ))
+
+"""
+    _ensure_boundary_conditions(ϕ)
+
+Return `ϕ` unchanged if it already carries boundary conditions, otherwise wrap
+it with `LinearExtrapolationBC` on every face.
+"""
+function _ensure_boundary_conditions(ϕ)
+    has_boundary_conditions(ϕ) && return ϕ
+    N = ndims(ϕ)
+    bc = _normalize_bc(LinearExtrapolationBC(), N)
+    return add_boundary_conditions(ϕ, bc)
 end
-
-current_state(ϕ::LevelSet) = ϕ
 
 """
     volume(ϕ::LevelSet)
@@ -59,12 +72,7 @@ LevelSetMethods.perimeter(ϕ), S0
 ```
 """
 function perimeter(ϕ::LevelSet)
-    # if no boundary conditions then we use homogenous Neumann
-    if !has_boundary_conditions(ϕ)
-        N = dimension(ϕ)
-        bc = _normalize_bc(NeumannGradientBC(), N)
-        ϕ = add_boundary_conditions(ϕ, bc)
-    end
+    ϕ = _ensure_boundary_conditions(ϕ)
     δ = meshsize(mesh(ϕ))
     δmin = minimum(δ)
     vol = prod(δ)
@@ -92,7 +100,7 @@ end
 # return a matrix with coefficients equal to 2^(-n) where n is
 # the number of times this index if on the borders of a dimension.
 function trapezoidal_coefficients(ϕ::LevelSet)
-    N = dimension(ϕ)
+    N = ndims(ϕ)
     ax = axes(ϕ)
     coeffs = zeros(size(values(ϕ)))
     for I in CartesianIndices(coeffs)
@@ -110,8 +118,8 @@ We use the formula κ = (Δϕ |∇ϕ|^2 - ∇ϕ^T Hϕ ∇ϕ) / |∇ϕ|^3 with
 first order finite differences.
 https://en.wikipedia.org/wiki/Mean_curvature#Implicit_form_of_mean_curvature
 """
-function curvature(ϕ::LevelSet, I)
-    N = dimension(ϕ)
+function curvature(ϕ, I)
+    N = ndims(ϕ)
     if N == 2
         ϕx = D⁰(ϕ, I, 1)
         ϕy = D⁰(ϕ, I, 2)
@@ -166,12 +174,8 @@ contour!(xs, ys, values(ϕ); levels = [0.0])
 ```
 """
 function curvature(ϕ::LevelSet)
-    if !has_boundary_conditions(ϕ)
-        N = dimension(ϕ)
-        bc = _normalize_bc(NeumannGradientBC(), N)
-        ϕ = add_boundary_conditions(ϕ, bc)
-    end
-    return [curvature(ϕ, I) for I in eachindex(ϕ)]
+    ϕ_ = _ensure_boundary_conditions(ϕ)
+    return [curvature(ϕ_, I) for I in eachindex(ϕ_)]
 end
 
 """
@@ -180,8 +184,8 @@ end
 Compute the gradient vector ``∇ϕ`` at grid index `I` using centered finite differences.
 Returns an `SVector` (or `Vector`) of derivatives.
 """
-function gradient(ϕ::LevelSet, I)
-    N = dimension(ϕ)
+function gradient(ϕ, I::CartesianIndex)
+    N = ndims(ϕ)
     return [D⁰(ϕ, I, dim) for dim in 1:N]
 end
 
@@ -199,7 +203,7 @@ end
 
 Compute the unit exterior normal vector ``\\mathbf{n} = \\frac{∇ϕ}{\\|∇ϕ\\|}`` at grid index `I`.
 """
-function normal(ϕ::LevelSet, I)
+function normal(ϕ, I)
     ∇ϕ = gradient(ϕ, I)
     return ∇ϕ ./ norm(∇ϕ)
 end
@@ -226,13 +230,8 @@ contour!(xs, ys, values(ϕ); levels = [0.0])
 ```
 """
 function normal(ϕ::LevelSet)
-    # if no boundary conditions then we use homogenous Neumann
-    if !has_boundary_conditions(ϕ)
-        N = dimension(ϕ)
-        bc = _normalize_bc(NeumannGradientBC(), N)
-        ϕ = add_boundary_conditions(ϕ, bc)
-    end
-    return [normal(ϕ, I) for I in eachindex(ϕ)]
+    ϕ_ = _ensure_boundary_conditions(ϕ)
+    return [normal(ϕ_, I) for I in eachindex(ϕ_)]
 end
 
 """
@@ -241,8 +240,8 @@ end
 Compute the Hessian matrix ``\\mathbf{H}ϕ = ∇∇ϕ`` at grid index `I` using second-order
 finite differences. Returns a `Symmetric` matrix.
 """
-function hessian(ϕ::LevelSet, I)
-    N = dimension(ϕ)
+function hessian(ϕ, I::CartesianIndex)
+    N = ndims(ϕ)
     return Symmetric([i == j ? D2⁰(ϕ, I, i) : D2(ϕ, I, (i, j)) for i in 1:N, j in 1:N])
 end
 
@@ -253,6 +252,19 @@ Compute the Hessian matrix for all grid points.
 """
 function hessian(ϕ::LevelSet)
     return [hessian(ϕ, I) for I in eachindex(ϕ)]
+end
+
+"""
+    grad_norm(ϕ::LevelSet)
+
+Compute the norm of the gradient of ϕ, i.e. `|∇ϕ|`, at all grid points.
+"""
+function grad_norm(ϕ::LevelSet)
+    msg = """level-set must have boundary conditions to compute gradient. See
+    `add_boundary_conditions`."""
+    has_boundary_conditions(ϕ) || error(msg)
+    idxs = eachindex(ϕ)
+    return map(i -> _compute_∇_norm(sign(ϕ[i]), ϕ, i), idxs)
 end
 
 #=
@@ -271,7 +283,7 @@ Create a 2D circle with the specified `center` and `radius` on a `grid`.
 Returns a [`LevelSet`](@ref) field.
 """
 function circle(grid; center = (0, 0), radius = 1)
-    dimension(grid) == 2 ||
+    ndims(grid) == 2 ||
         throw(ArgumentError("circle shape is only available in two dimensions"))
     return LevelSet(x -> sqrt(sum((x .- center) .^ 2)) - radius, grid)
 end
@@ -293,7 +305,7 @@ Create a 3D sphere with the specified `center` and `radius` on a `grid`.
 Returns a [`LevelSet`](@ref) field.
 """
 function sphere(grid; center = (0, 0, 0), radius)
-    dimension(grid) == 3 ||
+    ndims(grid) == 3 ||
         throw(ArgumentError("sphere shape is only available in three dimensions"))
     return LevelSet(x -> sqrt(sum((x .- center) .^ 2)) - radius, grid)
 end
@@ -305,7 +317,7 @@ Create a 2D star shape defined in polar coordinates by ``r = R(1 + d \\cos(nθ))
 Returns a [`LevelSet`](@ref) field.
 """
 function star(grid; radius = 1, deformation = 0.25, n = 5.0)
-    # dimension(grid) == 2 ||
+    # ndims(grid) == 2 ||
     #     throw(ArgumentError("star shape is only available in two dimensions"))
     return LevelSet(grid) do x
         r = norm(x)
@@ -334,7 +346,7 @@ Create a Zalesak disk (a circle with a rectangular slot cut out).
 Used for testing advection schemes. Returns a [`LevelSet`](@ref) field.
 """
 function zalesak_disk(grid; center = (0, 0), radius = 0.5, width = 0.25, height = 1)
-    dimension(grid) == 2 ||
+    ndims(grid) == 2 ||
         throw(ArgumentError("zalesak disk shape is only available in two dimensions"))
     disk = circle(grid; center = center, radius = radius)
     rec = rectangle(grid; center = center .- (0, radius), width = (width, height))

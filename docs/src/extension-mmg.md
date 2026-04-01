@@ -1,6 +1,6 @@
 # [MMG extension](@id extension-mmg)
 
-This extension provides functions to generate meshes of level-set functions using [MMG](https://www.mmgtools.org/).
+This extension provides functions to generate meshes of level-set functions using [MMG](https://github.com/MmgTools/mmg).
 It defines two methods: `export_volume_mesh` and `export_surface_mesh`.
 For both of them, it is possible to control the size of the generated mesh using the following optional parameters:
 

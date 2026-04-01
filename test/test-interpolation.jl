@@ -51,25 +51,18 @@ using Test
 
     @testset "Least Squares Approximation (K=2)" begin
         grid = CartesianGrid((-1.0, -1.0), (1.0, 1.0), (21, 21))
-        # f(x) = x^2 + 2y^2 - 0.5 (Exactly quadratic)
         f(x) = x[1]^2 + 2 * x[2]^2 - 0.5
         ϕ = LevelSet(f, grid)
-
-        # Request Quadratic (K=2) on a Cubic stencil (stencil_K=3)
-        # Since f is quadratic, the least-squares fit should be exact!
         itp = interpolate(ϕ, 2)
         x_test = SVector(0.15, -0.25)
-
         @test itp(x_test) ≈ f(x_test) atol = 1.0e-12
         I = LevelSetMethods.compute_index(itp, x_test)
         p = LevelSetMethods.make_interpolant(itp, I)
         @test LevelSetMethods.gradient(p, x_test) ≈ SVector(2 * 0.15, 4 * (-0.25)) atol = 1.0e-12
-
         @test check_allocs(itp, x_test) == 0
     end
 
     @testset "Mesh Interpolation (3D)" begin
-
         grid = CartesianGrid((-1.0, -1.0, -1.0), (1.0, 1.0, 1.0), (11, 11, 11))
         f(x) = x[1]^2 + x[2]^2 + x[3]^2 - 0.5
         grad_f(x) = SVector(2 * x[1], 2 * x[2], 2 * x[3])

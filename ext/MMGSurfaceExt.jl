@@ -44,7 +44,7 @@ function LSM.export_surface_mesh(
         hmax = nothing,
         hausd = nothing,
     )
-    N = LSM.dimension(ϕ)
+    N = ndims(ϕ)
     if N != 3
         throw(ArgumentError("export_mesh of $N dimensional level-set not supported."))
     end

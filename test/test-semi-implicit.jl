@@ -11,7 +11,7 @@ using Test
     eq = LevelSetEquation(;
         terms = (AdvectionTerm(vel, Upwind()),),
         integrator = SemiImplicitI2OE(cfl = 3.0),
-        levelset = deepcopy(ϕ0),
+        ic = deepcopy(ϕ0),
         bc = PeriodicBC(),
     )
 
@@ -35,7 +35,7 @@ end
     eq = LevelSetEquation(;
         terms = (AdvectionTerm(vel, Upwind()),),
         integrator = SemiImplicitI2OE(cfl = 2.5),
-        levelset = deepcopy(ϕ0),
+        ic = deepcopy(ϕ0),
         bc = PeriodicBC(),
     )
 
@@ -57,8 +57,8 @@ end
     eq_neumann = LevelSetEquation(;
         terms = (term_neumann,),
         integrator = SemiImplicitI2OE(cfl = 4.0),
-        levelset = deepcopy(ϕ0),
-        bc = NeumannGradientBC(),
+        ic = deepcopy(ϕ0),
+        bc = LinearExtrapolationBC(),
     )
     integrate!(eq_neumann, 0.6)
     @test maximum(abs.(values(LevelSetMethods.current_state(eq_neumann)) .- 0.7)) < 1.0e-12
@@ -67,8 +67,8 @@ end
     eq_dirichlet = LevelSetEquation(;
         terms = (term_dirichlet,),
         integrator = SemiImplicitI2OE(cfl = 2.0),
-        levelset = LevelSet(x -> 0.0, grid),
-        bc = DirichletBC(0.0),
+        ic = LevelSet(x -> 0.0, grid),
+        bc = DirichletBC((x, t) -> 0.0),
     )
     integrate!(eq_dirichlet, 0.4)
     vals = values(LevelSetMethods.current_state(eq_dirichlet))
@@ -85,7 +85,7 @@ end
             CurvatureTerm((x, t) -> -0.1),
         ),
         integrator = SemiImplicitI2OE(),
-        levelset = ϕ1d,
+        ic = ϕ1d,
         bc = PeriodicBC(),
     )
     @test_throws ArgumentError integrate!(eq_multiterm, 0.1)
@@ -95,7 +95,7 @@ end
     eq_small = LevelSetEquation(;
         terms = (AdvectionTerm((x, t) -> 1.0, Upwind()),),
         integrator = SemiImplicitI2OE(),
-        levelset = ϕ_small,
+        ic = ϕ_small,
         bc = NeumannBC(),
     )
     @test_throws ArgumentError integrate!(eq_small, 0.1)
@@ -112,13 +112,13 @@ end
     eq_semi = LevelSetEquation(;
         terms = (AdvectionTerm(vel, Upwind()),),
         integrator = SemiImplicitI2OE(cfl = 2.0),
-        levelset = deepcopy(ϕ0),
+        ic = deepcopy(ϕ0),
         bc = PeriodicBC(),
     )
     eq_explicit = LevelSetEquation(;
         terms = (AdvectionTerm(vel, Upwind()),),
         integrator = ForwardEuler(cfl = 2.0),
-        levelset = deepcopy(ϕ0),
+        ic = deepcopy(ϕ0),
         bc = PeriodicBC(),
     )
 
@@ -152,13 +152,13 @@ end
     eq_semi = LevelSetEquation(;
         terms = (AdvectionTerm(vel, Upwind()),),
         integrator = SemiImplicitI2OE(cfl = cfl_high),
-        levelset = deepcopy(ϕ0),
+        ic = deepcopy(ϕ0),
         bc = PeriodicBC(),
     )
     eq_explicit = LevelSetEquation(;
         terms = (AdvectionTerm(vel, Upwind()),),
         integrator = ForwardEuler(cfl = cfl_high),
-        levelset = deepcopy(ϕ0),
+        ic = deepcopy(ϕ0),
         bc = PeriodicBC(),
     )
 

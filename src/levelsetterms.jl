@@ -6,6 +6,14 @@ A typical term in a level-set evolution equation.
 abstract type LevelSetTerm end
 
 """
+    update_term!(term::LevelSetTerm, ϕ, t)
+
+Update the internal state of a `LevelSetTerm` before computing its contribution.  This is
+called at each stage of the time integration.
+"""
+update_term!(::LevelSetTerm, _, _) = nothing
+
+"""
     compute_cfl(terms, ϕ::LevelSet, t)
 
 Compute the maximum stable time-step ``Δt`` for the given `terms` and level set `ϕ` at time `t`,
@@ -47,7 +55,7 @@ If passed, `update_func` will be called as `update_func(𝐮, ϕ, t)` before com
 at each stage of the time evolution. This can be used to update the velocity field `𝐮`
 depending not only on `t`, but also on the current level set `ϕ`.
 """
-AdvectionTerm(𝐮, scheme = WENO5(), func = (x...) -> nothing) = AdvectionTerm(𝐮, scheme, func)
+AdvectionTerm(𝐮, scheme = WENO5(), func = (_...) -> nothing) = AdvectionTerm(𝐮, scheme, func)
 
 function update_term!(term::AdvectionTerm, ϕ, t)
     u = velocity(term)
@@ -55,11 +63,11 @@ function update_term!(term::AdvectionTerm, ϕ, t)
     return f(u, ϕ, t)
 end
 
-Base.show(io::IO, t::AdvectionTerm) = print(io, "𝐮 ⋅ ∇ ϕ")
+Base.show(io::IO, _::AdvectionTerm) = print(io, "𝐮 ⋅ ∇ ϕ")
 
-@inline function _compute_term(term::AdvectionTerm{V}, ϕ, I, t) where {V}
+@inline function _compute_term(term::AdvectionTerm{V}, ϕ::MeshField, I, t) where {V}
     sch = scheme(term)
-    N = dimension(ϕ)
+    N = ndims(ϕ)
     𝐮 = if V <: MeshField
         velocity(term)[I]
     elseif V <: Function
@@ -107,7 +115,7 @@ function _compute_cfl(term::AdvectionTerm{V}, ϕ, I, t) where {V}
 end
 
 """
-    struct CurvatureTerm{V,M} <: LevelSetTerm
+    struct CurvatureTerm{V} <: LevelSetTerm
 
 Level-set curvature term representing `bκ|∇ϕ|`, where `κ = ∇ ⋅ (∇ϕ/|∇ϕ|) ` is
 the curvature.
@@ -117,10 +125,10 @@ struct CurvatureTerm{V} <: LevelSetTerm
 end
 coefficient(cterm::CurvatureTerm) = cterm.b
 
-Base.show(io::IO, t::CurvatureTerm) = print(io, "b κ|∇ϕ|")
+Base.show(io::IO, _::CurvatureTerm) = print(io, "b κ|∇ϕ|")
 
-function _compute_term(term::CurvatureTerm, ϕ, I, t)
-    N = dimension(ϕ)
+function _compute_term(term::CurvatureTerm, ϕ::MeshField, I, t)
+    N = ndims(ϕ)
     κ = curvature(ϕ, I)
     b = coefficient(term)
     bI = if b isa MeshField
@@ -165,12 +173,12 @@ at each stage of the time evolution.
 """
 @kwdef struct NormalMotionTerm{V, F} <: LevelSetTerm
     speed::V
-    update_func::F = (x...) -> nothing
+    update_func::F = (_...) -> nothing
 end
 speed(adv::NormalMotionTerm) = adv.speed
 update_func(term::NormalMotionTerm) = term.update_func
 
-NormalMotionTerm(v) = NormalMotionTerm(v, (x...) -> nothing)
+NormalMotionTerm(v) = NormalMotionTerm(v, (_...) -> nothing)
 
 function update_term!(term::NormalMotionTerm, ϕ, t)
     v = speed(term)
@@ -178,10 +186,10 @@ function update_term!(term::NormalMotionTerm, ϕ, t)
     return f(v, ϕ, t)
 end
 
-Base.show(io::IO, t::NormalMotionTerm) = print(io, "v|∇ϕ|")
+Base.show(io::IO, _::NormalMotionTerm) = print(io, "v|∇ϕ|")
 
-function _compute_term(term::NormalMotionTerm, ϕ, I, t)
-    N = dimension(ϕ)
+function _compute_term(term::NormalMotionTerm, ϕ::MeshField, I, t)
+    N = ndims(ϕ)
     u = speed(term)
     v = if u isa MeshField
         u[I]
@@ -221,21 +229,9 @@ end
 @inline positive(x) = x > zero(x) ? x : zero(x)
 @inline negative(x) = x < zero(x) ? x : zero(x)
 
-# eq. (6.20-6.21)
-function g(x, y)
-    tmp = zero(x)
-    if x > zero(x)
-        tmp += x * x
-    end
-    if y < zero(x)
-        tmp += y * y
-    end
-    return sqrt(tmp)
-end
-
-# eq. (6.28)
+# eq. (6.28): Minmod limiter — zero when signs differ (TVD), min(|x|,|y|)*sign when same sign
 function limiter(x, y)
-    x * y < zero(x) || return zero(x)
+    x * y > zero(x) || return zero(x)
     return abs(x) <= abs(y) ? x : y
 end
 
@@ -284,7 +280,7 @@ function Base.show(io::IO, t::EikonalReinitializationTerm)
     return io
 end
 
-function _compute_term(term::EikonalReinitializationTerm, ϕ, I, t)
+function _compute_term(term::EikonalReinitializationTerm, ϕ, I, _t)
     S₀ = term.S₀
     if isnothing(S₀)
         # equation 7.6 of Osher and Fedkiw: sign computed from current ϕ
@@ -299,11 +295,10 @@ function _compute_term(term::EikonalReinitializationTerm, ϕ, I, t)
     return S * (norm_∇ϕ - 1.0)
 end
 
-_compute_cfl(term::EikonalReinitializationTerm, ϕ, I, t) = minimum(meshsize(ϕ))
+_compute_cfl(::EikonalReinitializationTerm, ϕ, _I, _t) = minimum(meshsize(ϕ))
 
 function _compute_∇_norm(v, ϕ, I)
-    # FIXME: use version from NormalTerm
-    N = dimension(ϕ)
+    N = ndims(ϕ)
     mA0², mB0² = sum(1:N) do dim
         h = meshsize(ϕ, dim)
         A = D⁻(ϕ, I, dim) + 0.5 * h * limiter(D2⁻⁻(ϕ, I, dim), D2⁰(ϕ, I, dim))
