@@ -12,16 +12,26 @@ disk = LevelSetMethods.circle(grid; center, radius)
 rec = LevelSetMethods.rectangle(grid; center = center .- (0, radius), width = (w, h))
 # Use set difference to carve out the notch in the disk
 ϕ = setdiff(disk, rec)
-plot(ϕ)</code></pre><img src="3028aff5.png" alt="Example block output"/><h2 id="Setting-Up-the-Level-Set-Equation"><a class="docs-heading-anchor" href="#Setting-Up-the-Level-Set-Equation">Setting Up the Level Set Equation</a><a id="Setting-Up-the-Level-Set-Equation-1"></a><a class="docs-heading-anchor-permalink" href="#Setting-Up-the-Level-Set-Equation" title="Permalink"></a></h2><p>We use the level set method to evolve the disk over time with a velocity field that simulates rotation:</p><pre><code class="language-julia hljs"># Define the advection equation with a rotational velocity field
+plot(ϕ)</code></pre><img src="d7a330e4.png" alt="Example block output"/><h2 id="Setting-Up-the-Level-Set-Equation"><a class="docs-heading-anchor" href="#Setting-Up-the-Level-Set-Equation">Setting Up the Level Set Equation</a><a id="Setting-Up-the-Level-Set-Equation-1"></a><a class="docs-heading-anchor-permalink" href="#Setting-Up-the-Level-Set-Equation" title="Permalink"></a></h2><p>We use the level set method to evolve the disk over time with a velocity field that simulates rotation:</p><pre><code class="language-julia hljs"># Define the advection equation with a rotational velocity field
 eq = LevelSetEquation(;
-    levelset = ϕ,
+    ic = ϕ,
     terms = AdvectionTerm((x, t) -&gt; (-x[2], x[1])),
     bc = NeumannBC(),
-)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Level-set equation given by
-
- 	 ϕₜ + 𝐮 ⋅ ∇ ϕ = 0
-
-Current time 0.0</code></pre><h2 id="Evolving-the-Zalesak-Disk"><a class="docs-heading-anchor" href="#Evolving-the-Zalesak-Disk">Evolving the Zalesak Disk</a><a id="Evolving-the-Zalesak-Disk-1"></a><a class="docs-heading-anchor-permalink" href="#Evolving-the-Zalesak-Disk" title="Permalink"></a></h2><p>To evolve the Zalesak disk, we integrate the level set equation over time. We will visualize the evolution using <code>GLMakie</code>:</p><pre><code class="language-julia hljs">obs = Observable(eq)
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LevelSetEquation
+  ├─ equation: ϕₜ + 𝐮 ⋅ ∇ ϕ = 0
+  ├─ time:     0.0
+  ├─ integrator: RK2 (2nd order TVD Runge-Kutta, Heun&#39;s method)
+  │  └─ cfl: 0.5
+  ├─ reinit:   none
+  ├─ state: MeshField on CartesianGrid in ℝ²
+  │  ├─ domain:  [-1.5, 1.5] × [-1.5, 1.5]
+  │  ├─ nodes:   100 × 100
+  │  ├─ spacing: h = (0.0303, 0.0303)
+  │  ├─ bc:     Degree 0 extrapolation (all)
+  │  ├─ eltype:  Float64
+  │  └─ values:  min = -0.2423,  max = 2.204
+  ├─ log: SimulationLog (empty)
+  ╰─</code></pre><h2 id="Evolving-the-Zalesak-Disk"><a class="docs-heading-anchor" href="#Evolving-the-Zalesak-Disk">Evolving the Zalesak Disk</a><a id="Evolving-the-Zalesak-Disk-1"></a><a class="docs-heading-anchor-permalink" href="#Evolving-the-Zalesak-Disk" title="Permalink"></a></h2><p>To evolve the Zalesak disk, we integrate the level set equation over time. We will visualize the evolution using <code>GLMakie</code>:</p><pre><code class="language-julia hljs">obs = Observable(eq)
 fig = Figure()
 ax = Axis(fig[1, 1])
 plot!(ax, obs)
@@ -44,7 +54,7 @@ rec = LevelSetMethods.rectangle(
 )
 ϕ = setdiff(disk, rec)
 eq = LevelSetEquation(;
-    levelset = ϕ,
+    ic = ϕ,
     terms = AdvectionTerm((x, t) -&gt; π * SVector(x[2], -x[1], 0)),
     bc = NeumannBC(),
 )
@@ -60,4 +70,4 @@ timestamps = range(0, tf, tf * framerate)
 record(fig, joinpath(@__DIR__, &quot;zalesak3d.gif&quot;), timestamps) do t_
     integrate!(eq, t_)
     return obs[] = eq
-end</code></pre><p><img src="../zalesak3d.gif" alt="Zalesak 3D"/></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../extension-mmg/">« MMG extension</a><a class="docs-footer-nextpage" href="../example-shape-optim/">Shape optimization: a primer »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Wednesday 1 April 2026 09:39">Wednesday 1 April 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+end</code></pre><p><img src="../zalesak3d.gif" alt="Zalesak 3D"/></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../extension-mmg/">« MMG extension</a><a class="docs-footer-nextpage" href="../example-shape-optim/">Shape optimization: a primer »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Wednesday 1 April 2026 09:48">Wednesday 1 April 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
