@@ -40,7 +40,7 @@ simulates rotation:
 ```@example zalesak_disk_example
 # Define the advection equation with a rotational velocity field
 eq = LevelSetEquation(;
-    ic = ϕ,
+    levelset = ϕ,
     terms = AdvectionTerm((x, t) -> (-x[2], x[1])),
     bc = NeumannBC(),
 )
@@ -97,7 +97,7 @@ rec = LevelSetMethods.rectangle(
 )
 ϕ = setdiff(disk, rec)
 eq = LevelSetEquation(;
-    ic = ϕ,
+    levelset = ϕ,
     terms = AdvectionTerm((x, t) -> π * SVector(x[2], -x[1], 0)),
     bc = NeumannBC(),
 )

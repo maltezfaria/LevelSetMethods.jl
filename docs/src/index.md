@@ -44,7 +44,7 @@ grid = CartesianGrid((-1, -1), (1, 1), (100, 100))
 𝐮    = (x,t) -> (-x[2], x[1])
 eq   = LevelSetEquation(;
   terms = (AdvectionTerm(𝐮),),
-  ic = ϕ,
+  levelset = ϕ,
   bc = PeriodicBC()
 )
 ```
@@ -64,7 +64,7 @@ To step it in time, we can use the [`integrate!`](@ref) function:
 integrate!(eq, 1)
 ```
 
-This will advance the solution up to `t = 1`, modifying the equation's state in the process:
+This will advance the solution up to `t = 1`, modifying `ϕ` in the process:
 
 ```@example ls-intro
 plot(ϕ)

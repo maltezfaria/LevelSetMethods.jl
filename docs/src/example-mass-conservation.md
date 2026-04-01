@@ -39,7 +39,7 @@ timestamps = range(0, tf; length = nframes + 1)
 function track_volume(integrator)
     ϕ = deepcopy(ϕ₀)
     eq = LevelSetEquation(;
-        ic = ϕ,
+        levelset = ϕ,
         terms = AdvectionTerm((x, t) -> (-x[2], x[1])),
         bc = NeumannBC(),
         integrator,

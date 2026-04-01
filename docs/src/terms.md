@@ -44,7 +44,7 @@ grid points. Lets construct a level-set equation with an advection term:
 
 ```@example advection-term
 ϕ₀ = LevelSet(x -> sqrt(x[1]^2 + x[2]^2) - 0.5, grid)
-eq = LevelSetEquation(; terms = (AdvectionTerm(𝐮),), ic = ϕ₀, bc = PeriodicBC())
+eq = LevelSetEquation(; terms = (AdvectionTerm(𝐮),), levelset = ϕ₀, bc = PeriodicBC())
 ```
 
 To see how the advection term affects the level-set, we can solve the equation for a few
@@ -71,7 +71,7 @@ have instead a time-dependent velocity field, we could pass a function to the
 
 ```@example advection-term
 ϕ₀ = LevelSet(x -> sqrt(x[1]^2 + x[2]^2) - 0.5, grid)
-eq = LevelSetEquation(; terms = (AdvectionTerm((x,t) -> SVector(x[1]^2, 0)),), ic = ϕ₀, bc = PeriodicBC())
+eq = LevelSetEquation(; terms = (AdvectionTerm((x,t) -> SVector(x[1]^2, 0)),), levelset = ϕ₀, bc = PeriodicBC())
 fig = Figure(; size = (1200, 300))
 # create a 2 x 2 figure
 for (n,t) in enumerate([0.0, 0.5, 0.75, 1.0])
@@ -102,8 +102,8 @@ let us compare both schemes for a purely rotational velocity field:
 𝐮  = MeshField(grid) do (x,y)
     SVector(-y, x)
 end
-eq_upwind = LevelSetEquation(; terms = AdvectionTerm(𝐮, Upwind()), ic = deepcopy(ϕ₀), bc = PeriodicBC())
-eq_weno   = LevelSetEquation(; terms = AdvectionTerm(𝐮), ic = deepcopy(ϕ₀), bc = PeriodicBC())
+eq_upwind = LevelSetEquation(; terms = AdvectionTerm(𝐮, Upwind()), levelset = deepcopy(ϕ₀), bc = PeriodicBC())
+eq_weno   = LevelSetEquation(; terms = AdvectionTerm(𝐮), levelset  = deepcopy(ϕ₀), bc = PeriodicBC())
 fig = Figure(size = (1000, 400))
 ax = Axis(fig[1,1], title = "Initial")
 plot!(ax, eq_upwind)
@@ -134,7 +134,7 @@ using LevelSetMethods
 using GLMakie
 grid = CartesianGrid((-2,-2), (2,2), (100, 100))
 ϕ = LevelSetMethods.star(grid)
-eq = LevelSetEquation(; terms = (NormalMotionTerm((x,t) -> 0.5),), ic = ϕ, bc = PeriodicBC())
+eq = LevelSetEquation(; terms = (NormalMotionTerm((x,t) -> 0.5),), levelset = ϕ, bc = PeriodicBC())
 fig = Figure(; size = (1200, 300))
 for (n,t) in enumerate([0.0, 0.5, 0.75, 1.0])
     integrate!(eq, t)
@@ -208,7 +208,7 @@ M = R * [1/0.06^2 0; 0 1/(4π^2)] * R'
     end
     return result
 end
-eq = LevelSetEquation(; terms = (CurvatureTerm((x,t) -> -0.1),), ic = ϕ, bc = PeriodicBC())
+eq = LevelSetEquation(; terms = (CurvatureTerm((x,t) -> -0.1),), levelset = ϕ, bc = PeriodicBC())
 fig = Figure(; size = (1200, 300))
 for (n,t) in enumerate([0.0, 0.1, 0.2, 0.3])
     integrate!(eq, t)
@@ -253,7 +253,7 @@ fig
 We will now evolve the level-set using the reinitialization term:
 
 ```@example reinitialization-term
-eq = LevelSetEquation(; terms = (EikonalReinitializationTerm(),), ic = deepcopy(ϕ), bc = PeriodicBC())
+eq = LevelSetEquation(; terms = (EikonalReinitializationTerm(),), levelset = deepcopy(ϕ), bc = PeriodicBC())
 fig = Figure(; size = (1200, 300))
 for (n,t) in enumerate([0.0, 0.25, 0.5, 0.75])
     integrate!(eq, t)
@@ -274,7 +274,7 @@ Alternatively, you can use a modified reinitialization term that applies the sig
 To enable this behavior, simply pass a `LevelSet` object to the `EikonalReinitializationTerm`:
 
 ```@example reinitialization-term
-eq = LevelSetEquation(; terms = (EikonalReinitializationTerm(ϕ),), ic = deepcopy(ϕ), bc = PeriodicBC())
+eq = LevelSetEquation(; terms = (EikonalReinitializationTerm(ϕ),), levelset = deepcopy(ϕ), bc = PeriodicBC())
 fig = Figure(; size = (1200, 300))
 for (n,t) in enumerate([0.0, 0.25, 0.5, 0.75])
     integrate!(eq, t)
