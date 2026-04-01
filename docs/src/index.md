@@ -44,8 +44,8 @@ grid = CartesianGrid((-1, -1), (1, 1), (100, 100))
 𝐮    = (x,t) -> (-x[2], x[1])
 eq   = LevelSetEquation(;
   terms = (AdvectionTerm(𝐮),),
-  levelset = ϕ,
-  bc = PeriodicBC()
+  ic = ϕ,
+  bc = NeumannBC()
 )
 ```
 
@@ -99,10 +99,10 @@ Here is what the `.gif` file looks like:
 For more interesting applications and advanced usage, see the examples section!
 
 !!! note "Other resources"
-    There is an almost one-to-one correspondance between each of the [`LevelSetTerm`](@ref)s
-    described above and individual chapters of the book by Osher and Fedwick on level set
+    There is an almost one-to-one correspondence between each of the [`LevelSetTerm`](@ref)s
+    described above and individual chapters of the book by Osher and Fedkiw on level set
     methods [osher2003level](@cite), so users interested in digging deeper into the
-    theory/algorithms are encourage to consult that refenrence. We also drew some
+    theory/algorithms are encouraged to consult that reference. We also drew some
     inspiration from the great Matlab library `ToolboxLS` by Ian Mitchell
     [mitchell2007toolbox](@cite).
 

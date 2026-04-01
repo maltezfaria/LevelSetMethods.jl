@@ -56,8 +56,8 @@ Pass `reinit` to [`LevelSetEquation`](@ref) to reinitialize automatically every 
 ```julia
 eq = LevelSetEquation(;
     terms  = (AdvectionTerm(𝐮),),
-    levelset = ϕ,
-    bc     = PeriodicBC(),
+    ic = ϕ,
+    bc     = NeumannBC(),
     reinit = 5,          # reinitialize every 5 time steps
 )
 ```
@@ -69,8 +69,8 @@ directly:
 ```julia
 eq = LevelSetEquation(;
     terms    = (AdvectionTerm(𝐮),),
-    levelset = ϕ,
-    bc       = PeriodicBC(),
+    ic = ϕ,
+    bc       = NeumannBC(),
     reinit   = NewtonReinitializer(; reinit_freq = 5, upsample = 4),
 )
 ```

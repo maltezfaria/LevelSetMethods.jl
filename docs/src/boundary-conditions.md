@@ -7,10 +7,10 @@ The following boundary conditions are available:
 | [`PeriodicBC`](@ref) | Periodic (wrap-around) |
 | [`DirichletBC`](@ref) | Prescribed boundary value |
 | [`ExtrapolationBC{P}`](@ref ExtrapolationBC) | P-th order one-sided polynomial extrapolation |
-| `NeumannBC` | Alias for `ExtrapolationBC{1}` (constant extension, ∂ϕ/∂n = 0) |
-| `NeumannGradientBC` | Alias for `ExtrapolationBC{2}` (linear extrapolation, ∂²ϕ/∂n² = 0) |
+| `NeumannBC` | Alias for `ExtrapolationBC{0}` (constant extension, ∂ϕ/∂n = 0) |
+| `LinearExtrapolationBC` | Alias for `ExtrapolationBC{1}` (linear extrapolation, ∂²ϕ/∂n² = 0) |
 
-`ExtrapolationBC{P}` uses the `P` nearest interior cells to build a degree `P-1` polynomial
+`ExtrapolationBC{P}` uses the `P+1` nearest interior cells to build a degree-`P` polynomial
 and extrapolates it into the ghost region. Higher `P` gives smoother outflow at the cost of
 a wider stencil.
 
@@ -32,7 +32,7 @@ using LevelSetMethods, GLMakie
 grid = CartesianGrid((-1,-1), (1,1), (100, 100))
 ϕ₀    = LevelSet(x -> sqrt(x[1]^2 + x[2]^2) - 0.5, grid)
 bc   = PeriodicBC()
-eq   = LevelSetEquation(; levelset = deepcopy(ϕ₀), bc, terms = AdvectionTerm((x,t) -> (1,0)))
+eq   = LevelSetEquation(; ic = deepcopy(ϕ₀), bc, terms = AdvectionTerm((x,t) -> (1,0)))
 fig = Figure(; size = (1200, 300))
 for (n,t) in enumerate([0.0, 0.5, 0.75, 1.0])
     integrate!(eq, t)
@@ -42,10 +42,10 @@ end
 fig
 ```
 
-Changing `PeriodicBC()` to `NeumannBC()` gives allows for the level-set to "leak" out of the domain:
+Changing `PeriodicBC()` to `NeumannBC()` allows the level-set to "leak" out of the domain:
 
 ```@example boundary-conditions
-eq   = LevelSetEquation(; levelset = deepcopy(ϕ₀), bc = NeumannBC(), terms = AdvectionTerm((x,t) -> (1,0)))
+eq   = LevelSetEquation(; ic = deepcopy(ϕ₀), bc = NeumannBC(), terms = AdvectionTerm((x,t) -> (1,0)))
 fig = Figure(; size = (1200, 300))
 for (n,t) in enumerate([0.0, 0.5, 0.75, 1.0])
     integrate!(eq, t)
@@ -59,7 +59,7 @@ To combine both boundary conditions you can use
 
 ```@example boundary-conditions
 bc = (NeumannBC(), PeriodicBC()) # Neumann in x, periodic in y
-eq   = LevelSetEquation(; levelset = deepcopy(ϕ₀), bc, terms = AdvectionTerm((x,t) -> (1,1)))
+eq   = LevelSetEquation(; ic = deepcopy(ϕ₀), bc, terms = AdvectionTerm((x,t) -> (1,1)))
 fig = Figure(; size = (1200, 300))
 for (n,t) in enumerate([0.0, 0.5, 0.75, 1.0])
     integrate!(eq, t)
@@ -70,11 +70,11 @@ fig
 ```
 
 For higher-order outflow you can use `ExtrapolationBC{P}` directly. For example,
-`ExtrapolationBC{5}` fits a degree-4 polynomial through the 5 nearest interior cells:
+`ExtrapolationBC{5}` fits a degree-5 polynomial through the 6 nearest interior cells:
 
 ```@example boundary-conditions
 bc = ExtrapolationBC(5)
-eq   = LevelSetEquation(; levelset = deepcopy(ϕ₀), bc, terms = AdvectionTerm((x,t) -> (1,0)))
+eq   = LevelSetEquation(; ic = deepcopy(ϕ₀), bc, terms = AdvectionTerm((x,t) -> (1,0)))
 fig = Figure(; size = (1200, 300))
 for (n,t) in enumerate([0.0, 0.5, 0.75, 1.0])
     integrate!(eq, t)
