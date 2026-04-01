@@ -100,10 +100,10 @@ MeshField on CartesianGrid in ℝ²
 ```
 
 ```jldoctest; output = true
-using LevelSetMethods, StaticArrays
+using LevelSetMethods
 grid = CartesianGrid((-1, -1), (1, 1), (5, 5))
 # vector-valued field
-MeshField(x -> SVector(x[1], x[2]), grid)
+MeshField(x -> (x[1], x[2]), grid)
 
 # output
 
@@ -111,7 +111,7 @@ MeshField on CartesianGrid in ℝ²
   ├─ domain:  [-1.0, 1.0] × [-1.0, 1.0]
   ├─ nodes:   5 × 5
   ├─ spacing: h = (0.5, 0.5)
-  └─ eltype:  SVector{2, Float64}
+  └─ eltype:  Tuple{Float64, Float64}
 ```
 """
 function MeshField(f::Function, m, bc = nothing)
