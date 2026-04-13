@@ -4,7 +4,7 @@ using Test
 
 @testset "SemiImplicitI2OE periodic transport" begin
     grid = CartesianGrid((0.0,), (1.0,), (201,))
-    ϕ0 = LevelSet(grid) do (x,)
+    ϕ0 = MeshField(grid) do (x,)
         sin(2π * x) + 0.15 * cos(6π * x)
     end
     vel = MeshField(x -> SVector(1.0), grid)
@@ -18,7 +18,7 @@ using Test
     tf = 0.35
     integrate!(eq, tf)
 
-    ϕ_ref = LevelSet(grid) do (x,)
+    ϕ_ref = MeshField(grid) do (x,)
         xshift = mod(x - tf, 1.0)
         sin(2π * xshift) + 0.15 * cos(6π * xshift)
     end
@@ -28,7 +28,7 @@ end
 
 @testset "SemiImplicitI2OE periodic transport 2D" begin
     grid = CartesianGrid((0.0, 0.0), (1.0, 1.0), (121, 111))
-    ϕ0 = LevelSet(grid) do (x, y)
+    ϕ0 = MeshField(grid) do (x, y)
         sin(2π * x) + 0.4 * cos(2π * y)
     end
     vel = MeshField(x -> SVector(0.75, -0.35), grid)
@@ -41,7 +41,7 @@ end
 
     tf = 0.2
     integrate!(eq, tf)
-    ϕ_ref = LevelSet(grid) do (x, y)
+    ϕ_ref = MeshField(grid) do (x, y)
         xshift = mod(x - 0.75 * tf, 1.0)
         yshift = mod(y + 0.35 * tf, 1.0)
         sin(2π * xshift) + 0.4 * cos(2π * yshift)
@@ -52,7 +52,7 @@ end
 
 @testset "SemiImplicitI2OE supports non-periodic BCs" begin
     grid = CartesianGrid((0.0,), (1.0,), (121,))
-    ϕ0 = LevelSet(x -> 0.7, grid)
+    ϕ0 = MeshField(x -> 0.7, grid)
     term_neumann = AdvectionTerm((x, t) -> sin(2π * x[1]), Upwind())
     eq_neumann = LevelSetEquation(;
         terms = (term_neumann,),
@@ -67,7 +67,7 @@ end
     eq_dirichlet = LevelSetEquation(;
         terms = (term_dirichlet,),
         integrator = SemiImplicitI2OE(cfl = 2.0),
-        ic = LevelSet(x -> 0.0, grid),
+        ic = MeshField(x -> 0.0, grid),
         bc = DirichletBC((x, t) -> 0.0),
     )
     integrate!(eq_dirichlet, 0.4)
@@ -78,7 +78,7 @@ end
 
 @testset "SemiImplicitI2OE checks invalid setup" begin
     grid1d = CartesianGrid((0.0,), (1.0,), (41,))
-    ϕ1d = LevelSet(x -> x[1], grid1d)
+    ϕ1d = MeshField(x -> x[1], grid1d)
     eq_multiterm = LevelSetEquation(;
         terms = (
             AdvectionTerm((x, t) -> 1.0, Upwind()),
@@ -91,7 +91,7 @@ end
     @test_throws ArgumentError integrate!(eq_multiterm, 0.1)
 
     grid_small = CartesianGrid((0.0,), (1.0,), (2,))
-    ϕ_small = LevelSet(x -> x[1], grid_small)
+    ϕ_small = MeshField(x -> x[1], grid_small)
     eq_small = LevelSetEquation(;
         terms = (AdvectionTerm((x, t) -> 1.0, Upwind()),),
         integrator = SemiImplicitI2OE(),
@@ -103,7 +103,7 @@ end
 
 @testset "SemiImplicitI2OE tolerates larger timesteps than explicit FE" begin
     grid = CartesianGrid((0.0,), (1.0,), (401,))
-    ϕ0 = LevelSet(grid) do (x,)
+    ϕ0 = MeshField(grid) do (x,)
         sin(2π * x) + 0.2 * cos(4π * x)
     end
     vel = MeshField(x -> SVector(1.0), grid)
@@ -126,7 +126,7 @@ end
     integrate!(eq_semi, tf)
     integrate!(eq_explicit, tf)
 
-    ϕ_ref = LevelSet(grid) do (x,)
+    ϕ_ref = MeshField(grid) do (x,)
         xshift = mod(x - tf, 1.0)
         sin(2π * xshift) + 0.2 * cos(4π * xshift)
     end
@@ -142,7 +142,7 @@ end
 
 @testset "SemiImplicitI2OE outperforms explicit FE at high CFL in 2D" begin
     grid = CartesianGrid((0.0, 0.0), (1.0, 1.0), (121, 121))
-    ϕ0 = LevelSet(grid) do (x, y)
+    ϕ0 = MeshField(grid) do (x, y)
         sin(2π * x) + 0.25 * cos(4π * y)
     end
     vel = MeshField(x -> SVector(0.9, -0.55), grid)
@@ -165,7 +165,7 @@ end
     integrate!(eq_semi, tf)
     integrate!(eq_explicit, tf)
 
-    ϕ_ref = LevelSet(grid) do (x, y)
+    ϕ_ref = MeshField(grid) do (x, y)
         xshift = mod(x - 0.9 * tf, 1.0)
         yshift = mod(y + 0.55 * tf, 1.0)
         sin(2π * xshift) + 0.25 * cos(4π * yshift)

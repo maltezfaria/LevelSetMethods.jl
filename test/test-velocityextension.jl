@@ -3,13 +3,13 @@ using LevelSetMethods
 
 @testset "Normal Motion update hook" begin
     grid = CartesianGrid((-1.0, -1.0), (1.0, 1.0), (21, 21))
-    ϕ = LevelSet(grid) do (x, y)
+    ϕ = MeshField(grid) do (x, y)
         sqrt(x^2 + y^2) - 0.5
     end
     bcs = ((PeriodicBC(), PeriodicBC()), (PeriodicBC(), PeriodicBC()))
-    ϕ = LevelSetMethods.add_boundary_conditions(ϕ, bcs)
+    ϕ = LevelSetMethods._add_boundary_conditions(ϕ, bcs)
 
-    v = MeshField(zeros(Float64, size(grid)...), grid, nothing)
+    v = MeshField(zeros(Float64, size(grid)...), grid; bc = nothing)
     term = NormalMotionTerm(v, (speed, ϕ, t) -> (fill!(values(speed), 2t); nothing))
     LevelSetMethods.update_term!(term, ϕ, 0.3)
 
@@ -18,16 +18,16 @@ end
 
 @testset "Extend Along Normals" begin
     grid = CartesianGrid((-1.0, -1.0), (1.0, 1.0), (81, 61))
-    ϕ = LevelSet(grid) do (x, y)
+    ϕ = MeshField(grid) do (x, y)
         x
     end
 
     F = zeros(Float64, size(grid)...)
     frozen = falses(size(F))
     Δ = minimum(LevelSetMethods.meshsize(grid))
-    for I in CartesianIndices(F)
+    for I in nodeindices(grid)
         if abs(ϕ[I]) <= Δ
-            y = grid[I][2]
+            y = getnode(grid, I)[2]
             F[I] = sin(π * y)
             frozen[I] = true
         end
@@ -45,19 +45,19 @@ end
 @testset "Circle periodic extension" begin
     grid = CartesianGrid((-1.0, -1.0), (1.0, 1.0), (121, 121))
     R = 0.55
-    ϕ = LevelSet(grid) do (x, y)
+    ϕ = MeshField(grid) do (x, y)
         sqrt(x^2 + y^2) - R
     end
     bcs = ((PeriodicBC(), PeriodicBC()), (PeriodicBC(), PeriodicBC()))
-    ϕ = LevelSetMethods.add_boundary_conditions(ϕ, bcs)
+    ϕ = LevelSetMethods._add_boundary_conditions(ϕ, bcs)
 
     v = zeros(Float64, size(grid)...)
     Δ = minimum(LevelSetMethods.meshsize(grid))
     seed_band = 1.1
     frozen = abs.(values(ϕ)) .<= seed_band * Δ
-    for I in CartesianIndices(v)
+    for I in nodeindices(grid)
         frozen[I] || continue
-        x, y = grid[I]
+        x, y = getnode(grid, I)
         r = sqrt(x^2 + y^2)
         v[I] = y / max(r, eps(Float64))
     end
@@ -66,7 +66,7 @@ end
     extend_along_normals!(v, ϕ; nb_iters = 100, frozen, cfl = 0.45)
     @test v[frozen] == v_seed[frozen]
 
-    vf = MeshField(v, grid, bcs)
+    vf = MeshField(v, grid; bc = bcs)
     extend_band = 5.0
     sum_abs_n_dot_grad = 0.0
     nb_samples = 0
@@ -86,11 +86,11 @@ end
 
 @testset "MeshField and argument checks" begin
     grid = CartesianGrid((-1.0, -1.0), (1.0, 1.0), (41, 41))
-    ϕ = LevelSet(grid) do (x, y)
+    ϕ = MeshField(grid) do (x, y)
         x + y
     end
     vals = zeros(Float64, size(grid)...)
-    F = MeshField(vals, grid, nothing)
+    F = MeshField(vals, grid; bc = nothing)
     out = extend_along_normals!(F, ϕ; nb_iters = 5)
     @test out === F
 
@@ -113,7 +113,7 @@ function _run_curvature_extension_cycle!(
     )
     grid = LevelSetMethods.mesh(ϕ)
     speed_vals = zeros(Float64, size(grid)...)
-    speed = MeshField(speed_vals, grid, nothing)
+    speed = MeshField(speed_vals, grid; bc = nothing)
 
     update_speed = function (v, ϕstate, t)
         vals = values(v)
@@ -156,7 +156,7 @@ function _interface_radius_stats(ϕ; band = 1.5)
     radii = Float64[]
     for I in eachindex(ϕ)
         if abs(ϕ[I]) <= band * Δ
-            x = grid[I]
+            x = getnode(grid, I)
             push!(radii, sqrt(sum(abs2, x)))
         end
     end
@@ -169,7 +169,7 @@ end
 @testset "Classical circular reconstruction (2D)" begin
     grid = CartesianGrid((-0.5, -0.5), (0.5, 0.5), (128, 128))
     R0 = 0.45 # diameter = 9/10
-    ϕ = LevelSet(x -> sqrt(x[1]^2 + x[2]^2) - R0, grid)
+    ϕ = MeshField(x -> sqrt(x[1]^2 + x[2]^2) - R0, grid)
     Δ = minimum(LevelSetMethods.meshsize(grid))
 
     ϕf = _run_curvature_extension_cycle!(
@@ -189,7 +189,7 @@ end
 @testset "Classical spherical reconstruction (3D)" begin
     grid = CartesianGrid((-0.5, -0.5, -0.5), (0.5, 0.5, 0.5), (48, 48, 48))
     R0 = 0.45
-    ϕ = LevelSet(x -> sqrt(x[1]^2 + x[2]^2 + x[3]^2) - R0, grid)
+    ϕ = MeshField(x -> sqrt(x[1]^2 + x[2]^2 + x[3]^2) - R0, grid)
     Δ = minimum(LevelSetMethods.meshsize(grid))
 
     ϕf = _run_curvature_extension_cycle!(
@@ -225,7 +225,7 @@ end
 
     ϕ = LevelSetMethods.star(grid; radius = R, deformation = deformation, n = nfacets)
     bcs = ((PeriodicBC(), PeriodicBC()), (PeriodicBC(), PeriodicBC()))
-    ϕb = LevelSetMethods.add_boundary_conditions(ϕ, bcs)
+    ϕb = LevelSetMethods._add_boundary_conditions(ϕ, bcs)
 
     Δ = minimum(LevelSetMethods.meshsize(grid))
     v = zeros(Float64, size(grid)...)
@@ -262,7 +262,7 @@ end
         δ = minimum(LevelSetMethods.meshsize(ϕstate))
         for I in eachindex(ϕstate)
             if abs(ϕstate[I]) <= 1.5 * δ
-                x = g[I]
+                x = getnode(g, I)
                 push!(rs, sqrt(x[1]^2 + x[2]^2))
             end
         end
@@ -271,7 +271,7 @@ end
         return std_rs / mean_rs
     end
     cv0 = _radius_cv(ϕb)
-    term = NormalMotionTerm(MeshField(v, grid, nothing))
+    term = NormalMotionTerm(MeshField(v, grid; bc = nothing))
     eq = LevelSetEquation(;
         terms = (term,),
         ic = ϕ,

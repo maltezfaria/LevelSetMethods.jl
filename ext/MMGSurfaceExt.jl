@@ -11,7 +11,7 @@ end
 """
     export_surface_mesh(eq::LevelSetEquation, args...; kwargs...)
 
-Call [`export_surface_mesh`](@ref LSM.export_surface_mesh(::LSM.LevelSet)) on
+Call [`export_surface_mesh`](@ref LSM.export_surface_mesh(::LSM.MeshField)) on
 `current_state(eq)`.
 """
 function LSM.export_surface_mesh(eq::LSM.LevelSetEquation, args...; kwargs...)
@@ -19,10 +19,10 @@ function LSM.export_surface_mesh(eq::LSM.LevelSetEquation, args...; kwargs...)
 end
 
 """
-    export_surface_mesh(ϕ::LevelSet, output::String;
+    export_surface_mesh(ϕ::MeshField, output::String;
         hgrad = nothing, hmin = nothing, hmax = nothing, hausd = nothing)
 
-Compute a mesh of the [`LevelSet`](@ref LSM.LevelSet) `ϕ` zero contour using MMGs_O3.
+Compute a mesh of the [`MeshField`](@ref LSM.MeshField) `ϕ` zero contour using MMGs_O3.
 
 `hgrad` control the growth ratio between two adjacent edges
 
@@ -37,7 +37,7 @@ boundary and the reconstructed ideal boundary
     Only works for 3 dimensional level-set.
 """
 function LSM.export_surface_mesh(
-        ϕ::LSM.LevelSet,
+        ϕ::LSM.MeshField,
         output::String;
         hgrad = nothing,
         hmin = nothing,

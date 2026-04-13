@@ -124,7 +124,7 @@ Base.show(io::IO, ::DirichletBC) = print(io, "Dirichlet")
     _normalize_bc(bc, dim)
 
 Normalize the `bc` argument into a `dim`-tuple of `(left, right)` pairs, one per spatial
-dimension, as expected by [`add_boundary_conditions`](@ref).
+dimension, as expected by [`_add_boundary_conditions`](@ref).
 
 - A single `BoundaryCondition` is applied to all sides.
 - A length-`dim` collection applies each entry to both sides of the corresponding dimension.

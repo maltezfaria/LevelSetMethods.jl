@@ -130,13 +130,10 @@ end
 """
     _level_set_extrema(src) -> (ϕ_min, ϕ_max)
 
-Compute the extrema of the level-set values. Handles both `Array` and `Dict` storage.
+Compute the extrema of the level-set values.
 """
-function _level_set_extrema(src)
-    v = values(src)
-    vals_iter = v isa AbstractDict ? Base.values(v) : v
-    return extrema(vals_iter)
-end
+_level_set_extrema(src::MeshField) = extrema(values(src))
+_level_set_extrema(src::NarrowBandMeshField) = extrema(Base.values(values(src)))
 
 """
     _push_record!(log, tc, t_step, reinit_time, did_reinit, update_times, compute_times, ϕ_min, ϕ_max)

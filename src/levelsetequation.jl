@@ -1,7 +1,7 @@
 mutable struct LevelSetEquation
-    terms::Tuple
+    terms::Tuple{Vararg{LevelSetTerm}}
     integrator::TimeIntegrator
-    state::MeshField
+    state::AbstractMeshField
     t::Float64
     reinit::Union{Nothing, NewtonReinitializer}
     log::SimulationLog
@@ -11,8 +11,8 @@ end
     LevelSetEquation(; terms, ic, bc, t = 0, integrator = RK2(), reinit = nothing)
 
 Create a level-set equation of the form `ϕₜ + sum(terms) = 0`, where each `t ∈ terms`
-is a [`LevelSetTerm`](@ref) and `ic` is the initial condition — either a [`LevelSet`](@ref)
-for a full-grid discretization or a [`NarrowBandLevelSet`](@ref) for a narrow-band one.
+is a [`LevelSetTerm`](@ref) and `ic` is the initial condition — either a [`MeshField`](@ref)
+for a full-grid discretization or a [`NarrowBandMeshField`](@ref) for a narrow-band discretization.
 
 Calling [`integrate!(eq, tf)`](@ref) will evolve the equation up to time `tf`, modifying
 `current_state(eq)` and `current_time(eq)` in place.
@@ -36,7 +36,7 @@ Reinitialization is controlled by the `reinit` keyword, which accepts:
 ```jldoctest; output = true
 using LevelSetMethods, StaticArrays
 grid = CartesianGrid((-1, -1), (1, 1), (50, 50))    # define the grid
-ϕ = LevelSet(x -> x[1]^2 + x[2]^2 - 0.5^2, grid)    # initial shape
+ϕ = MeshField(x -> x[1]^2 + x[2]^2 - 0.5^2, grid)    # initial shape
 𝐮 = MeshField(x -> SVector(1, 0), grid)             # advection velocity
 terms = (AdvectionTerm(𝐮),)                          # advection term
 bc = NeumannBC()                                     # zero-gradient boundary conditions
@@ -65,7 +65,7 @@ LevelSetEquation
 function LevelSetEquation(;
         terms,
         integrator = RK2(),
-        ic::MeshField,
+        ic::AbstractMeshField,
         bc,
         t = 0,
         reinit = nothing,
@@ -76,7 +76,7 @@ function LevelSetEquation(;
     # bc is the authoritative source
     has_boundary_conditions(ic) &&
         @warn "ic already has boundary conditions; these will be overwritten by bc"
-    state = add_boundary_conditions(ic, bc)
+    state = _add_boundary_conditions(ic, bc)
     log = SimulationLog(t, terms)
     return LevelSetEquation(terms, integrator, state, t, reinit, log)
 end
@@ -150,12 +150,12 @@ end
 """
     current_state(eq::LevelSetEquation)
 
-Return the current state of the level-set equation (a [`LevelSet`](@ref)).
+Return the current state of the level-set equation (a [`MeshField`](@ref)).
 """
 current_state(ls::LevelSetEquation) = ls.state
 
-# Allow current_state on a bare MeshField so that plotting recipes work uniformly.
-current_state(ϕ::MeshField) = ϕ
+# Allow current_state on a bare AbstractMeshField so that plotting recipes work uniformly.
+current_state(ϕ::AbstractMeshField) = ϕ
 
 """
     current_time(eq::LevelSetEquation)
@@ -200,7 +200,6 @@ Return the [`NewtonReinitializer`](@ref) (if any) attached to the equation.
 reinitializer(ls::LevelSetEquation) = ls.reinit
 
 # Convenience delegations to current state
-interpolate(eq::LevelSetEquation, order::Int = 3) = interpolate(current_state(eq), order)
 volume(eq::LevelSetEquation) = volume(current_state(eq))
 perimeter(eq::LevelSetEquation) = perimeter(current_state(eq))
 

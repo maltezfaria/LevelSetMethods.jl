@@ -1,5 +1,5 @@
 """
-    extend_along_normals!(F, ϕ::LevelSet;
+    extend_along_normals!(F, ϕ::MeshField;
                           nb_iters = 50,
                           cfl = 0.45,
                           frozen = nothing,
@@ -19,7 +19,7 @@ Reference from [Peng et al. 1999]
 """
 function extend_along_normals!(
         F::AbstractArray{T, N},
-        ϕ::LevelSet;
+        ϕ::MeshField;
         nb_iters::Integer = 50,
         cfl::Real = 0.45,
         frozen = nothing,
@@ -40,8 +40,8 @@ function extend_along_normals!(
     else
         ntuple(_ -> (LinearExtrapolationBC(), LinearExtrapolationBC()), N)
     end
-    ϕw = has_boundary_conditions(ϕ) ? ϕ : add_boundary_conditions(ϕ, bc)
-    Fw = MeshField(F, mesh(ϕ), bc)
+    ϕw = has_boundary_conditions(ϕ) ? ϕ : _add_boundary_conditions(ϕ, bc)
+    Fw = MeshField(F, mesh(ϕ); bc = bc)
 
     Δ = minimum(meshsize(ϕ))
     τ = cfl * Δ
@@ -68,14 +68,14 @@ function extend_along_normals!(
     return F
 end
 
-function extend_along_normals!(F::MeshField, ϕ::LevelSet; kwargs...)
+function extend_along_normals!(F::MeshField, ϕ::MeshField; kwargs...)
     mesh(F) == mesh(ϕ) ||
         throw(ArgumentError("F and ϕ must be defined on the same mesh"))
     extend_along_normals!(values(F), ϕ; kwargs...)
     return F
 end
 
-function _normalize_frozen_mask(frozen, ϕ::LevelSet, interface_band, Δ)
+function _normalize_frozen_mask(frozen, ϕ::MeshField, interface_band, Δ)
     vals = values(ϕ)
     if isnothing(frozen)
         return abs.(vals) .<= interface_band * Δ
@@ -92,7 +92,7 @@ function _normalize_frozen_mask(frozen, ϕ::LevelSet, interface_band, Δ)
     return BitArray(frozen)
 end
 
-function _signed_normal_components(ϕ::LevelSet, Δ, min_norm)
+function _signed_normal_components(ϕ::MeshField, Δ, min_norm)
     N = ndims(ϕ)
     T = float(eltype(values(ϕ)))
     components = ntuple(_ -> Array{T}(undef, size(values(ϕ))), N)

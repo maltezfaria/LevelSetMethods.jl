@@ -9,7 +9,7 @@ from a new level set.
 abstract type AbstractSignedDistanceFunction <: Function end
 
 """
-    update!(sdf::AbstractSignedDistanceFunction, ϕ::LevelSet)
+    update!(sdf::AbstractSignedDistanceFunction, ϕ::MeshField)
 
 Rebuild `sdf` in place from the new level set `ϕ`.
 """
@@ -30,8 +30,8 @@ optional second argument `sdf(x, s)` can be used to supply the sign directly (e.
     internal mutable buffers. For multi-threaded evaluation, use `deepcopy(sdf)` for
     each thread.
 """
-mutable struct NewtonSDF{I, Tr, P} <: AbstractSignedDistanceFunction
-    itp::I
+mutable struct NewtonSDF{Φ, Tr, P} <: AbstractSignedDistanceFunction
+    meshfield::Φ
     tree::Tr
     pts::P
     upsample::Int
@@ -57,45 +57,55 @@ function Base.show(io::IO, ::MIME"text/plain", sdf::NewtonSDF)
 end
 
 """
-    NewtonSDF(itp; upsample=8, maxiters=20, xtol=1e-8, ftol=1e-8)
+    NewtonSDF(ϕ; order=3, upsample=2, maxiters=10, xtol=1e-8, ftol=1e-8)
 
-Construct a [`NewtonSDF`](@ref) from a `PiecewisePolynomialInterpolant`.
+Construct a [`NewtonSDF`](@ref) from a level set `ϕ`. If `ϕ` already carries
+`InterpolationData` (i.e. was constructed with an `interp_order` keyword), it is used
+directly; otherwise a deep copy is made with `ExtrapolationBC{2}` added and
+`InterpolationData` of the given `order` attached.
 
-The interface is sampled by projecting uniformly-spaced points in each cell onto the zero
-level set. A KDTree is built from these samples for fast nearest-neighbor queries.
+The interface is sampled by projecting uniformly-spaced points in each cell onto the
+zero level set, building a KDTree for fast nearest-neighbour queries.
+
+Works for both [`MeshField`](@ref) and narrow-band fields.
 
 # Keyword arguments
-- `upsample`: sampling density per cell side. Larger values means a denser sampling of the
-  interface is used to build the `KDTree`, which in turn usually means a better initial
-  guess for the Newton solver.
+- `order`: polynomial interpolation order (only used when `ϕ` has no interpolation)
+- `upsample`: sampling density per cell side
 - `maxiters`: maximum Newton iterations
-- `xtol`: tolerance on iterate updates for convergence of the Newton solver
-- `ftol`: tolerance on the function value for convergence of the Newton solver
+- `xtol`: tolerance on the KKT residual
+- `ftol`: tolerance on the function value
 """
 function NewtonSDF(
-        itp::PiecewisePolynomialInterpolant;
+        ϕ;
+        order = 3,
         upsample = 2,
         maxiters = 10,
         xtol = 1.0e-8,
-        ftol = 1.0e-8
+        ftol = 1.0e-8,
     )
-    grid = mesh(itp.ϕ)
-    pts = _sample_interface(grid, itp, active_cells(itp.ϕ), upsample, maxiters, ftol)
+    if has_interpolation(ϕ)
+        mf = ϕ
+    else
+        ϕ_copy = deepcopy(ϕ)
+        if !has_boundary_conditions(ϕ_copy)
+            N = ndims(mesh(ϕ_copy))
+            ϕ_copy = _add_boundary_conditions(ϕ_copy, ntuple(_ -> (ExtrapolationBC{2}(), ExtrapolationBC{2}()), N))
+        end
+        N, T = ndims(mesh(ϕ_copy)), eltype(ϕ_copy)
+        if ϕ_copy isa NarrowBandMeshField
+            mf = NarrowBandMeshField(
+                values(ϕ_copy), mesh(ϕ_copy), boundary_conditions(ϕ_copy),
+                halfwidth(ϕ_copy), InterpolationData(N, order, T),
+            )
+        else
+            mf = MeshField(values(ϕ_copy), mesh(ϕ_copy), boundary_conditions(ϕ_copy), InterpolationData(N, order, T))
+        end
+    end
+    grid = mesh(mf)
+    pts = _sample_interface(grid, mf, cellindices(mf), upsample, maxiters, ftol)
     tree = KDTree(pts)
-    return NewtonSDF(itp, tree, pts, upsample, maxiters, xtol, ftol)
-end
-
-"""
-    NewtonSDF(ϕ; order=3, kwargs...)
-
-Construct a [`NewtonSDF`](@ref) from a level set by first creating a piecewise polynomial
-interpolant of the given `order`. Additional keyword arguments are forwarded to
-`NewtonSDF(itp; ...)`. Works for both [`LevelSet`](@ref) and [`NarrowBandLevelSet`](@ref),
-sampling only the relevant candidate cells in each case.
-"""
-function NewtonSDF(ϕ; order = 3, kwargs...)
-    itp = interpolate(ϕ, order)
-    return NewtonSDF(itp; kwargs...)
+    return NewtonSDF(mf, tree, pts, upsample, maxiters, xtol, ftol)
 end
 
 """
@@ -105,14 +115,14 @@ Rebuild `sdf` in place from the new level set `ϕ`, reusing the existing interpo
 buffers, upsample density, and solver tolerances.
 """
 function update!(sdf::NewtonSDF, ϕ)
-    update!(sdf.itp, ϕ)
-    grid = mesh(sdf.itp.ϕ)
-    sdf.pts = _sample_interface(grid, sdf.itp, active_cells(sdf.itp.ϕ), sdf.upsample, sdf.maxiters, sdf.ftol)
+    copy!(sdf.meshfield, ϕ)
+    grid = mesh(sdf.meshfield)
+    sdf.pts = _sample_interface(grid, sdf.meshfield, cellindices(sdf.meshfield), sdf.upsample, sdf.maxiters, sdf.ftol)
     sdf.tree = KDTree(sdf.pts)
     return sdf
 end
 
-function (sdf::NewtonSDF)(x, s = sign(sdf.itp(x)))
+function (sdf::NewtonSDF)(x, s = sign(sdf.meshfield(x)))
     cp, _ = _closest_point_on_interface(sdf, x)
     return s * norm(x - cp)
 end
@@ -128,29 +138,21 @@ neighbouring polynomial patch), a single retry is attempted using the best itera
 from the failed solve as a new seed on its own patch.
 """
 function _closest_point_on_interface(sdf::NewtonSDF, x, max_retries = 3)
-    safeguard_dist = 1.5 * maximum(meshsize(mesh(sdf.itp.ϕ)))
+    safeguard_dist = 1.5 * maximum(meshsize(mesh(sdf.meshfield)))
     idx, _ = nn(sdf.tree, x)
     cp = sdf.pts[idx]
-    cell = compute_index(sdf.itp, cp)
+    cell = compute_index(sdf.meshfield, cp)
     converged = false
     for _ in 1:max_retries
-        p = make_interpolant(sdf.itp, cell)
+        p = make_interpolant(sdf.meshfield, cell)
         cp, converged = _closest_point(p, x, cp, sdf.maxiters, sdf.xtol, sdf.ftol, safeguard_dist)
-        new_cell = compute_index(sdf.itp, cp)
+        new_cell = compute_index(sdf.meshfield, cp)
         (converged || new_cell == cell) && break
         cell = new_cell
     end
     return cp, converged
 end
 
-"""
-    active_cells(ϕ)
-
-Return the cell indices that are active for interface sampling. A cell is active if all
-its corners are active indices. For a full-grid level set, this is all cells; for a narrow
-band, only cells where all corners are within the band. Dispatch point for NewtonSDF construction.
-"""
-active_cells(ϕ) = cellindices(mesh(ϕ))
 
 """
     _sample_interface(grid, itp, cells, upsample, maxiters, ftol)
@@ -326,16 +328,16 @@ function Base.show(io::IO, ::MIME"text/plain", r::NewtonReinitializer)
 end
 
 """
-    reinitialize!(ϕ::LevelSet, r::NewtonReinitializer)
+    reinitialize!(ϕ::MeshField, r::NewtonReinitializer)
 
 Reinitialize the level set `ϕ` to a signed distance function in place using the Newton
 closest-point method.
 """
-function reinitialize!(ϕ::LevelSet, r::NewtonReinitializer)
+function reinitialize!(ϕ::MeshField, r::NewtonReinitializer)
     sdf = NewtonSDF(ϕ; order = r.order, upsample = r.upsample, maxiters = r.maxiters, xtol = r.xtol, ftol = r.ftol)
     nfail = 0
     for I in eachindex(ϕ)
-        x = mesh(ϕ)[I]
+        x = getnode(mesh(ϕ), I)
         cp, converged = _closest_point_on_interface(sdf, x)
         converged || (nfail += 1)
         ϕ[I] = sign(ϕ[I]) * norm(x - cp)
@@ -348,11 +350,11 @@ end
 
 # Called at each time step with the current step count. Reinitializes only when
 # nsteps is a multiple of reinit_freq; the nothing method is a no-op.
-reinitialize!(ϕ::LevelSet, ::Nothing, _) = ϕ
-function reinitialize!(ϕ::LevelSet, r::NewtonReinitializer, nsteps::Int)
+reinitialize!(ϕ::MeshField, ::Nothing, _) = ϕ
+function reinitialize!(ϕ::MeshField, r::NewtonReinitializer, nsteps::Int)
     mod(nsteps, r.reinit_freq) == 0 || return ϕ
     return reinitialize!(ϕ, r)
 end
 
 # tomatoes tomatos ...
-reinitialise!(ϕ::LevelSet, r::NewtonReinitializer) = reinitialize!(ϕ, r)
+reinitialise!(ϕ::MeshField, r::NewtonReinitializer) = reinitialize!(ϕ, r)

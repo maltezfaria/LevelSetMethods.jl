@@ -9,6 +9,7 @@ using NearestNeighbors
 
 include("meshes.jl")
 include("boundaryconditions.jl")
+include("bernstein.jl")
 include("meshfield.jl")
 include("levelset.jl")
 include("derivatives.jl")
@@ -21,17 +22,17 @@ include("timestepping.jl")
 include("logging.jl")
 include("levelsetequation.jl")
 
-export AdvectionTerm,
+export AbstractMeshField,
+    AdvectionTerm,
     CartesianGrid,
     CurvatureTerm,
     DirichletBC,
     EikonalReinitializationTerm,
     ExtrapolationBC,
     ForwardEuler,
-    LevelSet,
     LevelSetEquation,
     MeshField,
-    NarrowBandLevelSet,
+    NarrowBandMeshField,
     NeumannBC,
     LinearExtrapolationBC,
     NewtonReinitializer,
@@ -42,11 +43,15 @@ export AdvectionTerm,
     SemiImplicitI2OE,
     Upwind,
     WENO5,
+    cellindices,
+    check_real_valued,
     current_state,
     current_time,
     extend_along_normals!,
+    getcell,
+    getnode,
     integrate!,
-    interpolate,
+    nodeindices,
     reinitialize!
 
 
