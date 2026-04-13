@@ -87,24 +87,20 @@ Requires the `MMG` extension to be loaded.
 function export_surface_mesh end
 
 """
-    quadrature(ϕ::AbstractMeshField; order, surface=false, min_mass_fraction=0.0)
+    quadrature(ϕ::AbstractMeshField; order, surface=false)
 
 Generate a quadrature for the implicit domain defined by `ϕ`.
 If `surface=true`, generate a quadrature for the interface `ϕ=0`;
 otherwise for the interior `ϕ < 0`.
 
-If `min_mass_fraction > 0`, small cut cells are merged into rectangular supercells
-until every integration domain has a mass of at least `min_mass_fraction * M`,
-where `M` is the maximum mass across all active leaf cells.
-
 Returns a `Vector` of `(region, quadrature)` pairs, where `region` is a
-`CartesianIndices` covering one or more contiguous cells (a single cut cell is
-represented as a 1-element `CartesianIndices`).
+single-cell `CartesianIndices` and `quadrature` is an `ImplicitIntegration.Quadrature`.
 
 !!! note
     Requires loading `ImplicitIntegration.jl` to activate the extension.
+    `ϕ` must be constructed with `interp_order` set.
 """
-function quadrature(ϕ; order, surface = false, min_mass_fraction = 0.0)
+function quadrature(ϕ; order, surface = false)
     error("ImplicitIntegration extension not loaded. Load ImplicitIntegration to use this functionality.")
 end
 

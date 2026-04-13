@@ -121,21 +121,4 @@ _total(quads, f = x -> 1.0) = sum(integrate(f, q) for (_, q) in quads)
         @test peri_full ≈ peri_nb rtol = 1.0e-10
     end
 
-    @testset "Merging preserves accuracy on torus" begin
-        # The torus is a hard case for rectangular supercells: the curvature varies
-        # and the active region is a thin shell. Merging must not degrade accuracy.
-        R, r = 0.6, 0.2
-        grid = CartesianGrid((-1.0, -1.0, -0.5), (1.0, 1.0, 0.5), (31, 31, 17))
-        ϕ = MeshField(grid; interp_order = 3) do x
-            (sqrt(x[1]^2 + x[2]^2) - R)^2 + x[3]^2 - r^2
-        end
-
-        vol_base = _total(quadrature(ϕ; order = 3, surface = false))
-        vol_merged = _total(quadrature(ϕ; order = 3, surface = false, min_mass_fraction = 0.2))
-        @test vol_merged ≈ vol_base rtol = 1.0e-3
-
-        surf_base = _total(quadrature(ϕ; order = 3, surface = true))
-        surf_merged = _total(quadrature(ϕ; order = 3, surface = true, min_mass_fraction = 0.2))
-        @test surf_merged ≈ surf_base rtol = 1.0e-3
-    end
 end
