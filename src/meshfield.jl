@@ -264,7 +264,7 @@ cellindices(ϕ::MeshField) = cellindices(mesh(ϕ))
 Copy the values from `src` to `dest`. The meshes, boundary conditions, and domains of the
 `dest` fields are not modified. The interpolation cache of `dest` is invalidated.
 """
-function Base.copy!(dest::MeshField, src::AbstractMeshField)
+function Base.copy!(dest::MeshField, src::MeshField)
     _invalidate_itp!(dest)
     copy!(values(dest), values(src))
     return dest
@@ -459,21 +459,24 @@ function NarrowBandMeshField(vals, grid::AbstractMesh; halfwidth, bc = nothing, 
 end
 
 """
-    NarrowBandMeshField(f, grid, halfwidth; bc=nothing)
+    NarrowBandMeshField(f, grid, halfwidth; bc=nothing, interp_order=nothing)
 
 Construct a narrow-band field by evaluating `f` at each node of `grid` and keeping
 only those where `|f(x)| < halfwidth`. No dense array is allocated.
+
+Pass `interp_order=k` to enable piecewise polynomial interpolation (same semantics
+as [`MeshField`](@ref)).
 
 !!! warning
     Since the `halfwidth` threshold is applied to the raw values of `f`, the resulting band
     width in physical space will only match `halfwidth` if `f` is already a signed distance
     function.
 """
-function NarrowBandMeshField(f::Function, grid::AbstractMesh, halfwidth::Real; bc = nothing)
+function NarrowBandMeshField(f::Function, grid::AbstractMesh, halfwidth::Real; bc = nothing, interp_order = nothing)
     T = float(eltype(grid.lc))
     γ = T(halfwidth)
     vals = _nb_dict(I -> f(getnode(grid, I)), grid, γ)
-    return NarrowBandMeshField(vals, grid; bc = bc, halfwidth = γ)
+    return NarrowBandMeshField(vals, grid; bc = bc, halfwidth = γ, interp_order = interp_order)
 end
 
 function _show_fields(io::IO, nb::NarrowBandMeshField{<:Any, <:CartesianGrid}; prefix = "  ")
