@@ -159,12 +159,6 @@ function Base.getindex(ϕ::AbstractMeshField, I...)
     return ϕ[CartesianIndex(I...)]
 end
 
-# Recursive getindex with boundary conditions, processing one dimension per
-# call (dim = N down to 1). If I[dim] is in-bounds, recurse; if out-of-bounds,
-# apply the BC for that dimension then recurse to dim-1. Base case dim=0 does
-# the raw array lookup. Corner ghost points (out-of-bounds in multiple
-# dimensions) are handled correctly because each dimension's BC is applied in
-# turn.
 _base_lookup(ϕ::MeshField, I) = getindex(values(ϕ), I)
 
 function _getindexbc(ϕ::AbstractMeshField, I, dim)
@@ -270,12 +264,6 @@ function Base.copy!(dest::MeshField, src::MeshField)
     return dest
 end
 
-"""
-    _show_fields(io, ϕ::MeshField; prefix="  ")
-
-Print the fields of `ϕ` as indented tree lines: grid info (via `_show_fields` for
-`CartesianGrid`), boundary conditions, element type, and value range (for real-valued fields).
-"""
 function _show_fields(io::IO, ϕ::MeshField{<:Any, <:CartesianGrid}; prefix = "  ")
     _show_fields(io, mesh(ϕ); prefix, last = false)
     if has_boundary_conditions(ϕ)
@@ -297,9 +285,7 @@ function Base.show(io::IO, ::MIME"text/plain", ϕ::MeshField{<:Any, <:CartesianG
 end
 
 # ---- NarrowBandMeshField --------------------------------------------------------
-# The struct and all methods that do not depend on NewtonReinitializer are defined
-# here so that interpolation.jl (included before narrowband.jl) can reference this type.
-# The constructors that call NewtonReinitializer are in narrowband.jl.
+# Struct and basic methods here; constructors that call NewtonReinitializer are in narrowband.jl.
 
 """
     struct NarrowBandMeshField{V,M,B,T,I}

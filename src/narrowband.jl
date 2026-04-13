@@ -1,7 +1,3 @@
-# NarrowBandMeshField struct definition and basic methods are in meshfield.jl
-# (included before interpolation.jl so the callable functor can reference the type).
-# This file contains only the constructors and methods that depend on NewtonReinitializer.
-
 # Build the active-index dict by evaluating `f_at_idx(I)` at every grid node and
 # keeping only those where `|v| < γ`.
 function _nb_dict(f_at_idx, grid::CartesianGrid{N}, γ::T) where {N, T}

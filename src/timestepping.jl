@@ -511,9 +511,3 @@ function _i2oe_face_measure(Δ, dim)
     N == 1 && return one(eltype(Δ))
     return prod(Δ[d] for d in 1:N if d != dim)
 end
-
-function _compute_terms(terms, ϕ, I, t)
-    return sum(terms) do term
-        return _compute_term(term, ϕ, I, t)
-    end
-end
