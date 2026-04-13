@@ -35,7 +35,7 @@ using LevelSetMethods, GLMakie, LinearAlgebra
 grid = CartesianGrid((-1.5, -1.5, -1.5), (1.5, 1.5, 1.5), (50, 50, 50))
 P1, P2 = (-1, 0, 0), (1, 0, 0)
 b = 1.05
-ϕ = LevelSet(grid) do x
+ϕ = MeshField(grid) do x
   norm(x .- P1)*norm(x .- P2) - b^2
 end
 theme = LevelSetMethods.makie_theme()
@@ -54,5 +54,5 @@ end
 ```
 
 !!! tip "Plotting a `LevelSetEquation`"
-    Calling `plot` on a [`LevelSetEquation`](@ref) defaults to plotting the `LevelSet` given by its
+    Calling `plot` on a [`LevelSetEquation`](@ref) defaults to plotting the `MeshField` given by its
     `current_state`; exactly the same as calling `plot(current_state(equation))`.

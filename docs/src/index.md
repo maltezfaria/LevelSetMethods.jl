@@ -39,7 +39,7 @@ Here is how it looks in practice to create a simple `LevelSetEquation`:
 ```@example ls-intro
 using LevelSetMethods
 grid = CartesianGrid((-1, -1), (1, 1), (100, 100))
-# ϕ    = LevelSet(x -> sqrt(2*x[1]^2 + x[2]^2) - 1/2, grid) # a disk
+# ϕ    = MeshField(x -> sqrt(2*x[1]^2 + x[2]^2) - 1/2, grid) # a disk
 ϕ    = LevelSetMethods.dumbbell(grid) # a predefined shape
 𝐮    = (x,t) -> (-x[2], x[1])
 eq   = LevelSetEquation(;
