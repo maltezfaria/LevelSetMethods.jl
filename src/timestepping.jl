@@ -110,7 +110,7 @@ function Base.show(io::IO, ::MIME"text/plain", s::SemiImplicitI2OE)
 end
 
 # common integration logic
-@noinline function _integrate!(ϕ::MeshField, integrator::TimeIntegrator, terms, reinit, tc, tf, Δt_max, log)
+@noinline function _integrate!(ϕ::AbstractMeshField, integrator::TimeIntegrator, terms, reinit, tc, tf, Δt_max, log)
     src = ϕ
     buffers = _alloc_buffers(integrator, ϕ)
     α = cfl(integrator)
@@ -269,8 +269,8 @@ function _integrate!(
         Δt_max,
         log,
     )
-    # Check domain compatibility (FullDomain only for now)
-    domain(ϕ) isa FullDomain || throw(ArgumentError("SemiImplicitI2OE only supports FullDomain"))
+    # Check domain compatibility (full-domain MeshField only)
+    ϕ isa MeshField || throw(ArgumentError("SemiImplicitI2OE only supports full-domain MeshField"))
 
     _validate_i2oe_setup(ϕ, terms)
     term = only(terms)
@@ -342,7 +342,7 @@ function _fill_advection_velocity_components!(out, term::AdvectionTerm{<:Functio
     N = ndims(ϕ)
     g = mesh(ϕ)
     for I in eachindex(ϕ)
-        vI = vel(g[I], t)
+        vI = vel(getnode(g, I), t)
         for dim in 1:N
             out[dim][I] = vI[dim]
         end
@@ -510,10 +510,4 @@ function _i2oe_face_measure(Δ, dim)
     N = length(Δ)
     N == 1 && return one(eltype(Δ))
     return prod(Δ[d] for d in 1:N if d != dim)
-end
-
-function _compute_terms(terms, ϕ, I, t)
-    return sum(terms) do term
-        return _compute_term(term, ϕ, I, t)
-    end
 end

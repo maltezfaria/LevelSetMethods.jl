@@ -43,7 +43,7 @@ point. This is useful if your velocity field is time-independent, or if you only
 grid points. Lets construct a level-set equation with an advection term:
 
 ```@example advection-term
-ϕ₀ = LevelSet(x -> sqrt(x[1]^2 + x[2]^2) - 0.5, grid)
+ϕ₀ = MeshField(x -> sqrt(x[1]^2 + x[2]^2) - 0.5, grid)
 eq = LevelSetEquation(; terms = (AdvectionTerm(𝐮),), ic = ϕ₀, bc = NeumannBC())
 ```
 
@@ -70,7 +70,7 @@ have instead a time-dependent velocity field, we could pass a function to the
 `AdvectionTerm`, and the velocity field would be computed at each time step. For example:
 
 ```@example advection-term
-ϕ₀ = LevelSet(x -> sqrt(x[1]^2 + x[2]^2) - 0.5, grid)
+ϕ₀ = MeshField(x -> sqrt(x[1]^2 + x[2]^2) - 0.5, grid)
 eq = LevelSetEquation(; terms = (AdvectionTerm((x,t) -> SVector(x[1]^2, 0)),), ic = ϕ₀, bc = NeumannBC())
 fig = Figure(; size = (1200, 300))
 # create a 2 x 2 figure
@@ -164,11 +164,11 @@ v = zeros(Float64, size(grid)...)
 frozen = abs.(values(ϕext)) .<= 1.5Δ
 for I in CartesianIndices(v)
     frozen[I] || continue
-    x = grid[I]
+    x = getnode(grid, I)
     v[I] = 0.2 + 0.1 * cos(2π * atan(x[2], x[1]))
 end
 extend_along_normals!(v, ϕext; frozen, nb_iters = 80)
-term = NormalMotionTerm(MeshField(v, grid, nothing))
+term = NormalMotionTerm(MeshField(v, grid))
 term
 ```
 
@@ -197,7 +197,7 @@ r0 = 0.5
 α = π / 100.0
 R = [cos(α) -sin(α); sin(α) cos(α)]
 M = R * [1/0.06^2 0; 0 1/(4π^2)] * R'
-ϕ = LevelSet(grid) do (x, y)
+ϕ = MeshField(grid) do (x, y)
     r = sqrt(x^2 + y^2)
     θ = atan(y, x)
     result = 1e30
@@ -239,8 +239,8 @@ and its signed distance function:
 ```@example reinitialization-term
 using LevelSetMethods, GLMakie
 grid = CartesianGrid((-1,-1), (1,1), (100, 100))
-ϕ = LevelSet(x -> x[1]^2 + x[2]^2 - 0.5^2, grid) # circle level-set, but not a signed distance function
-sdf = LevelSet(x -> sqrt(x[1]^2 + x[2]^2) - 0.5, grid) # signed distance function
+ϕ = MeshField(x -> x[1]^2 + x[2]^2 - 0.5^2, grid) # circle level-set, but not a signed distance function
+sdf = MeshField(x -> sqrt(x[1]^2 + x[2]^2) - 0.5, grid) # signed distance function
 LevelSetMethods.set_makie_theme!()
 fig = Figure(; size = (800, 400))
 ax = Axis(fig[1,1], title = "Signed distance function")
@@ -271,7 +271,7 @@ Alternatively, you can use a modified reinitialization term that applies the sig
   \phi_t + \text{sign}(\phi_0) \left( |\nabla \phi| - 1 \right) = 0
 ```
 
-To enable this behavior, simply pass a `LevelSet` object to the `EikonalReinitializationTerm`:
+To enable this behavior, simply pass a `MeshField` object to the `EikonalReinitializationTerm`:
 
 ```@example reinitialization-term
 eq = LevelSetEquation(; terms = (EikonalReinitializationTerm(ϕ),), ic = deepcopy(ϕ), bc = NeumannBC())

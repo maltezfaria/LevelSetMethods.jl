@@ -2,31 +2,25 @@
 
 LevelSetMethods.jl provides a built-in high-performance piecewise polynomial
 interpolation scheme. This allows you to construct a continuous interpolant from the
-discrete data in a [`LevelSet`](@ref) or [`LevelSetEquation`](@ref). This is useful for
+discrete data in a [`MeshField`](@ref) or [`LevelSetEquation`](@ref). This is useful for
 evaluating the level-set function at arbitrary coordinates, computing analytical
 gradients and Hessians, or for visualization.
 
 ## Basic Usage
 
-To construct an interpolant, use the [`interpolate`](@ref) function:
+Interpolation is enabled by passing `interp_order` when constructing a `MeshField`.
+The field itself becomes callable and evaluates the piecewise polynomial interpolant:
 
 ```@example interpolation
 using LevelSetMethods
 a, b = (-2.0, -2.0), (2.0, 2.0)
-ϕ   = LevelSetMethods.star(CartesianGrid(a, b, (50, 50)))
-# Add boundary conditions for safe evaluation near edges
-bc = ntuple(_ -> (LinearExtrapolationBC(), LinearExtrapolationBC()), 2)
-ϕ = LevelSetMethods.add_boundary_conditions(ϕ, bc)
-
-itp = interpolate(ϕ) # cubic interpolation by default (order=3)
+ϕ = LevelSetMethods.star(CartesianGrid(a, b, (50, 50)); interp_order = 3)
 ```
 
-The returned object is a [`PiecewisePolynomialInterpolant`](@ref LevelSetMethods.PiecewisePolynomialInterpolant), which is callable and
-efficient. Once constructed, the interpolant can be used to evaluate the level-set function
-anywhere inside (and even slightly outside, using boundary conditions) the grid:
+Once constructed, `ϕ` can be evaluated at any point inside the grid:
 
 ```@example interpolation
-itp(0.5, 0.5)
+ϕ(0.5, 0.5)
 ```
 
 ## Plotting
@@ -39,7 +33,7 @@ using GLMakie
 LevelSetMethods.set_makie_theme!()
 xx = yy = -2:0.01:2
 # Evaluate on a fine grid for plotting
-contour(xx, yy, [itp(x, y) for x in xx, y in yy]; levels = [0], linewidth = 2)
+contour(xx, yy, [ϕ(x, y) for x in xx, y in yy]; levels = [0], linewidth = 2)
 ```
 
 ## Derivatives
@@ -50,10 +44,13 @@ These are zero-allocation and computed using Horner's method on the underlying
 Lagrange polynomials.
 
 ```@example interpolation
-x = (0.1, 0.2)
-val  = itp(x)
-grad = LevelSetMethods.gradient(itp, x)
-hess = LevelSetMethods.hessian(itp, x)
+using StaticArrays
+x = SVector(0.1, 0.2)
+I = LevelSetMethods.compute_index(ϕ, x)
+p = LevelSetMethods.make_interpolant(ϕ, I)
+val  = p(x)
+grad = LevelSetMethods.gradient(p, x)
+hess = LevelSetMethods.hessian(p, x)
 println("Value:    ", val)
 println("Gradient: ", grad)
 ```
@@ -64,15 +61,11 @@ Using it on three-dimensional level sets is identical:
 
 ```@example interpolation
 using LinearAlgebra, StaticArrays
-grid = CartesianGrid((-1.5, -1.5, -1.5), (1.5, 1.5, 1.5), (32, 32, 32))
+grid3 = CartesianGrid((-1.5, -1.5, -1.5), (1.5, 1.5, 1.5), (32, 32, 32))
 P1, P2 = (-1.0, 0.0, 0.0), (1.0, 0.0, 0.0)
 b = 1.05
-f = (x) -> norm(x .- P1)*norm(x .- P2) - b^2
-ϕ3 = LevelSet(f, grid)
-bc3 = ntuple(_ -> (LinearExtrapolationBC(), LinearExtrapolationBC()), 3)
-ϕ3 = LevelSetMethods.add_boundary_conditions(ϕ3, bc3)
-
-itp3 = interpolate(ϕ3)
-println("ϕ(0.5, 0.5, 0.5)   = ", f(SVector(0.5, 0.5, 0.5)))
-println("itp(0.5, 0.5, 0.5) = ", itp3(0.5, 0.5, 0.5))
+f3 = (x) -> norm(x .- P1)*norm(x .- P2) - b^2
+ϕ3 = MeshField(f3, grid3; interp_order = 3)
+println("ϕ(0.5, 0.5, 0.5)   = ", f3(SVector(0.5, 0.5, 0.5)))
+println("ϕ(0.5, 0.5, 0.5) = ", ϕ3(0.5, 0.5, 0.5))
 ```

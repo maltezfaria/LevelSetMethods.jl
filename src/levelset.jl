@@ -1,32 +1,14 @@
-"""
-    const LevelSet{N, T, B}
-
-Alias for [`MeshField`](@ref) on a `CartesianGrid{N,T}` with values stored as
-an `Array{T,N}` and a [`FullDomain`](@ref). `B` is the type of the boundary
-conditions.
-"""
-const LevelSet{N, T, B} =
-    MeshField{Array{T, N}, CartesianGrid{N, T}, B, FullDomain}
-
-LevelSet(f::Function, grid, bc = nothing) = MeshField(f, grid, bc)
-
-active_indices(ϕ::LevelSet) = CartesianIndices(mesh(ϕ))
-
-"""
-    _ensure_boundary_conditions(ϕ)
-
-Return `ϕ` unchanged if it already carries boundary conditions, otherwise wrap
-it with `LinearExtrapolationBC` on every face.
-"""
+# Return `ϕ` unchanged if it already carries boundary conditions, otherwise wrap
+# it with `LinearExtrapolationBC` on every face (needed for finite-difference stencils).
 function _ensure_boundary_conditions(ϕ)
     has_boundary_conditions(ϕ) && return ϕ
     N = ndims(ϕ)
     bc = _normalize_bc(LinearExtrapolationBC(), N)
-    return add_boundary_conditions(ϕ, bc)
+    return _add_boundary_conditions(ϕ, bc)
 end
 
 """
-    volume(ϕ::LevelSet)
+    volume(ϕ::MeshField)
 
 Compute the volume of the level-set function.
 
@@ -43,7 +25,7 @@ LevelSetMethods.volume(ϕ), V0
 (0.7854362890190668, 0.7853981633974483)
 ```
 """
-function volume(ϕ::LevelSet)
+function volume(ϕ::MeshField)
     δ = meshsize(mesh(ϕ))
     δmin = minimum(δ)
     vol = prod(δ)
@@ -52,7 +34,7 @@ function volume(ϕ::LevelSet)
 end
 
 """
-    perimeter(ϕ::LevelSet)
+    perimeter(ϕ::MeshField)
 
 Compute the perimeter area of the level-set function.
 
@@ -68,10 +50,10 @@ LevelSetMethods.perimeter(ϕ), S0
 
 # output
 
-(3.1426415491430366, 3.141592653589793)
+(3.142641549143036, 3.141592653589793)
 ```
 """
-function perimeter(ϕ::LevelSet)
+function perimeter(ϕ::MeshField)
     ϕ = _ensure_boundary_conditions(ϕ)
     δ = meshsize(mesh(ϕ))
     δmin = minimum(δ)
@@ -99,7 +81,7 @@ end
 # Method used to numerically integrate N-th dimensional matrices.
 # return a matrix with coefficients equal to 2^(-n) where n is
 # the number of times this index if on the borders of a dimension.
-function trapezoidal_coefficients(ϕ::LevelSet)
+function trapezoidal_coefficients(ϕ::MeshField)
     N = ndims(ϕ)
     ax = axes(ϕ)
     coeffs = zeros(size(values(ϕ)))
@@ -111,7 +93,7 @@ function trapezoidal_coefficients(ϕ::LevelSet)
 end
 
 """
-    curvature(ϕ::LevelSet, I)
+    curvature(ϕ::MeshField, I)
 
 Compute the mean curvature of ϕ at I using κ = ∇ ⋅ (∇ϕ / |∇ϕ|).
 We use the formula κ = (Δϕ |∇ϕ|^2 - ∇ϕ^T Hϕ ∇ϕ) / |∇ϕ|^3 with
@@ -153,10 +135,10 @@ function curvature(ϕ, I)
 end
 
 """
-    curvature(ϕ::LevelSet)
+    curvature(ϕ::MeshField)
 
 Compute the mean curvature of ϕ at I using κ = ∇ ⋅ (∇ϕ / |∇ϕ|).
-See [`curvature(ϕ::LevelSet, I)`](@ref) for more details.
+See [`curvature(ϕ::MeshField, I)`](@ref) for more details.
 
 ```julia
 using LevelSetMethods
@@ -173,13 +155,13 @@ Colorbar(fig[:, end+1], hm)
 contour!(xs, ys, values(ϕ); levels = [0.0])
 ```
 """
-function curvature(ϕ::LevelSet)
-    ϕ_ = _ensure_boundary_conditions(ϕ)
-    return [curvature(ϕ_, I) for I in eachindex(ϕ_)]
+function curvature(ϕ::MeshField)
+    _check_bc(ϕ)
+    return [curvature(ϕ, I) for I in eachindex(ϕ)]
 end
 
 """
-    gradient(ϕ::LevelSet, I::CartesianIndex)
+    gradient(ϕ::MeshField, I::CartesianIndex)
 
 Compute the gradient vector ``∇ϕ`` at grid index `I` using centered finite differences.
 Returns an `SVector` (or `Vector`) of derivatives.
@@ -190,16 +172,16 @@ function gradient(ϕ, I::CartesianIndex)
 end
 
 """
-    gradient(ϕ::LevelSet)
+    gradient(ϕ::MeshField)
 
 Compute the gradient vector ``∇ϕ`` for all grid points.
 """
-function gradient(ϕ::LevelSet)
+function gradient(ϕ::MeshField)
     return [gradient(ϕ, I) for I in eachindex(ϕ)]
 end
 
 """
-    normal(ϕ::LevelSet, I::CartesianIndex)
+    normal(ϕ::MeshField, I::CartesianIndex)
 
 Compute the unit exterior normal vector ``\\mathbf{n} = \\frac{∇ϕ}{\\|∇ϕ\\|}`` at grid index `I`.
 """
@@ -209,7 +191,7 @@ function normal(ϕ, I)
 end
 
 """
-    normal(ϕ::LevelSet)
+    normal(ϕ::MeshField)
 
 Compute the unit exterior normal vector ``\\mathbf{n} = \\frac{∇ϕ}{\\|∇ϕ\\|}`` for all grid points.
 
@@ -229,13 +211,13 @@ arrows(xs, ys, us, vs; arrowsize = 10 * vec(coeff), lengthscale = 2.0 / (N - 1))
 contour!(xs, ys, values(ϕ); levels = [0.0])
 ```
 """
-function normal(ϕ::LevelSet)
-    ϕ_ = _ensure_boundary_conditions(ϕ)
-    return [normal(ϕ_, I) for I in eachindex(ϕ_)]
+function normal(ϕ::MeshField)
+    _check_bc(ϕ)
+    return [normal(ϕ, I) for I in eachindex(ϕ)]
 end
 
 """
-    hessian(ϕ::LevelSet, I::CartesianIndex)
+    hessian(ϕ::MeshField, I::CartesianIndex)
 
 Compute the Hessian matrix ``\\mathbf{H}ϕ = ∇∇ϕ`` at grid index `I` using second-order
 finite differences. Returns a `Symmetric` matrix.
@@ -246,25 +228,22 @@ function hessian(ϕ, I::CartesianIndex)
 end
 
 """
-    hessian(ϕ::LevelSet)
+    hessian(ϕ::MeshField)
 
 Compute the Hessian matrix for all grid points.
 """
-function hessian(ϕ::LevelSet)
+function hessian(ϕ::MeshField)
     return [hessian(ϕ, I) for I in eachindex(ϕ)]
 end
 
 """
-    grad_norm(ϕ::LevelSet)
+    grad_norm(ϕ::MeshField)
 
 Compute the norm of the gradient of ϕ, i.e. `|∇ϕ|`, at all grid points.
 """
-function grad_norm(ϕ::LevelSet)
-    msg = """level-set must have boundary conditions to compute gradient. See
-    `add_boundary_conditions`."""
-    has_boundary_conditions(ϕ) || error(msg)
-    idxs = eachindex(ϕ)
-    return map(i -> _compute_∇_norm(sign(ϕ[i]), ϕ, i), idxs)
+function grad_norm(ϕ::MeshField)
+    _check_bc(ϕ)
+    return map(i -> _compute_∇_norm(sign(ϕ[i]), ϕ, i), eachindex(ϕ))
 end
 
 #=
@@ -277,49 +256,49 @@ are optional keyword arguments (e.g. the `center` or `radius` of a circle).
 =#
 
 """
-    circle(grid; center = (0, 0), radius = 1)
+    circle(grid; center = (0, 0), radius = 1, kwargs...)
 
 Create a 2D circle with the specified `center` and `radius` on a `grid`.
-Returns a [`LevelSet`](@ref) field.
+Returns a [`MeshField`](@ref) field.
 """
-function circle(grid; center = (0, 0), radius = 1)
+function circle(grid; center = (0, 0), radius = 1, kwargs...)
     ndims(grid) == 2 ||
         throw(ArgumentError("circle shape is only available in two dimensions"))
-    return LevelSet(x -> sqrt(sum((x .- center) .^ 2)) - radius, grid)
+    return MeshField(x -> sqrt(sum((x .- center) .^ 2)) - radius, grid; kwargs...)
 end
 
 """
-    rectangle(grid; center = (0, 0), width = (1, 1))
+    rectangle(grid; center = (0, 0), width = (1, 1), kwargs...)
 
 Create a rectangle (or N-dimensional box) with the specified `center` and `width` on a `grid`.
-Returns a [`LevelSet`](@ref) field.
+Returns a [`MeshField`](@ref) field.
 """
-function rectangle(grid; center = zero(grid.lc), width = (1, 1))
-    return LevelSet(x -> maximum(abs.(x .- center) .- width ./ 2), grid)
+function rectangle(grid; center = zero(grid.lc), width = (1, 1), kwargs...)
+    return MeshField(x -> maximum(abs.(x .- center) .- width ./ 2), grid; kwargs...)
 end
 
 """
-    sphere(grid; center = (0, 0, 0), radius)
+    sphere(grid; center = (0, 0, 0), radius, kwargs...)
 
 Create a 3D sphere with the specified `center` and `radius` on a `grid`.
-Returns a [`LevelSet`](@ref) field.
+Returns a [`MeshField`](@ref) field.
 """
-function sphere(grid; center = (0, 0, 0), radius)
+function sphere(grid; center = (0, 0, 0), radius, kwargs...)
     ndims(grid) == 3 ||
         throw(ArgumentError("sphere shape is only available in three dimensions"))
-    return LevelSet(x -> sqrt(sum((x .- center) .^ 2)) - radius, grid)
+    return MeshField(x -> sqrt(sum((x .- center) .^ 2)) - radius, grid; kwargs...)
 end
 
 """
-    star(grid; radius = 1, deformation = 0.25, n = 5.0)
+    star(grid; radius = 1, deformation = 0.25, n = 5.0, kwargs...)
 
 Create a 2D star shape defined in polar coordinates by ``r = R(1 + d \\cos(nθ))``.
-Returns a [`LevelSet`](@ref) field.
+Returns a [`MeshField`](@ref) field.
 """
-function star(grid; radius = 1, deformation = 0.25, n = 5.0)
+function star(grid; radius = 1, deformation = 0.25, n = 5.0, kwargs...)
     # ndims(grid) == 2 ||
     #     throw(ArgumentError("star shape is only available in two dimensions"))
-    return LevelSet(grid) do x
+    return MeshField(grid; kwargs...) do x
         r = norm(x)
         θ = atan(x[2], x[1])
         return r - radius * (1.0 + deformation * cos(n * θ))
@@ -327,29 +306,29 @@ function star(grid; radius = 1, deformation = 0.25, n = 5.0)
 end
 
 """
-    dumbbell(grid; width = 1, height = 0.2, radius = 0.25, center = (0, 0))
+    dumbbell(grid; width = 1, height = 0.2, radius = 0.25, center = (0, 0), kwargs...)
 
 Create a 2D dumbbell shape consisting of two circles connected by a rectangle.
-Returns a [`LevelSet`](@ref) field.
+Returns a [`MeshField`](@ref) field.
 """
-function dumbbell(grid; width = 1, height = 1 / 5, radius = 1 / 4, center = (0, 0))
-    cl = circle(grid; center = center .- (width / 2, 0), radius)
-    cr = circle(grid; center = center .+ (width / 2, 0), radius)
-    rec = rectangle(grid; center, width = (width, height))
+function dumbbell(grid; width = 1, height = 1 / 5, radius = 1 / 4, center = (0, 0), kwargs...)
+    cl = circle(grid; center = center .- (width / 2, 0), radius, kwargs...)
+    cr = circle(grid; center = center .+ (width / 2, 0), radius, kwargs...)
+    rec = rectangle(grid; center, width = (width, height), kwargs...)
     return cl ∪ cr ∪ rec
 end
 
 """
-    zalesak_disk(grid; center = (0, 0), radius = 0.5, width = 0.25, height = 1)
+    zalesak_disk(grid; center = (0, 0), radius = 0.5, width = 0.25, height = 1, kwargs...)
 
 Create a Zalesak disk (a circle with a rectangular slot cut out).
-Used for testing advection schemes. Returns a [`LevelSet`](@ref) field.
+Used for testing advection schemes. Returns a [`MeshField`](@ref) field.
 """
-function zalesak_disk(grid; center = (0, 0), radius = 0.5, width = 0.25, height = 1)
+function zalesak_disk(grid; center = (0, 0), radius = 0.5, width = 0.25, height = 1, kwargs...)
     ndims(grid) == 2 ||
         throw(ArgumentError("zalesak disk shape is only available in two dimensions"))
-    disk = circle(grid; center = center, radius = radius)
-    rec = rectangle(grid; center = center .- (0, radius), width = (width, height))
+    disk = circle(grid; center = center, radius = radius, kwargs...)
+    rec = rectangle(grid; center = center .- (0, radius), width = (width, height), kwargs...)
     return setdiff(disk, rec)
 end
 
@@ -360,73 +339,73 @@ Set operations for level set functions.
 =#
 
 """
-    union!(ϕ1::LevelSet, ϕ2::LevelSet)
+    union!(ϕ1::MeshField, ϕ2::MeshField)
 
 In-place union of two level sets: ``ϕ_1 = \\min(ϕ_1, ϕ_2)``.
 """
-function Base.union!(ϕ1::LevelSet, ϕ2::LevelSet)
+function Base.union!(ϕ1::MeshField, ϕ2::MeshField)
     v1, v2 = values(ϕ1), values(ϕ2)
     v1 .= min.(v1, v2)
     return ϕ1
 end
 
 """
-    union(ϕ1::LevelSet, ϕ2::LevelSet)
+    union(ϕ1::MeshField, ϕ2::MeshField)
 
 Return the union of two level sets: ``\\min(ϕ_1, ϕ_2)``.
 """
-Base.union(ϕ1::LevelSet, ϕ2::LevelSet) = union!(deepcopy(ϕ1), ϕ2)
+Base.union(ϕ1::MeshField, ϕ2::MeshField) = union!(deepcopy(ϕ1), ϕ2)
 
 """
-    intersect!(ϕ1::LevelSet, ϕ2::LevelSet)
+    intersect!(ϕ1::MeshField, ϕ2::MeshField)
 
 In-place intersection of two level sets: ``ϕ_1 = \\max(ϕ_1, ϕ_2)``.
 """
-function Base.intersect!(ϕ1::LevelSet, ϕ2::LevelSet)
+function Base.intersect!(ϕ1::MeshField, ϕ2::MeshField)
     v1, v2 = values(ϕ1), values(ϕ2)
     v1 .= max.(v1, v2)
     return ϕ1
 end
 
 """
-    intersect(ϕ1::LevelSet, ϕ2::LevelSet)
+    intersect(ϕ1::MeshField, ϕ2::MeshField)
 
 Return the intersection of two level sets: ``\\max(ϕ_1, ϕ_2)``.
 """
-Base.intersect(ϕ1::LevelSet, ϕ2::LevelSet) = intersect!(deepcopy(ϕ1), ϕ2)
+Base.intersect(ϕ1::MeshField, ϕ2::MeshField) = intersect!(deepcopy(ϕ1), ϕ2)
 
 """
-    complement!(ϕ::LevelSet)
+    complement!(ϕ::MeshField)
 
 In-place complement of a level set (negates the values).
 """
-function complement!(ϕ::LevelSet)
+function complement!(ϕ::MeshField)
     v = values(ϕ)
     v .= -v
     return ϕ
 end
 
 """
-    complement(ϕ::LevelSet)
+    complement(ϕ::MeshField)
 
 Return the complement of a level set (negates the values).
 """
-complement(ϕ::LevelSet) = complement!(deepcopy(ϕ))
+complement(ϕ::MeshField) = complement!(deepcopy(ϕ))
 
 """
-    setdiff!(ϕ1::LevelSet, ϕ2::LevelSet)
+    setdiff!(ϕ1::MeshField, ϕ2::MeshField)
 
 In-place set difference: ``ϕ_1 = \\max(ϕ_1, -ϕ_2)``.
 """
-function Base.setdiff!(ϕ1::LevelSet, ϕ2::LevelSet)
+function Base.setdiff!(ϕ1::MeshField, ϕ2::MeshField)
     v1, v2 = values(ϕ1), values(ϕ2)
     v1 .= max.(v1, -v2)
     return ϕ1
 end
 
 """
-    setdiff(ϕ1::LevelSet, ϕ2::LevelSet)
+    setdiff(ϕ1::MeshField, ϕ2::MeshField)
 
 Return the set difference: ``\\max(ϕ_1, -ϕ_2)``.
 """
-Base.setdiff(ϕ1::LevelSet, ϕ2::LevelSet) = setdiff!(deepcopy(ϕ1), ϕ2)
+Base.setdiff(ϕ1::MeshField, ϕ2::MeshField) = setdiff!(deepcopy(ϕ1), ϕ2)

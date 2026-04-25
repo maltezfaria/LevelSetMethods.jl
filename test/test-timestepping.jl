@@ -7,7 +7,7 @@ import LevelSetMethods as LSM
 # at the final time. WENO5 (5th order spatial) is used so that temporal error dominates.
 function _advection_error_1d(integrator, N; u = 1.0, tf = 0.5)
     grid = LSM.CartesianGrid((-1.0,), (1.0,), (N,))
-    ϕ = LSM.LevelSet(x -> sin(π * x[1]), grid)
+    ϕ = LSM.MeshField(x -> sin(π * x[1]), grid)
     eq = LSM.LevelSetEquation(;
         terms = (LSM.AdvectionTerm((x, t) -> SVector(u)),),
         ic = ϕ,
@@ -16,8 +16,8 @@ function _advection_error_1d(integrator, N; u = 1.0, tf = 0.5)
     )
     integrate!(eq, tf)
     ϕ_out = LSM.current_state(eq)
-    return maximum(CartesianIndices(LSM.mesh(ϕ_out))) do I
-        abs(ϕ_out[I] - sin(π * (grid[I][1] - u * tf)))
+    return maximum(nodeindices(LSM.mesh(ϕ_out))) do I
+        abs(ϕ_out[I] - sin(π * (getnode(grid, I)[1] - u * tf)))
     end
 end
 

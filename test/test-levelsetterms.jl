@@ -6,7 +6,7 @@ import LevelSetMethods as LSM
 
 @testset "AdvectionTerm CFL" begin
     grid = LSM.CartesianGrid((-1.0,), (1.0,), (100,))
-    ϕ = LSM.LevelSet(x -> x[1], grid)
+    ϕ = LSM.MeshField(x -> x[1], grid)
     Δx = LSM.meshsize(ϕ, 1)
     term = LSM.AdvectionTerm((x, t) -> SVector(2.0))
     @test LSM.compute_cfl((term,), ϕ, 0.0) ≈ Δx / 2.0
@@ -14,7 +14,7 @@ end
 
 @testset "CurvatureTerm CFL" begin
     grid = LSM.CartesianGrid((-1.0, -1.0), (1.0, 1.0), (50, 50))
-    ϕ = LSM.LevelSet(x -> norm(x) - 0.5, grid)
+    ϕ = LSM.MeshField(x -> norm(x) - 0.5, grid)
     Δx = minimum(LSM.meshsize(ϕ))
     b = 0.5
     term = LSM.CurvatureTerm((x, t) -> b)
@@ -23,7 +23,7 @@ end
 
 @testset "NormalMotionTerm CFL" begin
     grid = LSM.CartesianGrid((-1.0,), (1.0,), (100,))
-    ϕ = LSM.LevelSet(x -> x[1], grid)
+    ϕ = LSM.MeshField(x -> x[1], grid)
     Δx = LSM.meshsize(ϕ, 1)
     v = 3.0
     term = LSM.NormalMotionTerm((x, t) -> v)
@@ -34,7 +34,7 @@ end
     # ϕ = 2*(x - 0.3): correct zero set but |∇ϕ| = 2 ≠ 1.
     # After pseudo-time marching it should converge to x - 0.3.
     grid = LSM.CartesianGrid((-1.0,), (1.0,), (101,))
-    ϕ = LSM.LevelSet(x -> 2 * (x[1] - 0.3), grid)
+    ϕ = LSM.MeshField(x -> 2 * (x[1] - 0.3), grid)
     eq = LSM.LevelSetEquation(;
         terms = (LSM.EikonalReinitializationTerm(ϕ),),
         ic = deepcopy(ϕ),
@@ -42,8 +42,8 @@ end
     )
     integrate!(eq, 2.0)
     ϕ_out = LSM.current_state(eq)
-    ϕ_exact = LSM.LevelSet(x -> x[1] - 0.3, grid)
-    err = maximum(CartesianIndices(LSM.mesh(ϕ_out))) do I
+    ϕ_exact = LSM.MeshField(x -> x[1] - 0.3, grid)
+    err = maximum(nodeindices(LSM.mesh(ϕ_out))) do I
         abs(ϕ_out[I]) > 0.5 && return 0.0
         abs(ϕ_out[I] - ϕ_exact[I])
     end

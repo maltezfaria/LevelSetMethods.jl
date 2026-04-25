@@ -17,15 +17,15 @@ Two approaches are available:
 
 ## Usage
 
-Call `reinitialize!` on a `LevelSet` to reinitialize it in place:
+Call `reinitialize!` on a `MeshField` to reinitialize it in place:
 
 ```@example reinit
 using LevelSetMethods
 using GLMakie
 
 grid = CartesianGrid((-1, -1), (1, 1), (100, 100))
-sdf = LevelSet(x -> sqrt(x[1]^2 + x[2]^2) - 0.5, grid)
-ϕ = LevelSet(x -> x[1]^2 + x[2]^2 - 0.5^2, grid)
+sdf = MeshField(x -> sqrt(x[1]^2 + x[2]^2) - 0.5, grid)
+ϕ = MeshField(x -> x[1]^2 + x[2]^2 - 0.5^2, grid)
 LevelSetMethods.set_makie_theme!()
 fig = Figure(; size = (800, 300))
 ax1 = Axis(fig[1, 1]; title = "Signed Distance")
@@ -107,7 +107,7 @@ When the underlying level set changes, use `LevelSetMethods.update!` to rebuild 
 KD-tree, reusing the same interpolation order and tolerances:
 
 ```@example reinit
-ϕ2 = LevelSet(x -> x[1]^2 + x[2]^2 - 0.3^2, grid)  # smaller circle
+ϕ2 = MeshField(x -> x[1]^2 + x[2]^2 - 0.3^2, grid)  # smaller circle
 LevelSetMethods.update!(sdf_obj, ϕ2)
 sdf_obj(SVector(0.3, 0.0))   # should be ≈ 0
 ```

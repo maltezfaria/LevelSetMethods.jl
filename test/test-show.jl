@@ -38,7 +38,7 @@ end
     end
 
     @testset "scalar, with bc" begin
-        ϕ = LevelSet(x -> x[1]^2 + x[2]^2 - 0.5^2, grid)
+        ϕ = MeshField(x -> x[1]^2 + x[2]^2 - 0.5^2, grid)
         eq = LevelSetEquation(; terms = (NormalMotionTerm(1.0),), ic = ϕ, bc = NeumannBC())
         s = showstr(current_state(eq))
         @test occursin("├─ bc:     Degree 0 extrapolation (all)", s)
@@ -52,6 +52,17 @@ end
         @test !occursin("values", s)
         @test !occursin("bc:", s)
     end
+end
+
+@testset "NarrowBandMeshField" begin
+    grid = CartesianGrid((-1, -1), (1, 1), (20, 20))
+    ϕ = MeshField(x -> norm(x) - 0.5, grid)
+    nb = NarrowBandMeshField(ϕ, 0.3; reinitialize = false)
+    s = showstr(nb)
+    @test startswith(s, "NarrowBandMeshField on CartesianGrid in ℝ²")
+    @test occursin("├─ active:", s)
+    @test occursin("halfwidth", s)
+    @test occursin("└─ values:", s)
 end
 
 @testset "Time integrators" begin
@@ -79,7 +90,7 @@ end
 
 @testset "LevelSetEquation" begin
     grid = CartesianGrid((-1, -1), (1, 1), (20, 20))
-    ϕ = LevelSet(x -> x[1]^2 + x[2]^2 - 0.5^2, grid)
+    ϕ = MeshField(x -> x[1]^2 + x[2]^2 - 0.5^2, grid)
     𝐮 = MeshField(x -> SVector(1.0, 0.0), grid)
     eq = LevelSetEquation(; terms = (AdvectionTerm(𝐮),), ic = ϕ, bc = NeumannBC())
 
@@ -102,7 +113,7 @@ end
 
 @testset "SimulationLog" begin
     grid = CartesianGrid((-1, -1), (1, 1), (20, 20))
-    ϕ = LevelSet(x -> x[1]^2 + x[2]^2 - 0.5^2, grid)
+    ϕ = MeshField(x -> x[1]^2 + x[2]^2 - 0.5^2, grid)
     𝐮 = MeshField(x -> SVector(1.0, 0.0), grid)
     eq = LevelSetEquation(; terms = (AdvectionTerm(𝐮),), ic = ϕ, bc = NeumannBC())
 
@@ -125,7 +136,7 @@ end
     end
 
     @testset "with reinit" begin
-        ϕ2 = LevelSet(x -> x[1]^2 + x[2]^2 - 0.5^2, grid)
+        ϕ2 = MeshField(x -> x[1]^2 + x[2]^2 - 0.5^2, grid)
         eq2 = LevelSetEquation(;
             terms = (AdvectionTerm(𝐮),),
             ic = ϕ2,

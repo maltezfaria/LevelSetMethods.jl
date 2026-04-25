@@ -9,6 +9,7 @@ using NearestNeighbors
 
 include("meshes.jl")
 include("boundaryconditions.jl")
+include("bernstein.jl")
 include("meshfield.jl")
 include("levelset.jl")
 include("derivatives.jl")
@@ -21,17 +22,17 @@ include("timestepping.jl")
 include("logging.jl")
 include("levelsetequation.jl")
 
-export AdvectionTerm,
+export AbstractMeshField,
+    AdvectionTerm,
     CartesianGrid,
     CurvatureTerm,
     DirichletBC,
     EikonalReinitializationTerm,
     ExtrapolationBC,
     ForwardEuler,
-    LevelSet,
     LevelSetEquation,
     MeshField,
-    NarrowBandLevelSet,
+    NarrowBandMeshField,
     NeumannBC,
     LinearExtrapolationBC,
     NewtonReinitializer,
@@ -42,11 +43,16 @@ export AdvectionTerm,
     SemiImplicitI2OE,
     Upwind,
     WENO5,
+    cellindices,
+    check_real_valued,
     current_state,
     current_time,
     extend_along_normals!,
+    getcell,
+    getnode,
     integrate!,
-    interpolate,
+    nodeindices,
+    quadrature,
     reinitialize!
 
 
@@ -79,5 +85,23 @@ Export a surface mesh of the 3D interface (where ϕ = 0) to `filename`.
 Requires the `MMG` extension to be loaded.
 """
 function export_surface_mesh end
+
+"""
+    quadrature(ϕ::AbstractMeshField; order, surface=false)
+
+Generate a quadrature for the implicit domain defined by `ϕ`.
+If `surface=true`, generate a quadrature for the interface `ϕ=0`;
+otherwise for the interior `ϕ < 0`.
+
+Returns a `Vector` of `(region, quadrature)` pairs, where `region` is a
+single-cell `CartesianIndices` and `quadrature` is an `ImplicitIntegration.Quadrature`.
+
+!!! note
+    Requires loading `ImplicitIntegration.jl` to activate the extension.
+    `ϕ` must be constructed with `interp_order` set.
+"""
+function quadrature(ϕ; order, surface = false)
+    error("ImplicitIntegration extension not loaded. Load ImplicitIntegration to use this functionality.")
+end
 
 end # module

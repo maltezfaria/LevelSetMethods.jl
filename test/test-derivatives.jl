@@ -8,9 +8,9 @@ using LevelSetMethods: D⁺, D⁻, D⁰, D2⁰, D2, weno5⁻, weno5⁺
 # Exact derivatives: ∂_x = 3x²+y², ∂_y = 2xy, ∂_xx = 6x, ∂_yy = 2x, ∂_xy = 2y
 grid = CartesianGrid((-2.0, -2.0), (2.0, 2.0), (100, 50))
 h = LevelSetMethods.meshsize(grid)
-ϕ = LevelSet(v -> v[1]^3 + v[1] * v[2]^2, grid)
+ϕ = MeshField(v -> v[1]^3 + v[1] * v[2]^2, grid)
 I = CartesianIndex(9, 7)
-x, y = grid[I]
+x, y = getnode(grid, I)
 
 @testset "First derivatives" begin
     exact = SVector(3x^2 + y^2, 2x * y)

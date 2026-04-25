@@ -28,7 +28,7 @@ function LSM.set_makie_theme!()
     return Makie.set_theme!(LSM.makie_theme())
 end
 
-# function Makie.plottype(ϕ::LSM.LevelSet)
+# function Makie.plottype(ϕ::LSM.MeshField)
 #     N = ndims(ϕ)
 #     if N == 2
 #         return Contour
@@ -41,14 +41,14 @@ end
 
 function Makie.convert_arguments(
         P::Union{Type{<:Contour}, Type{<:Contourf}, Type{<:Heatmap}},
-        ϕ::LSM.LevelSet,
+        ϕ::LSM.MeshField,
     )
     ndims(ϕ) == 2 ||
         throw(ArgumentError("Contour plot only supported for 2D level-sets."))
     return Makie.convert_arguments(P, _contour_plot(ϕ)...)
 end
 
-function Makie.convert_arguments(P::Type{<:Volume}, ϕ::LSM.LevelSet)
+function Makie.convert_arguments(P::Type{<:Volume}, ϕ::LSM.MeshField)
     ndims(ϕ) == 3 ||
         throw(ArgumentError("Volume plot only supported for 3D level-sets."))
     x, y, z, v = _volume_plot(ϕ)
@@ -57,7 +57,7 @@ end
 
 function Makie.convert_arguments(
         P::Union{Type{<:Contour}, Type{<:Contourf}, Type{<:Heatmap}},
-        nb::LSM.NarrowBandLevelSet,
+        nb::LSM.NarrowBandMeshField,
     )
     ndims(nb) == 2 ||
         throw(ArgumentError("Contour plot only supported for 2D level-sets."))
@@ -67,7 +67,7 @@ function Makie.convert_arguments(
     return Makie.convert_arguments(P, x, y, v)
 end
 
-function Makie.convert_arguments(P::Type{<:Volume}, nb::LSM.NarrowBandLevelSet)
+function Makie.convert_arguments(P::Type{<:Volume}, nb::LSM.NarrowBandMeshField)
     ndims(nb) == 3 ||
         throw(ArgumentError("Volume plot only supported for 3D level-sets."))
     msh = LSM.mesh(nb)
@@ -78,14 +78,14 @@ function Makie.convert_arguments(P::Type{<:Volume}, nb::LSM.NarrowBandLevelSet)
     return Makie.convert_arguments(P, xlims, ylims, zlims, v)
 end
 
-function _contour_plot(ϕ::LSM.LevelSet)
+function _contour_plot(ϕ::LSM.MeshField)
     msh = LSM.mesh(ϕ)
     x, y = LSM.xgrid(msh), LSM.ygrid(msh)
     v = LSM.values(ϕ)
     return x, y, v
 end
 
-function _volume_plot(ϕ::LSM.LevelSet)
+function _volume_plot(ϕ::LSM.MeshField)
     msh = LSM.mesh(ϕ)
     x, y, z = LSM.xgrid(msh), LSM.ygrid(msh), LSM.zgrid(msh)
     v = LSM.values(ϕ)
@@ -93,8 +93,9 @@ function _volume_plot(ϕ::LSM.LevelSet)
     return xlims, ylims, zlims, v
 end
 
-# Build a dense array from a NarrowBandLevelSet, with NaN outside the active band.
-function _nb_to_dense(nb::LSM.NarrowBandLevelSet{N, T}) where {N, T}
+# Build a dense array from a narrow-band field, with NaN outside the active band.
+function _nb_to_dense(nb::LSM.NarrowBandMeshField)
+    T = eltype(nb)
     msh = LSM.mesh(nb)
     arr = fill(T(NaN), size(msh))
     for (I, v) in LSM.values(nb)
@@ -104,12 +105,12 @@ function _nb_to_dense(nb::LSM.NarrowBandLevelSet{N, T}) where {N, T}
 end
 
 # Collect active cell rectangles for 2D narrow band.
-function _active_cell_rects(nb::LSM.NarrowBandLevelSet{2})
+function _active_cell_rects(nb::LSM.NarrowBandMeshField{<:Any, <:LSM.AbstractMesh{2}})
     grid = LSM.mesh(nb)
     h = LSM.meshsize(grid)
     rects = Rect2f[]
-    for I in LSM.active_cells(nb)
-        x, y = grid[I]
+    for I in LSM.cellindices(nb)
+        x, y = LSM.getnode(grid, I)
         push!(rects, Rect2f(x, y, h[1], h[2]))
     end
     return rects
@@ -132,9 +133,9 @@ function _grid_linesegments(msh::LSM.CartesianGrid{2})
 end
 
 # Collect active node coordinates as a vector of Points (3D only).
-function _active_node_coords(nb::LSM.NarrowBandLevelSet{3})
+function _active_node_coords(nb::LSM.NarrowBandMeshField{<:Any, <:LSM.AbstractMesh{3}})
     msh = LSM.mesh(nb)
-    return [Point3f(msh[I]) for I in LSM.active_indices(nb)]
+    return [Point3f(LSM.getnode(msh, I)) for I in LSM.nodeindices(nb)]
 end
 
 
@@ -146,13 +147,13 @@ function Makie.plot!(p::LevelSetPlot)
     eq = p.eq
     ϕ = @lift LSM.current_state($eq)
     N = @lift ndims($ϕ)
-    is_nb = to_value(ϕ) isa LSM.NarrowBandLevelSet
+    is_nb = @lift $ϕ isa LSM.NarrowBandMeshField
     if to_value(N) == 2
         if to_value(p.showgrid)
             segs = _grid_linesegments(LSM.mesh(to_value(ϕ)))
             linesegments!(p, segs; color = (:black, 0.15), linewidth = 0.5)
         end
-        if is_nb
+        if to_value(is_nb)
             rects = @lift _active_cell_rects($ϕ)
             poly!(p, rects; color = (:steelblue, 0.2), strokewidth = 0.5, strokecolor = (:steelblue, 0.5))
         else
@@ -160,7 +161,7 @@ function Makie.plot!(p::LevelSetPlot)
         end
         contour!(p, ϕ; levels = [0], linewidth = 2, color = :black, overdraw = true)
     elseif to_value(N) == 3
-        if is_nb
+        if to_value(is_nb)
             pts = @lift _active_node_coords($ϕ)
             scatter!(p, pts; color = (:steelblue, 0.3), markersize = 4)
         end
@@ -172,8 +173,7 @@ function Makie.plot!(p::LevelSetPlot)
 end
 
 Makie.plottype(::LSM.LevelSetEquation) = LevelSetPlot
-Makie.plottype(::LSM.LevelSet) = LevelSetPlot
-Makie.plottype(::LSM.NarrowBandLevelSet) = LevelSetPlot
+Makie.plottype(::LSM.AbstractMeshField) = LevelSetPlot
 
 ## Pick correct axis type based on dimension of the level-set
 function Makie.preferred_axis_type(p::LevelSetPlot)

@@ -37,29 +37,27 @@ using Test
         grad_f(x) = SVector(2 * x[1], 4 * x[2])
         hess_f(x) = SMatrix{2, 2}(2.0, 0.0, 0.0, 4.0)
 
-        ϕ = LevelSet(f, grid)
-        itp = interpolate(ϕ, 3)
+        ϕ = MeshField(f, grid; interp_order = 3)
         x_test = SVector(0.15, -0.25)
 
-        @test itp(x_test) ≈ f(x_test) atol = 1.0e-12
-        I = LevelSetMethods.compute_index(itp, x_test)
-        p = LevelSetMethods.make_interpolant(itp, I)
+        @test ϕ(x_test) ≈ f(x_test) atol = 1.0e-12
+        I = LevelSetMethods.compute_index(ϕ, x_test)
+        p = LevelSetMethods.make_interpolant(ϕ, I)
         @test LevelSetMethods.gradient(p, x_test) ≈ grad_f(x_test) atol = 1.0e-12
 
-        @test check_allocs(itp, x_test) == 0
+        @test check_allocs(ϕ, x_test) == 0
     end
 
     @testset "Least Squares Approximation (K=2)" begin
         grid = CartesianGrid((-1.0, -1.0), (1.0, 1.0), (21, 21))
         f(x) = x[1]^2 + 2 * x[2]^2 - 0.5
-        ϕ = LevelSet(f, grid)
-        itp = interpolate(ϕ, 2)
+        ϕ = MeshField(f, grid; interp_order = 2)
         x_test = SVector(0.15, -0.25)
-        @test itp(x_test) ≈ f(x_test) atol = 1.0e-12
-        I = LevelSetMethods.compute_index(itp, x_test)
-        p = LevelSetMethods.make_interpolant(itp, I)
+        @test ϕ(x_test) ≈ f(x_test) atol = 1.0e-12
+        I = LevelSetMethods.compute_index(ϕ, x_test)
+        p = LevelSetMethods.make_interpolant(ϕ, I)
         @test LevelSetMethods.gradient(p, x_test) ≈ SVector(2 * 0.15, 4 * (-0.25)) atol = 1.0e-12
-        @test check_allocs(itp, x_test) == 0
+        @test check_allocs(ϕ, x_test) == 0
     end
 
     @testset "Mesh Interpolation (3D)" begin
@@ -67,41 +65,39 @@ using Test
         f(x) = x[1]^2 + x[2]^2 + x[3]^2 - 0.5
         grad_f(x) = SVector(2 * x[1], 2 * x[2], 2 * x[3])
 
-        ϕ = LevelSet(f, grid)
-        itp = interpolate(ϕ, 3)
+        ϕ = MeshField(f, grid; interp_order = 3)
         x_test = SVector(0.1, -0.2, 0.3)
 
-        @test itp(x_test) ≈ f(x_test) atol = 1.0e-12
-        I = LevelSetMethods.compute_index(itp, x_test)
-        p = LevelSetMethods.make_interpolant(itp, I)
+        @test ϕ(x_test) ≈ f(x_test) atol = 1.0e-12
+        I = LevelSetMethods.compute_index(ϕ, x_test)
+        p = LevelSetMethods.make_interpolant(ϕ, I)
         @test LevelSetMethods.gradient(p, x_test) ≈ grad_f(x_test) atol = 1.0e-12
 
-        @test check_allocs(itp, x_test) == 0
+        @test check_allocs(ϕ, x_test) == 0
     end
 
     @testset "Convex Hull & proven_empty" begin
         grid = CartesianGrid((-1.0, -1.0), (1.0, 1.0), (20, 20))
         f(x) = x[1]
-        ϕ = LevelSet(f, grid)
-        itp = interpolate(ϕ, 3)
+        ϕ = MeshField(f, grid; interp_order = 3)
 
         I_inside = CartesianIndex(1, 1)
-        m, M = LevelSetMethods.cell_extrema(itp, I_inside)
+        m, M = LevelSetMethods.cell_extrema(ϕ, I_inside)
         @test M < 0
-        @test LevelSetMethods.proven_empty(itp, I_inside; surface = true) # no surface
-        @test !LevelSetMethods.proven_empty(itp, I_inside; surface = false) # fully inside
+        @test LevelSetMethods.proven_empty(ϕ, I_inside; surface = true) # no surface
+        @test !LevelSetMethods.proven_empty(ϕ, I_inside; surface = false) # fully inside
 
         I_outside = CartesianIndex(20, 20)
-        m, M = LevelSetMethods.cell_extrema(itp, I_outside)
+        m, M = LevelSetMethods.cell_extrema(ϕ, I_outside)
         @test m > 0
-        @test LevelSetMethods.proven_empty(itp, I_outside; surface = true)
-        @test LevelSetMethods.proven_empty(itp, I_outside; surface = false)
+        @test LevelSetMethods.proven_empty(ϕ, I_outside; surface = true)
+        @test LevelSetMethods.proven_empty(ϕ, I_outside; surface = false)
 
         # cell crossing the interface
         I_interface = CartesianIndex(10, 4)
-        m, M = LevelSetMethods.cell_extrema(itp, I_interface)
+        m, M = LevelSetMethods.cell_extrema(ϕ, I_interface)
         @test m < 0 && M > 0
-        @test !LevelSetMethods.proven_empty(itp, I_interface; surface = true)
-        @test !LevelSetMethods.proven_empty(itp, I_interface; surface = false)
+        @test !LevelSetMethods.proven_empty(ϕ, I_interface; surface = true)
+        @test !LevelSetMethods.proven_empty(ϕ, I_interface; surface = false)
     end
 end

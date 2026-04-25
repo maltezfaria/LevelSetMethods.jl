@@ -14,7 +14,7 @@ called at each stage of the time integration.
 update_term!(::LevelSetTerm, _, _) = nothing
 
 """
-    compute_cfl(terms, ϕ::LevelSet, t)
+    compute_cfl(terms, ϕ::MeshField, t)
 
 Compute the maximum stable time-step ``Δt`` for the given `terms` and level set `ϕ` at time `t`,
 based on the Courant-Friedrichs-Lewy (CFL) condition.
@@ -65,13 +65,13 @@ end
 
 Base.show(io::IO, _::AdvectionTerm) = print(io, "𝐮 ⋅ ∇ ϕ")
 
-@inline function _compute_term(term::AdvectionTerm{V}, ϕ::MeshField, I, t) where {V}
+@inline function _compute_term(term::AdvectionTerm{V}, ϕ::AbstractMeshField, I, t) where {V}
     sch = scheme(term)
     N = ndims(ϕ)
     𝐮 = if V <: MeshField
         velocity(term)[I]
     elseif V <: Function
-        x = mesh(ϕ)[I]
+        x = getnode(mesh(ϕ), I)
         velocity(term)(x, t)
     else
         error("velocity field type $V not supported")
@@ -105,7 +105,7 @@ function _compute_cfl(term::AdvectionTerm{V}, ϕ, I, t) where {V}
     𝐮 = if V <: MeshField
         velocity(term)[I]
     elseif V <: Function
-        x = mesh(ϕ)[I]
+        x = getnode(mesh(ϕ), I)
         velocity(term)(x, t)
     else
         error("velocity field type $V not supported")
@@ -127,14 +127,14 @@ coefficient(cterm::CurvatureTerm) = cterm.b
 
 Base.show(io::IO, _::CurvatureTerm) = print(io, "b κ|∇ϕ|")
 
-function _compute_term(term::CurvatureTerm, ϕ::MeshField, I, t)
+function _compute_term(term::CurvatureTerm, ϕ::AbstractMeshField, I, t)
     N = ndims(ϕ)
     κ = curvature(ϕ, I)
     b = coefficient(term)
     bI = if b isa MeshField
         b[I]
     elseif b isa Function
-        x = mesh(ϕ)[I]
+        x = getnode(mesh(ϕ), I)
         b(x, t)
     else
         error("curvature field type $b not supported")
@@ -152,7 +152,7 @@ function _compute_cfl(term::CurvatureTerm, ϕ, I, t)
     bI = if b isa MeshField
         b[I]
     elseif b isa Function
-        x = mesh(ϕ)[I]
+        x = getnode(mesh(ϕ), I)
         b(x, t)
     else
         error("curvature field type $b not supported")
@@ -188,13 +188,13 @@ end
 
 Base.show(io::IO, _::NormalMotionTerm) = print(io, "v|∇ϕ|")
 
-function _compute_term(term::NormalMotionTerm, ϕ::MeshField, I, t)
+function _compute_term(term::NormalMotionTerm, ϕ::AbstractMeshField, I, t)
     N = ndims(ϕ)
     u = speed(term)
     v = if u isa MeshField
         u[I]
     elseif u isa Function
-        x = mesh(ϕ)[I]
+        x = getnode(mesh(ϕ), I)
         u(x, t)
     else
         error("velocity field type $u not supported")
@@ -217,7 +217,7 @@ function _compute_cfl(term::NormalMotionTerm, ϕ, I, t)
     v = if u isa MeshField
         u[I]
     elseif u isa Function
-        x = mesh(ϕ)[I]
+        x = getnode(mesh(ϕ), I)
         u(x, t)
     else
         error("velocity field type $u not supported")
@@ -260,10 +260,10 @@ struct EikonalReinitializationTerm{T} <: LevelSetTerm
     S₀::T
 end
 
-function EikonalReinitializationTerm(ϕ₀::LevelSet)
+function EikonalReinitializationTerm(ϕ₀::MeshField)
     Δx = minimum(meshsize(ϕ₀))
     # equation 7.5 of Osher and Fedkiw
-    S₀ = map(CartesianIndices(mesh(ϕ₀))) do I
+    S₀ = map(nodeindices(mesh(ϕ₀))) do I
         return ϕ₀[I] / sqrt(ϕ₀[I]^2 + Δx^2)
     end
     return EikonalReinitializationTerm(S₀)

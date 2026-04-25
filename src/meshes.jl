@@ -17,6 +17,10 @@ end
 Create a uniform cartesian grid with lower corner `lc`, upper corner `hc` and `n` nodes
 in each direction.
 
+Node coordinates are accessed via [`getnode`](@ref); cell geometry via [`getcell`](@ref).
+Use [`nodeindices`](@ref) to iterate over all node indices and [`cellindices`](@ref) to
+iterate over all cell indices.
+
 # Examples
 
 ```jldoctest; output = true
@@ -54,6 +58,9 @@ grid1d(g::CartesianGrid{N}) where {N} = ntuple(i -> grid1d(g, i), N)
 grid1d(g::CartesianGrid, dim) = LinRange(g.lc[dim], g.hc[dim], g.n[dim])
 
 Base.ndims(g::CartesianGrid{N}) where {N} = N
+Base.size(g::CartesianGrid) = g.n
+Base.length(g::CartesianGrid) = prod(size(g))
+Base.eachindex(g::CartesianGrid) = nodeindices(g)
 
 xgrid(g::CartesianGrid) = grid1d(g, 1)
 ygrid(g::CartesianGrid) = grid1d(g, 2)
@@ -68,29 +75,26 @@ If `dim` is not provided, return a `SVector` of spacings for all dimensions.
 meshsize(g::CartesianGrid) = (g.hc .- g.lc) ./ (g.n .- 1)
 meshsize(g::CartesianGrid, dim) = (g.hc[dim] - g.lc[dim]) / (g.n[dim] - 1)
 
-Base.size(g::CartesianGrid) = g.n
-Base.length(g::CartesianGrid) = prod(size(g))
-
-function Base.getindex(g::CartesianGrid{N}, I::CartesianIndex{N}) where {N}
-    I ∈ CartesianIndices(g) || throw(ArgumentError("index $I is out of bounds"))
-    return _getindex(g, I)
-end
-
-Base.getindex(g::CartesianGrid, I::Int...) = g[CartesianIndex(I...)]
-
-Base.eltype(g::CartesianGrid) = typeof(g.lc)
-
-function _getindex(g::CartesianGrid, I::CartesianIndex)
-    N = ndims(g)
-    @assert N == length(I)
-    return ntuple(N) do dim
-        return g.lc[dim] + (I[dim] - 1) / (g.n[dim] - 1) * (g.hc[dim] - g.lc[dim])
-    end |> SVector
+# Internal unchecked coordinate lookup. Used by boundary-condition code to evaluate
+# coordinates at ghost indices that lie outside the grid.
+function _getindex(g::CartesianGrid{N, T}, I::CartesianIndex{N}) where {N, T}
+    h = meshsize(g)
+    return g.lc .+ (SVector{N, T}(I.I) .- 1) .* h
 end
 _getindex(g::CartesianGrid, I::Int...) = _getindex(g, CartesianIndex(I...))
 
-Base.CartesianIndices(g::CartesianGrid) = CartesianIndices(size(g))
-Base.eachindex(g::CartesianGrid) = CartesianIndices(g)
+"""
+    getnode(g::CartesianGrid, I::CartesianIndex)
+    getnode(g::CartesianGrid, i1, i2, ...)
+
+Return the coordinates of the node at multi-index `I` as an `SVector`.
+`I` must be a valid node index (i.e. `I ∈ nodeindices(g)`).
+"""
+function getnode(g::CartesianGrid{N}, I::CartesianIndex{N}) where {N}
+    I ∈ nodeindices(g) || throw(ArgumentError("$I is not a valid node index for this grid"))
+    return _getindex(g, I)
+end
+getnode(g::CartesianGrid, I::Int...) = getnode(g, CartesianIndex(I...))
 
 """
     nodeindices(g::CartesianGrid)
@@ -98,7 +102,7 @@ Base.eachindex(g::CartesianGrid) = CartesianIndices(g)
 Return a `CartesianIndices` ranging over all node indices of `g`.
 Nodes are indexed `1:n[d]` in each dimension `d`.
 """
-nodeindices(g::CartesianGrid) = CartesianIndices(g)
+nodeindices(g::CartesianGrid) = CartesianIndices(size(g))
 
 """
     cellindices(g::CartesianGrid)
@@ -120,6 +124,12 @@ struct CartesianCell{N, T}
     hc::SVector{N, T}
 end
 
+# Internal unchecked cell lookup. Used when extrapolation or boundary handling is required.
+function _getcell(g::CartesianGrid{N}, I::CartesianIndex{N}) where {N}
+    lc = _getindex(g, I)
+    return CartesianCell(lc, lc .+ meshsize(g))
+end
+
 """
     getcell(g::CartesianGrid, I::CartesianIndex)
 
@@ -127,32 +137,11 @@ Return the `CartesianCell` with lower corner at node `I` and upper corner at nod
 `I` must be a valid cell index, i.e. `I ∈ cellindices(g)`.
 """
 function getcell(g::CartesianGrid{N}, I::CartesianIndex{N}) where {N}
-    lc = g[I]
-    return CartesianCell(lc, lc .+ meshsize(g))
+    I ∈ cellindices(g) || throw(ArgumentError("$I is not a valid cell index for this grid"))
+    return _getcell(g, I)
 end
 
-
-# iterate over all nodes
-function Base.iterate(g::CartesianGrid)
-    i = first(CartesianIndices(g))
-    return g[i], i
-end
-
-function Base.iterate(g::CartesianGrid, state)
-    idxs = CartesianIndices(g)
-    next = iterate(idxs, state)
-    if next === nothing
-        return nothing
-    else
-        i, state = next
-        return g[i], state
-    end
-end
-
-# Base.IteratorSize(::Type{CartesianGrid{N}}) where {N} = Base.HasShape{N}()
-Base.IteratorSize(::CartesianGrid{N}) where {N} = Base.HasShape{N}()
-
-# --- Display ---
+# Display methods
 
 """
     _superscript(n::Int) -> String
