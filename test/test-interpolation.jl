@@ -101,3 +101,37 @@ using Test
         @test !LevelSetMethods.proven_empty(ϕ, I_interface; surface = false)
     end
 end
+
+@testset "Interpolation h-convergence" begin
+    # Consecutive convergence orders from L∞ errors on grids of sizes Ns.
+    _orders(errs, Ns) = [log(errs[i] / errs[i + 1]) / log(Ns[i + 1] / Ns[i]) for i in 1:(length(Ns) - 1)]
+
+    # Smooth non-polynomial test function on [-1,1]².
+    f(x) = sin(π * x[1]) * cos(π * x[2])
+
+    # 20×20 evaluation grid in [-0.95, 0.95]². Using length=20 gives irrational-like
+    # spacing (1.9/19) that avoids coinciding with grid nodes for any N in the sweep.
+    # A dense set is needed so the sup-norm estimate is stable: with too few points the
+    # worst-case location can shift between resolutions and corrupt the order estimate.
+    test_pts = [
+        SVector(x, y) for x in range(-0.95, 0.95; length = 20)
+            for y in range(-0.95, 0.95; length = 20)
+    ]
+
+    # Pass bc = ExtrapolationBC(k) so ghost-node extrapolation matches the interpolant
+    # order. The default ExtrapolationBC{2} caps accuracy at O(h³) for k ≥ 3 whenever
+    # the stencil touches the boundary.
+    Ns = [20, 40, 80, 160]
+
+    for k in 1:4
+        @testset "interp_order = $k → O(h^$(k + 1))" begin
+            errors = map(Ns) do N
+                grid = CartesianGrid((-1.0, -1.0), (1.0, 1.0), (N, N))
+                ϕ = MeshField(f, grid; interp_order = k, bc = ExtrapolationBC(k))
+                maximum(pt -> abs(ϕ(pt) - f(pt)), test_pts)
+            end
+            orders = _orders(errors, Ns)
+            @test all(≥(k + 0.5), orders)
+        end
+    end
+end

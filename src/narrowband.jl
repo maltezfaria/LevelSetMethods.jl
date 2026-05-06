@@ -76,11 +76,13 @@ function rebuild_band!(nb::NarrowBandMeshField{<:Any, <:AbstractMesh{N}}, sdf) w
     grid = mesh(nb)
     γ = halfwidth(nb)
     grid_axes = axes(nb)
-    vals = values(nb)
+    old_vals = values(nb)
 
-    queue = collect(keys(vals))
+    queue = collect(keys(old_vals))
     queue_set = Set{CartesianIndex{N}}(queue)
-    empty!(vals)
+    # Accumulate new values separately so that `sdf`, which may hold a reference to
+    # `old_vals` for interpolation, keeps reading the original band throughout the BFS.
+    new_vals = empty(old_vals)
 
     head = 1
     while head <= length(queue)
@@ -88,7 +90,7 @@ function rebuild_band!(nb::NarrowBandMeshField{<:Any, <:AbstractMesh{N}}, sdf) w
         head += 1
         v = sdf(getnode(grid, I))
         abs(v) >= γ && continue
-        vals[I] = v
+        new_vals[I] = v
         for d in 1:N, s in (-1, 1)
             J = _increment_index(I, d, s)
             J ∈ queue_set && continue
@@ -97,5 +99,8 @@ function rebuild_band!(nb::NarrowBandMeshField{<:Any, <:AbstractMesh{N}}, sdf) w
             push!(queue, J)
         end
     end
+    # Swap: replace the contents of the shared dict in place.
+    empty!(old_vals)
+    merge!(old_vals, new_vals)
     return nb
 end

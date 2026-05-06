@@ -40,6 +40,26 @@ end
     @test all(≥(4.5), _convergence_orders(errors, Ns))
 end
 
+@testset "AdvectionTerm Upwind — convergence order (1D periodic, RK3)" begin
+    # Same setup as the WENO5 test above, but with Upwind spatial scheme.
+    # Upwind is 1st-order in space; temporal error O((cfl·Δx)³) is negligible at cfl=1e-2.
+    u, tf = 1.0, 0.5
+    ϕ_exact = (x, t) -> sin(π * (x[1] - u * t))
+    Ns = [50, 100, 200]
+    errors = map(Ns) do N
+        grid = LSM.CartesianGrid((-1.0,), (1.0,), (N,))
+        ϕ = LSM.MeshField(x -> ϕ_exact(x, 0.0), grid)
+        eq = LSM.LevelSetEquation(;
+            terms = (LSM.AdvectionTerm((x, t) -> SVector(u), Upwind()),),
+            ic = ϕ, bc = PeriodicBC(), integrator = RK3(; cfl = 1.0e-2),
+        )
+        integrate!(eq, tf)
+        ϕ_out = current_state(eq)
+        maximum(I -> abs(ϕ_out[I] - ϕ_exact(getnode(grid, I), tf)), nodeindices(LSM.mesh(ϕ_out)))
+    end
+    @test all(≥(0.8), _convergence_orders(errors, Ns))
+end
+
 @testset "NormalMotionTerm — convergence order (2D expanding circle, RK3)" begin
     # ϕ₀ = ‖x‖ - r₀.  The PDE ϕₜ + v|∇ϕ| = 0 with radial symmetry reduces to
     # f_t + v·f_r = 0, giving the exact pointwise solution ϕ(x,t) = ‖x‖ - r₀ - v·t.

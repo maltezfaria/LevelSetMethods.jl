@@ -13,6 +13,19 @@ function LevelSetMethods.quadrature(ϕ::LevelSetMethods.AbstractMeshField; order
             "Pass `interp_order=k` to the MeshField or NarrowBandMeshField constructor."
     )
 
+    # FIXME: volume integrals (surface=false) on a NarrowBandMeshField are not supported.
+    # cellindices(nb) only returns cells whose corners are all stored in the band dict,
+    # so interior cells deep inside the zero level set are never visited and their volume
+    # is silently omitted.  The fix requires splitting cellindices into two functions:
+    # one returning all mesh cells (for volume integrals) and one returning only band cells
+    # (for surface integrals and interface sampling).  See TODO.md.
+    if ϕ isa LevelSetMethods.NarrowBandMeshField && !surface
+        error(
+            "volume integrals (surface=false) are not supported on NarrowBandMeshField. " *
+                "Use a full MeshField for volume integrals, or pass surface=true for surface integrals."
+        )
+    end
+
     grid = LevelSetMethods.mesh(ϕ)
     N = ndims(grid)
 

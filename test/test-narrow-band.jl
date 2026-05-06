@@ -274,3 +274,46 @@ end
     sdf = LSM.NewtonSDF(nb; upsample = 3)
     @test sdf(SVector(0.45, 0.0, 0.0)) ≈ 0.0 atol = 1.0e-3
 end
+
+@testset "NarrowBand h-convergence — curve accuracy (2D advection, RK3)" begin
+    # Advect a circle at constant velocity and check that the zero level-set (curve)
+    # converges to its exact position at the expected rate.
+    #
+    # Error measure: max |ϕ_nb[I] - sdf_exact(xI, tf)| restricted to nodes within 3h
+    # of the true interface.  After each step the band is reinitialized, so ϕ_nb ≈ SDF
+    # of the computed zero set; the error at near-interface nodes is the displacement of
+    # the computed curve from the true curve.
+    #
+    # With RK3 at default CFL=0.5, global temporal error O(Δt³) = O(h³) dominates;
+    # the reinitialization-accumulation error is also O(h³) (O(h⁴) per call × O(1/h)
+    # calls), so both sources give the same rate.  Expected convergence: ≥ 2.5.
+    _orders(errs, Ns) = [log(errs[i] / errs[i + 1]) / log(Ns[i + 1] / Ns[i]) for i in 1:(length(Ns) - 1)]
+
+    r = 0.5
+    u = SVector(1.0, 0.0)
+    tf = 0.5
+    Ns = [30, 60, 120]
+
+    errors = map(Ns) do N
+        grid = CartesianGrid((-2.0, -2.0), (2.0, 2.0), (N, N))
+        h = minimum(LSM.meshsize(grid))
+        ϕ_full = MeshField(x -> norm(x) - r, grid)
+        ϕ_nb = NarrowBandMeshField(ϕ_full; nlayers = 5, reinitialize = false)
+        eq = LevelSetEquation(;
+            terms = (AdvectionTerm((x, t) -> u),),
+            ic = ϕ_nb,
+            bc = ExtrapolationBC(2),
+            integrator = RK3(),
+            reinit = NewtonReinitializer(),
+        )
+        integrate!(eq, tf)
+        nb = current_state(eq)
+        maximum(LSM.nodeindices(nb)) do I
+            x = getnode(grid, I)
+            # keep only nodes close to the true interface
+            norm(x - u * tf) - r |> abs < 3h || return 0.0
+            abs(nb[I] - (norm(x - u * tf) - r))
+        end
+    end
+    @test all(≥(2.5), _orders(errors, Ns))
+end

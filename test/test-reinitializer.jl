@@ -112,3 +112,33 @@ end
         @test max_err < 5.0e-3
     end
 end
+
+@testset "NewtonReinitializer h-convergence" begin
+    _orders(errs, Ns) = [log(errs[i] / errs[i + 1]) / log(Ns[i + 1] / Ns[i]) for i in 1:(length(Ns) - 1)]
+
+    r = 0.5
+    exact_sdf(x) = norm(x) - r
+
+    # The input is the exact SDF sampled on the grid. Although nodal values are exact,
+    # the interpolant approximates ‖x‖-r between nodes with O(h^(k+1)) error, which
+    # shifts the reconstructed zero set and limits the SDF accuracy accordingly.
+    #
+    # bc = ExtrapolationBC(k): ghost-node extrapolation matches the interpolant order so
+    # that boundary cells do not cap the convergence rate.
+    #
+    # xtol = ftol = 1e-14: the default tolerances (1e-8) would floor the error before
+    # the interpolant-limited regime is reached.
+    Ns = [20, 40, 80]
+    for k in [2, 3, 4]
+        @testset "order = $k → O(h^$(k + 1))" begin
+            errors = map(Ns) do N
+                grid = CartesianGrid((-1.0, -1.0), (1.0, 1.0), (N, N))
+                ϕ = MeshField(exact_sdf, grid; bc = ExtrapolationBC(k))
+                reinitialize!(ϕ, NewtonReinitializer(; order = k, upsample = 10, xtol = 1.0e-14, ftol = 1.0e-14))
+                maximum(I -> abs(ϕ[I] - exact_sdf(getnode(grid, I))), nodeindices(grid))
+            end
+            orders = _orders(errors, Ns)
+            @test all(≥(k + 0.5), orders)
+        end
+    end
+end
