@@ -10,22 +10,22 @@ Two approaches are available:
   set under the equation ``\phi_t + \text{sign}(\phi)(|\nabla\phi| - 1) = 0`` using the
   same time-stepping infrastructure as other level-set terms. See the [Reinitialization
   term](@ref reinitialization) section.
-- **[`NewtonReinitializer`](@ref)** (recommended): a geometry-based approach that samples
-  the interface, builds a KD-tree, and computes the exact signed distance to the interface
-  using Newton's closest-point method. It is applied between time steps and converges in a
-  single pass.
+- **[`reinitialize!`](@ref)** (recommended): a geometry-based approach that samples the
+  interface, builds a KD-tree, and computes the exact signed distance to the interface using
+  Newton's closest-point method. It is applied between time steps and converges in a single
+  pass.
 
 ## Usage
 
-Call `reinitialize!` on a `LevelSet` to reinitialize it in place:
+Call `reinitialize!` on a `MeshField` to reinitialize it in place:
 
 ```@example reinit
 using LevelSetMethods
 using GLMakie
 
 grid = CartesianGrid((-1, -1), (1, 1), (100, 100))
-sdf = LevelSet(x -> sqrt(x[1]^2 + x[2]^2) - 0.5, grid)
-ϕ = LevelSet(x -> x[1]^2 + x[2]^2 - 0.5^2, grid)
+sdf = MeshField(x -> sqrt(x[1]^2 + x[2]^2) - 0.5, grid)
+ϕ = MeshField(x -> x[1]^2 + x[2]^2 - 0.5^2, grid)
 LevelSetMethods.set_makie_theme!()
 fig = Figure(; size = (800, 300))
 ax1 = Axis(fig[1, 1]; title = "Signed Distance")
@@ -35,7 +35,7 @@ ax3 = Axis(fig[1, 3]; title = "After Reinitialization", ylabel = "", yticklabels
 contour!(ax1, sdf; levels = [0.25, 0, 0.5], labels = true, labelsize = 14)
 contour!(ax2, ϕ; levels = [0.25, 0, 0.5], labels = true, labelsize = 14)
 
-reinitialize!(ϕ, NewtonReinitializer())
+reinitialize!(ϕ)
 contour!(ax3, ϕ; levels = [0.25, 0, 0.5], labels = true, labelsize = 14)
 fig
 ```
@@ -49,37 +49,19 @@ end
 println("Maximum error after reinitialization: $max_er")
 ```
 
-## Automatic reinitialization in `LevelSetEquation`
+## Reinitialization during integration
 
-Pass `reinit` to [`LevelSetEquation`](@ref) to reinitialize automatically every `n` steps:
-
-```julia
-eq = LevelSetEquation(;
-    terms  = (AdvectionTerm(𝐮),),
-    ic = ϕ,
-    bc     = NeumannBC(),
-    reinit = 5,          # reinitialize every 5 time steps
-)
-```
-
-The integer shorthand creates a `NewtonReinitializer(; reinit_freq = n)` with default
-settings. For full control over the algorithm parameters, pass a `NewtonReinitializer`
-directly:
+Reinitialization is not built into the equation; it is driven from a `prehook` passed to
+[`integrate!`](@ref), which runs at the start of every accepted step. The simplest hook
+reinitializes on every step:
 
 ```julia
-eq = LevelSetEquation(;
-    terms    = (AdvectionTerm(𝐮),),
-    ic = ϕ,
-    bc       = NeumannBC(),
-    reinit   = NewtonReinitializer(; reinit_freq = 5, upsample = 4),
-)
+integrate!(eq, tf; prehook = eq -> reinitialize!(current_state(eq); upsample = 4))
 ```
 
-You can also reinitialize the equation's current state manually at any time:
-
-```julia
-reinitialize!(eq)
-```
+Because the hook is an ordinary function, you control *when* to reinitialize on any
+criterion — a step counter closed over by the hook, the elapsed `current_time(eq)`, or a
+measured drift of `|∇ϕ|` from one.
 
 ## `NewtonSDF`: a reusable signed distance function
 
@@ -103,16 +85,7 @@ pts = LevelSetMethods.get_sample_points(sdf_obj)
 println("$(length(pts)) interface sample points")
 ```
 
-When the underlying level set changes, use `LevelSetMethods.update!` to rebuild the
-KD-tree, reusing the same interpolation order and tolerances:
-
-```@example reinit
-ϕ2 = LevelSet(x -> x[1]^2 + x[2]^2 - 0.3^2, grid)  # smaller circle
-LevelSetMethods.update!(sdf_obj, ϕ2)
-sdf_obj(SVector(0.3, 0.0))   # should be ≈ 0
-```
-
-!!! warning "Thread safety"
-    `NewtonSDF` uses internal mutable buffers in its interpolant and is **not thread-safe**.
-    If you need to evaluate it from multiple threads, use `deepcopy(sdf_obj)` to give
-    each thread its own independent copy.
+!!! note "Thread safety"
+    `NewtonSDF` is safe to evaluate concurrently from multiple tasks: its interpolant keeps
+    one scratch buffer per task, and the KD-tree and sample points are read-only during
+    evaluation.

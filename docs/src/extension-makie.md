@@ -7,7 +7,10 @@ you can simply call `plot` on the level set function to visualize it. For exampl
 ```@example contour2D
 using LevelSetMethods, GLMakie
 grid = CartesianGrid((-2, -2), (2, 2), (100, 100))
-ϕ = LevelSetMethods.star(grid)
+ϕ = MeshField(grid) do x # a star; see the [geometry](@ref) page
+    r, θ = hypot(x...), atan(x[2], x[1])
+    return r - (1 + 0.25 * cos(5θ))
+end
 plot(ϕ)
 ```
 
@@ -35,7 +38,7 @@ using LevelSetMethods, GLMakie, LinearAlgebra
 grid = CartesianGrid((-1.5, -1.5, -1.5), (1.5, 1.5, 1.5), (50, 50, 50))
 P1, P2 = (-1, 0, 0), (1, 0, 0)
 b = 1.05
-ϕ = LevelSet(grid) do x
+ϕ = MeshField(grid) do x
   norm(x .- P1)*norm(x .- P2) - b^2
 end
 theme = LevelSetMethods.makie_theme()
@@ -54,5 +57,5 @@ end
 ```
 
 !!! tip "Plotting a `LevelSetEquation`"
-    Calling `plot` on a [`LevelSetEquation`](@ref) defaults to plotting the `LevelSet` given by its
+    Calling `plot` on a [`LevelSetEquation`](@ref) defaults to plotting the `MeshField` given by its
     `current_state`; exactly the same as calling `plot(current_state(equation))`.

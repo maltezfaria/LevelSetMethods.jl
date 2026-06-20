@@ -2,15 +2,15 @@ using Test
 using LevelSetMethods
 using StaticArrays
 
-using LevelSetMethods: D⁺, D⁻, D⁰, D2⁰, D2, weno5⁻, weno5⁺
+using LevelSetMethods: D⁺, D⁻, D⁰, D2⁰, D2, D2⁺⁺, D2⁻⁻, weno5⁻, weno5⁺
 
 # Test on f(x,y) = x³ + xy² — non-constant second derivatives, non-zero mixed derivative
 # Exact derivatives: ∂_x = 3x²+y², ∂_y = 2xy, ∂_xx = 6x, ∂_yy = 2x, ∂_xy = 2y
-grid = CartesianGrid((-2.0, -2.0), (2.0, 2.0), (100, 50))
+grid = CartesianGrid((-2.0, -2.0), (2.0, 2.0), (400, 200))
 h = LevelSetMethods.meshsize(grid)
-ϕ = LevelSet(v -> v[1]^3 + v[1] * v[2]^2, grid)
+ϕ = MeshField(v -> v[1]^3 + v[1] * v[2]^2, grid)
 I = CartesianIndex(9, 7)
-x, y = grid[I]
+x, y = getnode(grid, I)
 
 @testset "First derivatives" begin
     exact = SVector(3x^2 + y^2, 2x * y)
@@ -32,6 +32,9 @@ end
     for dim in 1:2
         @test abs(D2⁰(ϕ, I, dim) - exact_diag[dim]) < 5 * h[dim]
         @test abs(D2(ϕ, I, (dim, dim)) - exact_diag[dim]) < 5 * h[dim]
+        # one-sided second-derivative schemes: exact on quadratics, first-order O(h) here
+        @test abs(D2⁺⁺(ϕ, I, dim) - exact_diag[dim]) < 10 * h[dim]
+        @test abs(D2⁻⁻(ϕ, I, dim) - exact_diag[dim]) < 10 * h[dim]
     end
     for dims in ((1, 2), (2, 1))
         @test abs(D2(ϕ, I, dims) - exact_cross) < 5 * h[1] * h[2]

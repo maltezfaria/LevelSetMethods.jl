@@ -43,7 +43,7 @@ point. This is useful if your velocity field is time-independent, or if you only
 grid points. Lets construct a level-set equation with an advection term:
 
 ```@example advection-term
-ϕ₀ = LevelSet(x -> sqrt(x[1]^2 + x[2]^2) - 0.5, grid)
+ϕ₀ = MeshField(x -> sqrt(x[1]^2 + x[2]^2) - 0.5, grid)
 eq = LevelSetEquation(; terms = (AdvectionTerm(𝐮),), ic = ϕ₀, bc = NeumannBC())
 ```
 
@@ -70,7 +70,7 @@ have instead a time-dependent velocity field, we could pass a function to the
 `AdvectionTerm`, and the velocity field would be computed at each time step. For example:
 
 ```@example advection-term
-ϕ₀ = LevelSet(x -> sqrt(x[1]^2 + x[2]^2) - 0.5, grid)
+ϕ₀ = MeshField(x -> sqrt(x[1]^2 + x[2]^2) - 0.5, grid)
 eq = LevelSetEquation(; terms = (AdvectionTerm((x,t) -> SVector(x[1]^2, 0)),), ic = ϕ₀, bc = NeumannBC())
 fig = Figure(; size = (1200, 300))
 # create a 2 x 2 figure
@@ -98,7 +98,9 @@ upwind scheme, which introduces significant numerical diffusion. To see their di
 let us compare both schemes for a purely rotational velocity field:
 
 ```@example advection-term
-ϕ₀ = LevelSetMethods.dumbbell(grid) # pre-defined level-set
+disk(c) = MeshField(x -> hypot((x .- c)...) - 0.25, grid)
+bar = MeshField(x -> maximum(abs.(x) .- (1.0, 0.2) ./ 2), grid)
+ϕ₀ = disk((-0.5, 0.0)) ∪ disk((0.5, 0.0)) ∪ bar # a dumbbell; see the [geometry](@ref) page
 𝐮  = MeshField(grid) do (x,y)
     SVector(-y, x)
 end
@@ -133,7 +135,10 @@ direction (see [osher2003level; Chapter 6](@cite)). Here is an example of how to
 using LevelSetMethods
 using GLMakie
 grid = CartesianGrid((-2,-2), (2,2), (100, 100))
-ϕ = LevelSetMethods.star(grid)
+ϕ = MeshField(grid) do x # a star; see the [geometry](@ref) page
+    r, θ = hypot(x...), atan(x[2], x[1])
+    return r - (1 + 0.25 * cos(5θ))
+end
 eq = LevelSetEquation(; terms = (NormalMotionTerm((x,t) -> 0.5),), ic = ϕ, bc = NeumannBC())
 fig = Figure(; size = (1200, 300))
 for (n,t) in enumerate([0.0, 0.5, 0.75, 1.0])
@@ -158,17 +163,20 @@ In Stefan problems, the speed `v` may only be known near the interface
 [`extend_along_normals!`](@ref), and then pass it to `NormalMotionTerm`:
 
 ```@example normal-motion-term
-ϕext = LevelSetMethods.star(grid)
+ϕext = MeshField(grid) do x # see the [geometry](@ref) page
+    r, θ = hypot(x...), atan(x[2], x[1])
+    return r - (1 + 0.25 * cos(5θ))
+end
 v = zeros(Float64, size(grid)...)
 Δ = minimum(LevelSetMethods.meshsize(grid))
 frozen = abs.(values(ϕext)) .<= 1.5Δ
 for I in CartesianIndices(v)
     frozen[I] || continue
-    x = grid[I]
+    x = getnode(grid, I)
     v[I] = 0.2 + 0.1 * cos(2π * atan(x[2], x[1]))
 end
 extend_along_normals!(v, ϕext; frozen, nb_iters = 80)
-term = NormalMotionTerm(MeshField(v, grid, nothing))
+term = NormalMotionTerm(MeshField(v, grid))
 term
 ```
 
@@ -197,7 +205,7 @@ r0 = 0.5
 α = π / 100.0
 R = [cos(α) -sin(α); sin(α) cos(α)]
 M = R * [1/0.06^2 0; 0 1/(4π^2)] * R'
-ϕ = LevelSet(grid) do (x, y)
+ϕ = MeshField(grid) do (x, y)
     r = sqrt(x^2 + y^2)
     θ = atan(y, x)
     result = 1e30
@@ -239,8 +247,8 @@ and its signed distance function:
 ```@example reinitialization-term
 using LevelSetMethods, GLMakie
 grid = CartesianGrid((-1,-1), (1,1), (100, 100))
-ϕ = LevelSet(x -> x[1]^2 + x[2]^2 - 0.5^2, grid) # circle level-set, but not a signed distance function
-sdf = LevelSet(x -> sqrt(x[1]^2 + x[2]^2) - 0.5, grid) # signed distance function
+ϕ = MeshField(x -> x[1]^2 + x[2]^2 - 0.5^2, grid) # circle level-set, but not a signed distance function
+sdf = MeshField(x -> sqrt(x[1]^2 + x[2]^2) - 0.5, grid) # signed distance function
 LevelSetMethods.set_makie_theme!()
 fig = Figure(; size = (800, 400))
 ax = Axis(fig[1,1], title = "Signed distance function")
@@ -271,7 +279,7 @@ Alternatively, you can use a modified reinitialization term that applies the sig
   \phi_t + \text{sign}(\phi_0) \left( |\nabla \phi| - 1 \right) = 0
 ```
 
-To enable this behavior, simply pass a `LevelSet` object to the `EikonalReinitializationTerm`:
+To enable this behavior, simply pass a `MeshField` object to the `EikonalReinitializationTerm`:
 
 ```@example reinitialization-term
 eq = LevelSetEquation(; terms = (EikonalReinitializationTerm(ϕ),), ic = deepcopy(ϕ), bc = NeumannBC())
@@ -289,6 +297,6 @@ The outcome closely matches that of the previous approach.
 !!! tip "Consider Newton reinitialization instead"
     `EikonalReinitializationTerm` requires many pseudo-time steps to propagate corrections
     away from the interface and can cause spurious mass loss. For most use cases,
-    [`NewtonReinitializer`](@ref) is a better choice: it samples the interface, builds a
-    KD-tree, and computes the exact signed distance in a single pass. See the
-    [Reinitialization](@ref reinitialization-newton) section for details.
+    [`reinitialize!`](@ref) (Newton closest-point) is a better choice: it samples the
+    interface, builds a KD-tree, and computes the exact signed distance in a single pass.
+    See the [Reinitialization](@ref reinitialization-newton) section for details.

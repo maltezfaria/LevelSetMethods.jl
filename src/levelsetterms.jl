@@ -14,7 +14,7 @@ called at each stage of the time integration.
 update_term!(::LevelSetTerm, _, _) = nothing
 
 """
-    compute_cfl(terms, ϕ::LevelSet, t)
+    compute_cfl(terms, ϕ::MeshField, t)
 
 Compute the maximum stable time-step ``Δt`` for the given `terms` and level set `ϕ` at time `t`,
 based on the Courant-Friedrichs-Lewy (CFL) condition.
@@ -23,19 +23,24 @@ function compute_cfl(terms, ϕ, t)
     Δt = minimum(terms) do term
         return _compute_cfl(term, ϕ, t)
     end
-    @assert Δt > 0 "invalid time-step based on CFL condition: Δt = $Δt"
+    Δt > 0 || throw(ArgumentError("invalid time-step based on CFL condition: Δt = $Δt (check for NaN/Inf in velocity or speed)"))
     return Δt
 end
 
 # generic method, loops over indices
 function _compute_cfl(term::LevelSetTerm, ϕ, t)
     dt = Inf
-    for I in eachindex(ϕ)
+    for I in active_nodeindices(ϕ)
         cfl = _compute_cfl(term, ϕ, I, t)
         dt = min(dt, cfl)
     end
     return dt
 end
+
+# Evaluate a term's coefficient field (velocity, speed, curvature weight) at node `I`: a
+# mesh field is read directly, a function is called as `f(x, t)`.
+_eval_field(f::AbstractMeshField, ϕ, I, t) = f[I]
+_eval_field(f::Function, ϕ, I, t) = f(getnode(ϕ, I), t)
 
 struct AdvectionTerm{V, S <: SpatialScheme, F} <: LevelSetTerm
     velocity::V
@@ -65,51 +70,26 @@ end
 
 Base.show(io::IO, _::AdvectionTerm) = print(io, "𝐮 ⋅ ∇ ϕ")
 
-@inline function _compute_term(term::AdvectionTerm{V}, ϕ::MeshField, I, t) where {V}
+@inline function _compute_term(term::AdvectionTerm, ϕ::AbstractMeshField, I, t)
     sch = scheme(term)
     N = ndims(ϕ)
-    𝐮 = if V <: MeshField
-        velocity(term)[I]
-    elseif V <: Function
-        x = mesh(ϕ)[I]
-        velocity(term)(x, t)
-    else
-        error("velocity field type $V not supported")
-    end
-    # for dimension dim, compute the upwind derivative and multiply by the
-    # velocity
+    𝐮 = _eval_field(velocity(term), ϕ, I, t)
+    # upwind derivative along each dimension, biased by the sign of the velocity
     return sum(1:N) do dim
         v = 𝐮[dim]
-        if v > 0
-            if sch === Upwind()
-                return v * D⁻(ϕ, I, dim)
-            elseif sch === WENO5()
-                return v * weno5⁻(ϕ, I, dim)
-            else
-                error("scheme $sch not implemented")
-            end
-        else
-            if sch === Upwind()
-                return v * D⁺(ϕ, I, dim)
-            elseif sch === WENO5()
-                return v * weno5⁺(ϕ, I, dim)
-            else
-                error("scheme $sch not implemented")
-            end
-        end
+        v * (v > 0 ? _upwind⁻(sch, ϕ, I, dim) : _upwind⁺(sch, ϕ, I, dim))
     end
 end
 
-function _compute_cfl(term::AdvectionTerm{V}, ϕ, I, t) where {V}
+# Left/right-biased first derivative for a given spatial scheme.
+_upwind⁻(::Upwind, ϕ, I, dim) = D⁻(ϕ, I, dim)
+_upwind⁺(::Upwind, ϕ, I, dim) = D⁺(ϕ, I, dim)
+_upwind⁻(::WENO5, ϕ, I, dim) = weno5⁻(ϕ, I, dim)
+_upwind⁺(::WENO5, ϕ, I, dim) = weno5⁺(ϕ, I, dim)
+
+function _compute_cfl(term::AdvectionTerm, ϕ, I, t)
     # equation 3.10 of Osher and Fedkiw
-    𝐮 = if V <: MeshField
-        velocity(term)[I]
-    elseif V <: Function
-        x = mesh(ϕ)[I]
-        velocity(term)(x, t)
-    else
-        error("velocity field type $V not supported")
-    end
+    𝐮 = _eval_field(velocity(term), ϕ, I, t)
     Δx = meshsize(ϕ)
     return 1 / maximum(abs.(𝐮) ./ Δx)
 end
@@ -127,18 +107,10 @@ coefficient(cterm::CurvatureTerm) = cterm.b
 
 Base.show(io::IO, _::CurvatureTerm) = print(io, "b κ|∇ϕ|")
 
-function _compute_term(term::CurvatureTerm, ϕ::MeshField, I, t)
+function _compute_term(term::CurvatureTerm, ϕ::AbstractMeshField, I, t)
     N = ndims(ϕ)
     κ = curvature(ϕ, I)
-    b = coefficient(term)
-    bI = if b isa MeshField
-        b[I]
-    elseif b isa Function
-        x = mesh(ϕ)[I]
-        b(x, t)
-    else
-        error("curvature field type $b not supported")
-    end
+    bI = _eval_field(coefficient(term), ϕ, I, t)
     # compute |∇ϕ|
     ϕ2 = sum(1:N) do dim
         return D⁰(ϕ, I, dim)^2
@@ -148,15 +120,7 @@ function _compute_term(term::CurvatureTerm, ϕ::MeshField, I, t)
 end
 
 function _compute_cfl(term::CurvatureTerm, ϕ, I, t)
-    b = coefficient(term)
-    bI = if b isa MeshField
-        b[I]
-    elseif b isa Function
-        x = mesh(ϕ)[I]
-        b(x, t)
-    else
-        error("curvature field type $b not supported")
-    end
+    bI = _eval_field(coefficient(term), ϕ, I, t)
     Δx = minimum(meshsize(ϕ))
     return (Δx)^2 / (2 * abs(bI))
 end
@@ -188,19 +152,11 @@ end
 
 Base.show(io::IO, _::NormalMotionTerm) = print(io, "v|∇ϕ|")
 
-function _compute_term(term::NormalMotionTerm, ϕ::MeshField, I, t)
+function _compute_term(term::NormalMotionTerm, ϕ::AbstractMeshField, I, t)
     N = ndims(ϕ)
-    u = speed(term)
-    v = if u isa MeshField
-        u[I]
-    elseif u isa Function
-        x = mesh(ϕ)[I]
-        u(x, t)
-    else
-        error("velocity field type $u not supported")
-    end
+    v = _eval_field(speed(term), ϕ, I, t)
     ∇⁺², ∇⁻² = sum(1:N) do dim
-        # for first-order, dont use +- 0.5h ...
+        # second-order ENO: bias the one-sided differences by ±0.5h·minmod(D², D²ᶜ)
         h = meshsize(ϕ, dim)
         neg = D⁻(ϕ, I, dim) + 0.5h * limiter(D2⁻⁻(ϕ, I, dim), D2⁰(ϕ, I, dim))
         pos = D⁺(ϕ, I, dim) - 0.5h * limiter(D2⁺⁺(ϕ, I, dim), D2⁰(ϕ, I, dim))
@@ -213,15 +169,7 @@ function _compute_term(term::NormalMotionTerm, ϕ::MeshField, I, t)
 end
 
 function _compute_cfl(term::NormalMotionTerm, ϕ, I, t)
-    u = speed(term)
-    v = if u isa MeshField
-        u[I]
-    elseif u isa Function
-        x = mesh(ϕ)[I]
-        u(x, t)
-    else
-        error("velocity field type $u not supported")
-    end
+    v = _eval_field(speed(term), ϕ, I, t)
     Δx = minimum(meshsize(ϕ))
     return Δx / abs(v)
 end
@@ -242,33 +190,33 @@ A [`LevelSetTerm`](@ref) representing `sign(ϕ)(|∇ϕ| - 1)`, which drives the 
 toward a signed distance function by solving the Eikonal equation `|∇ϕ| = 1` via
 pseudo-time marching.
 
-!!! note "Comparison with NewtonReinitializer"
-    [`NewtonReinitializer`](@ref) is generally preferred: it is applied between time steps
-    (not inside the PDE), preserves the interface to high order, and converges in a single
-    pass. `EikonalReinitializationTerm` is a simpler alternative that requires no
-    interpolation or KDTree, but needs many time steps to propagate corrections from the
-    interface and can cause mass loss.
+!!! note "Comparison with `reinitialize!`"
+    [`reinitialize!`](@ref) (the Newton closest-point method) is generally preferred: it is
+    applied between time steps (not inside the PDE), preserves the interface to high order,
+    and converges in a single pass. `EikonalReinitializationTerm` is a simpler alternative
+    that requires no interpolation or KDTree, but needs many time steps to propagate
+    corrections from the interface and can cause mass loss.
 
 There are two constructors:
 
   - `EikonalReinitializationTerm(ϕ₀)`: freezes the sign from the initial level set `ϕ₀`
-    (equation 7.5 of Osher & Fedkiw). Recommended when the interface may drift.
+    (equation 7.5 of Osher & Fedkiw). Recommended when the interface may drift. `ϕ₀` may be a
+    full-grid or narrow-band field; the frozen sign lives on the same active set.
   - `EikonalReinitializationTerm()`: recomputes the sign from the current `ϕ` at each
     step (equation 7.6 of Osher & Fedkiw).
 """
-struct EikonalReinitializationTerm{T} <: LevelSetTerm
+struct EikonalReinitializationTerm{T <: Union{Nothing, AbstractMeshField}} <: LevelSetTerm
     S₀::T
 end
 
-function EikonalReinitializationTerm(ϕ₀::LevelSet)
+# equation 7.5 of Osher and Fedkiw: freeze the smoothed sign of ϕ₀ on its own active set.
+# `map` over the field keeps S₀ the same kind as ϕ₀ (dense or band), so it indexes like ϕ.
+function EikonalReinitializationTerm(ϕ₀::AbstractMeshField)
     Δx = minimum(meshsize(ϕ₀))
-    # equation 7.5 of Osher and Fedkiw
-    S₀ = map(CartesianIndices(mesh(ϕ₀))) do I
-        return ϕ₀[I] / sqrt(ϕ₀[I]^2 + Δx^2)
-    end
-    return EikonalReinitializationTerm(S₀)
+    S₀ = map(v -> v / sqrt(v^2 + Δx^2), ϕ₀)
+    return EikonalReinitializationTerm{typeof(S₀)}(S₀)
 end
-EikonalReinitializationTerm() = EikonalReinitializationTerm(nothing)
+EikonalReinitializationTerm() = EikonalReinitializationTerm{Nothing}(nothing)
 
 function Base.show(io::IO, t::EikonalReinitializationTerm)
     S₀ = t.S₀
@@ -280,19 +228,20 @@ function Base.show(io::IO, t::EikonalReinitializationTerm)
     return io
 end
 
-function _compute_term(term::EikonalReinitializationTerm, ϕ, I, _t)
+function _compute_term(term::EikonalReinitializationTerm, ϕ::AbstractMeshField, I::CartesianIndex, _t)
     S₀ = term.S₀
     if isnothing(S₀)
         # equation 7.6 of Osher and Fedkiw: sign computed from current ϕ
         norm_∇ϕ = _compute_∇_norm(sign(ϕ[I]), ϕ, I)
         Δx = minimum(meshsize(ϕ))
-        S = ϕ[I] / sqrt(ϕ[I]^2 + norm_∇ϕ^2 * Δx^2)
+        denom = sqrt(ϕ[I]^2 + norm_∇ϕ^2 * Δx^2)
+        S = iszero(denom) ? zero(denom) : ϕ[I] / denom
     else
         # equation 7.5 of Osher and Fedkiw: upwind direction must match frozen sign
         norm_∇ϕ = _compute_∇_norm(sign(S₀[I]), ϕ, I)
         S = S₀[I]
     end
-    return S * (norm_∇ϕ - 1.0)
+    return S * (norm_∇ϕ - 1)
 end
 
 _compute_cfl(::EikonalReinitializationTerm, ϕ, _I, _t) = minimum(meshsize(ϕ))

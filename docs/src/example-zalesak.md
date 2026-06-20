@@ -23,9 +23,9 @@ radius = 0.5
 # Define the height and width of the rectangular notch
 h = 1.0
 w = 0.2
-# Create the circular disk and rectangular notch
-disk = LevelSetMethods.circle(grid; center, radius)
-rec = LevelSetMethods.rectangle(grid; center = center .- (0, radius), width = (w, h))
+# Create the circular disk and rectangular notch (see the [geometry](@ref) page)
+disk = MeshField(x -> hypot((x .- center)...) - radius, grid)
+rec = MeshField(x -> maximum(abs.(x .- (center .- (0, radius))) .- (w, h) ./ 2), grid)
 # Use set difference to carve out the notch in the disk
 ϕ = setdiff(disk, rec)
 plot(ϕ)
@@ -89,12 +89,8 @@ LevelSetMethods.set_makie_theme!()
 grid = CartesianGrid((-1, -1, -1), (1, 1, 1), (50, 50, 50))
 center = (-1 / 3, 0, 0)
 radius = 0.5
-disk = LevelSetMethods.sphere(grid; center, radius)
-rec = LevelSetMethods.rectangle(
-    grid;
-    center = center .+ (0, radius, 0),
-    width = (1 / 3, 1.0, 2),
-)
+disk = MeshField(x -> hypot((x .- center)...) - radius, grid)
+rec = MeshField(x -> maximum(abs.(x .- (center .+ (0, radius, 0))) .- (1 / 3, 1.0, 2) ./ 2), grid)
 ϕ = setdiff(disk, rec)
 eq = LevelSetEquation(;
     ic = ϕ,

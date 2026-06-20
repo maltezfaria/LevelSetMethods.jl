@@ -1,214 +1,3 @@
-struct BernsteinPolynomial{N, T} <: Function
-    coeffs::Array{T, N}
-    low_corner::SVector{N, T}
-    high_corner::SVector{N, T}
-end
-
-"""
-    BernsteinPolynomial(c::AbstractArray, lc, hc)
-
-Create a multidimensional [Bernstein
-polynomial](https://en.wikipedia.org/wiki/Bernstein_polynomial#Generalizations_to_higher_dimension)
-with coefficients `c` defined on the hyperrectangle `[lc[1], hc[1]] × … × [lc[N], hc[N]]`.
-
-Calling `p(x)` evaluates the polynomial at the point `x = (x[1], …, x[N])` by the formula
-
-```math
-p(x_1,\\dots,x_D)=\\sum_{i_j=0}^{d_j}c_{i_1\\dots i_D}\\prod_{j=1}^D\\binom{d_j}{i_j}(x_j-l_j)^{i_j}(r_j-x_j)^{d_j-i_j}
-```
-
-where ``l_j = lc[j]`` and ``r_j = hc[j]`` are the lower and upper bounds of the
-hyperrectangle, respectively, and ``d_j = size(c)[j] - 1`` is the degree of the polynomial
-in dimension `j`.
-
-`BernsteinPolynomial`s can be differentiated using ForwardDiff; see [`gradient`](@ref) and
-[`hessian`](@ref).
-"""
-function BernsteinPolynomial(c::AbstractArray, lc, hc)
-    N = ndims(c)
-    T = eltype(c)
-    coeffs = c isa Array{T, N} ? c : Array{T, N}(c)
-    return BernsteinPolynomial{N, T}(coeffs, SVector{N}(lc), SVector{N}(hc))
-end
-
-coefficients(p::BernsteinPolynomial) = p.coeffs
-low_corner(p::BernsteinPolynomial) = p.low_corner
-high_corner(p::BernsteinPolynomial) = p.high_corner
-degree(p::BernsteinPolynomial) = size(coefficients(p)) .- 1
-
-# evaluation
-function (p::BernsteinPolynomial{N})(x) where {N}
-    x_ = SVector{N}(x) # try conversion to SVector
-    l = low_corner(p)
-    r = high_corner(p)
-    x₀ = (x_ - l) ./ (r - l)
-    c = coefficients(p)
-    return _evaluate_bernstein(x₀, c, Val{N}(), 1, length(c))
-end
-
-@fastmath function _evaluate_bernstein(
-        x::SVector{N},
-        c::AbstractArray,
-        ::Val{dim},
-        i1,
-        len,
-    ) where {N, dim}
-    n = size(c, dim)
-    @inbounds xd = x[dim]
-    # inspired by https://personal.math.ubc.ca/~cass/graphics/text/www/pdf/a6.pdf and the
-    # FastChebInterp.jl package
-    if dim == 1
-        s = 1 - xd
-        @inbounds P = c[i1]
-        C = (n - 1) * xd
-        for k in 1:(n - 1)
-            @inbounds P = P * s + C * c[i1 + k]
-            C = C * (n - k - 1) / (k + 1) * xd
-        end
-        return P
-    else
-        Δi = len ÷ n # column-major stride of current dimension
-
-        # we recurse downward on dim for cache locality,
-        # since earlier dimensions are contiguous
-        dim′ = Val{dim - 1}()
-
-        s = 1 - xd
-        P = _evaluate_bernstein(x, c, dim′, i1, Δi)
-        C = (n - 1) * xd
-        for k in 1:(n - 1)
-            P = P * s + C * _evaluate_bernstein(x, c, dim′, i1 + k * Δi, Δi)
-            C = C * (n - k - 1) / (k + 1) * xd
-        end
-        return P
-    end
-end
-
-"""
-    gradient(p, x)
-
-Compute the gradient of `p` at point `x` using ForwardDiff.
-"""
-function gradient(p, x)
-    return ForwardDiff.gradient(p, SVector{length(x)}(x))
-end
-
-"""
-    hessian(p, x)
-
-Compute the hessian of `p` at point `x` using ForwardDiff.
-"""
-function hessian(p, x)
-    return ForwardDiff.hessian(p, SVector{length(x)}(x))
-end
-
-
-function value_and_gradient(p, x)
-    res = ForwardDiff.gradient!(DiffResults.GradientResult(x), p, x)
-    return DiffResults.value(res), DiffResults.gradient(res)
-end
-
-"""
-    value_gradient_hessian(p, x)
-
-Fused computation of the value, gradient, and hessian of `p` at point `x` using ForwardDiff.
-"""
-function value_gradient_hessian(p, x)
-    res = ForwardDiff.hessian!(DiffResults.HessianResult(x), p, x)
-    return DiffResults.value(res), DiffResults.gradient(res), DiffResults.hessian(res)
-end
-
-"""
-    struct PiecewisePolynomialInterpolant{Φ, N, T}
-
-A piecewise polynomial interpolant built over a `MeshField`.
-
-The domain is partitioned into cells of the underlying mesh. On each cell a
-`BernsteinPolynomial` is fitted to the surrounding stencil of grid values, so
-that evaluating the interpolant at a point `x` amounts to:
-1. locating the cell containing `x`,
-2. (lazily) computing the local Bernstein coefficients, and
-3. evaluating the resulting polynomial.
-
-Construct via [`interpolate`](@ref). The returned object `itp` supports:
-- `itp(x)` — evaluate at point `x`
-- [`make_interpolant`](@ref)`(itp, I)` — local `BernsteinPolynomial` for cell `I`
-- [`gradient`](@ref)`(itp, x)` / [`hessian`](@ref)`(itp, x)` — via ForwardDiff
-- [`cell_extrema`](@ref)`(itp, I)` — certified bounds via convex-hull property
-- [`proven_empty`](@ref)`(itp, I)` — certified absence of interface or interior
-
-The struct is mutable because the local coefficients and stencil values are
-cached in place (`coeffs`, `vals`) to avoid allocation on repeated evaluations.
-
-!!! warning "Not thread-safe"
-    The internal buffers (`coeffs`, `vals`, `temp1`, `temp2`, `Ic`) are shared
-    state. Concurrent evaluation from multiple threads will cause data races.
-    Create one interpolant per thread if parallelism is needed.
-"""
-mutable struct PiecewisePolynomialInterpolant{Φ, N, T}
-    ϕ::Φ                    # underlying mesh field
-    mat::Matrix{T}          # map from grid to bernstein vals in 1D
-    coeffs::Array{T, N}     # buffer for bernstein coeffs
-    vals::Array{T, N}       # buffer for grid values in the stencil
-    Ic::CartesianIndex{N}   # multi-index of the currently loaded cell
-    # scratch buffers for applying the N-fold kron mat to vals
-    temp1::Vector{T}
-    temp2::Vector{T}
-end
-
-function PiecewisePolynomialInterpolant(ϕ::Φ, order::Int) where {Φ}
-    grid = mesh(ϕ)
-    N = ndims(grid)
-    T = eltype(ϕ)
-
-    # Build a 1D interpolation matrix mapping `order+1` values at equispaced nodes in [0,1]
-    # and returning the coefficients of the Bernstein basis defined on the interval
-    # [floor(order/2)/order, ceil(order/2)/order], which is symmetric around 0.5 and
-    # contains the central node at 0.5. When order is even, we use a stencil of size
-    # order+1 and do a least-squares fit. This matrix is used to compute the interpolant in
-    # a cell given values on a super-cell around it.
-    stencil_order = isodd(order) ? order : order + 1
-    nc, nv = order + 1, stencil_order + 1
-    nodes = ntuple(i -> (i - 1) / stencil_order, Val(nv))
-    a, b = (stencil_order - 1) / (2 * stencil_order), (stencil_order + 1) / (2 * stencil_order)
-    B = (i, k, x) -> binomial(k, i) * (x^i) * ((1 - x)^(k - i))
-    V = [B(j - 1, order, (nodes[i] - a) / (b - a)) for i in 1:nv, j in 1:nc]
-
-    mat = pinv(V)
-    coeffs = zeros(T, ntuple(_ -> nc, N))
-    vals = zeros(T, ntuple(_ -> nv, N))
-
-    # Intermediate buffers: each needs nc * nv^(N-1) elements (the largest intermediate size)
-    buf_size = N > 1 ? nc * nv^(N - 1) : 0
-    temp1 = zeros(T, buf_size)
-    temp2 = zeros(T, buf_size)
-
-    Ic = CartesianIndex(ntuple(_ -> 0, Val(N)))
-
-    return PiecewisePolynomialInterpolant(ϕ, mat, coeffs, vals, Ic, temp1, temp2)
-end
-
-Base.ndims(::PiecewisePolynomialInterpolant{Φ, N}) where {Φ, N} = N
-
-"""
-    compute_index(itp::PiecewisePolynomialInterpolant, x)
-
-Compute the multi-index of the cell containing point `x`. If `x` is outside the domain, the
-index of the closest cell is returned (clamping to the boundary).
-"""
-function compute_index(itp::PiecewisePolynomialInterpolant, x)
-    grid = mesh(itp.ϕ)
-    N = ndims(itp)
-    cell_ax = cellindices(grid)
-    return ntuple(
-        d -> clamp(
-            floor(Int, (x[d] - grid.lc[d]) / meshsize(grid)[d]) + 1,
-            first(cell_ax.indices[d]), last(cell_ax.indices[d])
-        ),
-        N,
-    ) |> CartesianIndex
-end
-
 # Batched right-multiply by Aᵀ: for r in 1:n_batch, C[:,:,r] = B[:,:,r] * Aᵀ,
 # where C is (m, n) and B is (m, p), all stored flat in column-major order.
 # C and B are accessed via linear indexing
@@ -256,130 +45,277 @@ function _apply_kron!(
 end
 
 """
-    fill_coefficients!(itp::PiecewisePolynomialInterpolant, base_idxs::CartesianIndex)
+    _interpolation_matrix(order, T)
 
-Fill the internal buffer of `itp` with the Bernstein coefficients for the cell at `base_idxs`.
+Build the 1D interpolation matrix mapping the `stencil_order + 1` equispaced nodal values on
+a super-cell to the `order + 1` coefficients of the Bernstein basis on the central cell.
+
+The matrix depends only on `order` and the element type `T` — not on the cell or the spatial
+dimension — so it is built once per [`InterpolatedField`](@ref) and shared (read-only) by
+every evaluating task.
+"""
+function _interpolation_matrix(order::Int, ::Type{T}) where {T}
+    # Map `order+1` values at equispaced nodes in [0,1] to the coefficients of the Bernstein
+    # basis on [floor(order/2)/order, ceil(order/2)/order], symmetric around 0.5 and
+    # containing the central node at 0.5. For even `order` we use a stencil of size order+1
+    # and do a least-squares fit.
+    stencil_order = isodd(order) ? order : order + 1
+    nc, nv = order + 1, stencil_order + 1
+    nodes = ntuple(i -> (i - 1) / stencil_order, nv)
+    a, b = (stencil_order - 1) / (2 * stencil_order), (stencil_order + 1) / (2 * stencil_order)
+    B = (i, k, x) -> binomial(k, i) * (x^i) * ((1 - x)^(k - i))
+    V = [B(j - 1, order, (nodes[i] - a) / (b - a)) for i in 1:nv, j in 1:nc]
+    return Matrix{T}(pinv(V))
+end
+
+"""
+    mutable struct InterpolationScratch{N, T}
+
+Per-task working memory and per-cell memo for evaluating an [`InterpolatedField`](@ref). It
+holds the scratch arrays written on every cell fill (`coeffs`, `vals`, `temp1`, `temp2`)
+together with the memo key (`Ic`, `gen`) identifying which cell the current `coeffs` are for.
+It carries no interpolation matrix (that is shared by the field) and no reference to the
+underlying field.
+
+Construct via `InterpolationScratch(N, order, T)`.
+
+!!! warning "Task confinement"
+    All fields are mutable state and must be used by one task at a time;
+    [`InterpolatedField`](@ref) guarantees this by keeping one `InterpolationScratch` per
+    task (via `OncePerTask`).
+"""
+mutable struct InterpolationScratch{N, T}
+    coeffs::Array{T, N}
+    vals::Array{T, N}
+    temp1::Vector{T}
+    temp2::Vector{T}
+    Ic::CartesianIndex{N}   # cached cell; sentinel CartesianIndex(0,…,0) means "none"
+    gen::UInt               # field generation `coeffs` was filled at (see InterpolatedField)
+end
+
+"""
+    InterpolationScratch(N::Int, order::Int, T::Type)
+
+Allocate the per-task scratch for `N`-dimensional fields with element type `T` and polynomial
+interpolation of degree `order`.
+"""
+function InterpolationScratch(N::Int, order::Int, ::Type{T}) where {T}
+    stencil_order = isodd(order) ? order : order + 1
+    nc, nv = order + 1, stencil_order + 1
+    coeffs = zeros(T, ntuple(_ -> nc, N))
+    vals = zeros(T, ntuple(_ -> nv, N))
+    buf_size = N > 1 ? nc * nv^(N - 1) : 0
+    temp1 = zeros(T, buf_size)
+    temp2 = zeros(T, buf_size)
+    Ic = CartesianIndex(ntuple(_ -> 0, N))
+    return InterpolationScratch{N, T}(coeffs, vals, temp1, temp2, Ic, UInt(0))
+end
+
+"""
+    fill_coefficients!(ϕ::AbstractMeshField, mat, scratch::InterpolationScratch, base_idxs::CartesianIndex)
+
+Fill `scratch.coeffs` with the Bernstein coefficients for the cell at `base_idxs`, using the
+shared interpolation matrix `mat` and the surrounding stencil of grid values of `ϕ`.
 """
 @inline function fill_coefficients!(
-        itp::PiecewisePolynomialInterpolant{Φ, N, T},
-        base_idxs::CartesianIndex{N},
-    ) where {Φ, N, T}
-    ϕ = itp.ϕ
-    mat = itp.mat
+        ϕ::AbstractMeshField, mat::Matrix, scratch::InterpolationScratch, base_idxs::CartesianIndex{N},
+    ) where {N}
     nc, nn = size(mat)
     KS = nn - 1 # order of the interpolation stencil
     off = -(KS - 1) ÷ 2
-    # Gather grid values into vals. Since the field ϕ may generate values on demand via BCs,
-    # we can't just copy or have a view
-    for I in CartesianIndices(itp.vals)
+    # Gather grid values into vals. Since ϕ may generate values on demand via BCs,
+    # we can't just copy or have a view.
+    for I in CartesianIndices(scratch.vals)
         J = CartesianIndex(ntuple(d -> base_idxs[d] + off + I[d] - 1, N))
-        @inbounds itp.vals[I] = ϕ[J]
+        @inbounds scratch.vals[I] = ϕ[J]
     end
-    # The Vandermonde matrix is a Kronecker product V = V₁ ⊗ … ⊗ V₁
-    _apply_kron!(itp.coeffs, mat, itp.vals, itp.temp1, itp.temp2)
-    itp.Ic = base_idxs
-    return itp
+    _apply_kron!(scratch.coeffs, mat, scratch.vals, scratch.temp1, scratch.temp2)
+    return ϕ
 end
 
 """
-    make_interpolant(itp::PiecewisePolynomialInterpolant, I::CartesianIndex)
+    mutable struct InterpolatedField{F, T, B}
 
-Create a `BernsteinPolynomial` for the cell at multi-index `I`.
+A continuous field obtained by equipping a discrete [`AbstractMeshField`](@ref) with
+piecewise polynomial interpolation. Evaluating `cf(x)` returns the value of the local
+[`BernsteinPolynomial`](@ref) on the cell containing `x`; [`gradient`](@ref) and
+[`hessian`](@ref) differentiate the same local patch.
+
+The Bernstein basis is chosen for its convex-hull property: the interpolant on a cell is
+bounded by the extrema of its coefficients, which [`proven_empty`](@ref) exploits to
+discard cells with no interface or interior.
+
+Construct via `InterpolatedField(ϕ, order)`.
+
+!!! note "Thread safety"
+    Evaluating concurrently from multiple tasks is safe (each task gets its own scratch; the
+    shared `mat` is only read). Mutating the field (`setindex!`, `copy!`) while other tasks
+    evaluate it is not safe; mutations bump the `gen` counter, which invalidates every task's
+    cached cell coefficients.
 """
-function make_interpolant(itp::PiecewisePolynomialInterpolant{Φ, N}, I::CartesianIndex{N}) where {Φ, N}
-    I == itp.Ic || fill_coefficients!(itp, I)
-    cell = getcell(mesh(itp.ϕ), I)
-    return BernsteinPolynomial(itp.coeffs, cell.lc, cell.hc)
+mutable struct InterpolatedField{F <: AbstractMeshField, T, B <: Base.OncePerTask}
+    const field::F
+    const order::Int
+    const mat::Matrix{T}  # shared, read-only interpolation operator (built once)
+    const buffer::B       # OncePerTask{InterpolationScratch}: per-task scratch + memo
+    gen::UInt             # bumped on mutation to invalidate per-task caches
 end
 
-function Base.show(io::IO, ::MIME"text/plain", itp::PiecewisePolynomialInterpolant)
-    order = size(itp.mat, 1) - 1
-    N = ndims(itp)
-    println(io, "PiecewisePolynomialInterpolant")
-    println(io, "  ├─ order: $order")
-    println(io, "  └─ field: MeshField on CartesianGrid in ℝ$(_superscript(N))")
-    return _show_fields(io, itp.ϕ; prefix = "     ")
-end
-
-@inline _evaluate(p::P, x) where {P} = p(x)
-
-@inline function (itp::PiecewisePolynomialInterpolant)(x)
-    I = compute_index(itp, x)
-    p = make_interpolant(itp, I)
-    return _evaluate(p, x)
-end
-
-@inline (itp::PiecewisePolynomialInterpolant)(x::Vararg{Real}) = itp(SVector(x))
-@inline (itp::PiecewisePolynomialInterpolant)(x::Tuple) = itp(SVector(x))
-
-"""
-    interpolate(ϕ::MeshField, order::Int = 3)
-
-Create a piecewise polynomial interpolant of the given `order` for `ϕ`.
-
-A deep copy of `ϕ` is made so that the interpolant is independent of future modifications to
-`ϕ`. If `ϕ` has no boundary conditions, `ExtrapolationBC{2}` is added automatically on all
-sides (this is necessary to evaluate the interpolant near the boundary, where the stencil
-may require out-of-bounds values).
-
-The returned object `itp` behaves like a function and supports:
-- `itp(x)`: evaluate the interpolant at point `x`
-- [`make_interpolant`](@ref)`(itp, I)`: return the local interpolant for cell `I`
-- [`gradient`](@ref)`(itp, x)`: gradient at `x` (via `make_interpolant` + ForwardDiff)
-- [`hessian`](@ref)`(itp, x)`: hessian at `x` (via `make_interpolant` + ForwardDiff)
-- [`cell_extrema`](@ref)`(itp, I)`: lower and upper bounds of the interpolant in cell `I`
-
-To avoid unnecessary copying, call `update!(itp, ϕ)` to update the interpolant's internal
-field with new values from `ϕ` while reusing the existing interpolation matrix and scratch
-buffers; see [`update!`](@ref) for details.
-"""
-function interpolate(ϕ, order::Int = 3)
-    ϕ_copy = deepcopy(ϕ)
-    if !has_boundary_conditions(ϕ_copy)
-        N = ndims(mesh(ϕ_copy))
-        bc = ntuple(_ -> (ExtrapolationBC{2}(), ExtrapolationBC{2}()), N)
-        ϕ_copy = add_boundary_conditions(ϕ_copy, bc)
+function InterpolatedField(ϕ::AbstractMeshField, order::Integer)
+    N = ndims(ϕ)
+    # Ensure boundary conditions for stencil access.
+    # If ϕ has no boundary conditions, wrap it with ExtrapolationBC of the same order
+    if !has_boundary_conditions(ϕ)
+        bc = ExtrapolationBC(order)
+        ϕ = _add_boundary_conditions(ϕ, bc)
     end
-    return PiecewisePolynomialInterpolant(ϕ_copy, order)
+    T = valtype(ϕ)
+    mat = _interpolation_matrix(order, T)
+    buffer = Base.OncePerTask{InterpolationScratch{N, T}}(() -> InterpolationScratch(N, order, T))
+    return InterpolatedField{typeof(ϕ), T, typeof(buffer)}(ϕ, order, mat, buffer, UInt(0))
+end
+InterpolatedField(ϕ::AbstractMeshField; order::Integer) = InterpolatedField(ϕ, order)
+
+# Restrict an interpolated field to a narrow band, preserving its interpolation order. Lives
+# here rather than with the other `NarrowBandMeshField` constructors because it dispatches on
+# `InterpolatedField`, which is only defined in this file.
+function NarrowBandMeshField(cf::InterpolatedField; nlayers::Int = 3)
+    return InterpolatedField(NarrowBandMeshField(cf.field; nlayers), cf.order)
 end
 
 """
-    update!(itp::PiecewisePolynomialInterpolant, ϕ)
+    _itp_buffer(cf::InterpolatedField)
 
-Copy the values of `ϕ` into the interpolant's internal field and invalidate the cell
-cache. This is cheaper than calling [`interpolate`](@ref) again because it reuses the
-existing interpolation matrix and scratch buffers.
+Return the calling task's private [`InterpolationScratch`](@ref) for `cf`, lazily created on
+first use and cached per task by the `OncePerTask` buffer. No lock is needed and concurrent
+tasks never share scratch memory.
 """
-function update!(itp::PiecewisePolynomialInterpolant{Φ, N}, ϕ) where {Φ, N}
-    copy!(itp.ϕ, ϕ)
-    itp.Ic = CartesianIndex(ntuple(_ -> 0, Val(N)))
-    return itp
+@inline _itp_buffer(cf::InterpolatedField) = cf.buffer()
+
+mesh(cf::InterpolatedField) = mesh(cf.field)
+compute_index(cf::InterpolatedField, x) = compute_index(mesh(cf), x)
+
+# invalidation signaled by bumping the generation counter
+_invalidate!(cf::InterpolatedField) = (cf.gen += 1; cf)
+
+function Base.setindex!(cf::InterpolatedField, val, I...)
+    setindex!(cf.field, val, I...)
+    return _invalidate!(cf)
+end
+
+function Base.copy!(dest::InterpolatedField, src::AbstractMeshField)
+    copy!(dest.field, src)
+    return _invalidate!(dest)
+end
+
+function Base.copy!(dest::InterpolatedField, src::InterpolatedField)
+    copy!(dest.field, src.field)
+    return _invalidate!(dest)
+end
+
+# display methods
+function _show_fields(io::IO, cf::InterpolatedField; prefix = "  ")
+    return _show_fields(io, cf.field; prefix)
+end
+
+function Base.show(io::IO, mime::MIME"text/plain", cf::InterpolatedField)
+    print(io, "InterpolatedField (order $(cf.order)) wrapping ")
+    return show(io, mime, cf.field)
 end
 
 """
-    cell_extrema(itp::PiecewisePolynomialInterpolant, I::CartesianIndex)
+    make_interpolant(cf::InterpolatedField, I::CartesianIndex)
 
-Compute the minimum and maximum values of the interpolant in the cell `I`.
+Return a `BernsteinPolynomial` for the cell at multi-index `I`, lazily computing
+(and caching) its Bernstein coefficients from the surrounding stencil of grid values.
+
+!!! warning "Aliased coefficients"
+    The returned polynomial's `coeffs` array aliases the calling task's scratch buffer.
+    It remains valid until the same task calls `make_interpolant` on `cf` with a
+    different cell index (or `cf` is mutated). Copy `coefficients(p)` if the polynomial
+    must outlive the current cell iteration.
 """
-function cell_extrema(itp::PiecewisePolynomialInterpolant{Φ, N}, I::CartesianIndex{N}) where {Φ, N}
-    p = make_interpolant(itp, I)
+function make_interpolant(cf::InterpolatedField, I::CartesianIndex)
+    scratch = _itp_buffer(cf)
+    g = cf.gen
+    if !(I == scratch.Ic && scratch.gen == g)
+        fill_coefficients!(cf.field, cf.mat, scratch, I)
+        scratch.Ic = I
+        scratch.gen = g
+    end
+    cell = _getcell(mesh(cf.field), I)
+    return BernsteinPolynomial(scratch.coeffs, cell.lc, cell.hc)
+end
+
+"""
+    local_interpolant(cf::InterpolatedField, x)
+
+Return the local [`BernsteinPolynomial`](@ref) representing the field in the cell
+containing the point `x`.
+
+!!! warning "Aliased coefficients"
+    The returned polynomial aliases the calling task's scratch buffer; see
+    [`make_interpolant`](@ref).
+"""
+local_interpolant(cf::InterpolatedField, x) = make_interpolant(cf, compute_index(cf, x))
+
+"""
+    cell_extrema(cf::InterpolatedField, I::CartesianIndex)
+
+Compute the minimum and maximum values of the local Bernstein interpolant in cell `I`.
+"""
+function cell_extrema(cf::InterpolatedField, I::CartesianIndex)
+    p = make_interpolant(cf, I)
     return extrema(coefficients(p))
 end
 
 """
-    proven_empty(itp::PiecewisePolynomialInterpolant, I::CartesianIndex; surface=false)
+    proven_empty(cf::InterpolatedField, I::CartesianIndex; surface=false)
 
-Return `true` if the cell `I` is guaranteed to not contain the interface (if `surface=true`)
-or to not contain any part of the interior (if `surface=false`).
-
-Note that `proven_empty` being `false` does not mean the cell is non-empty, but rather that
-we can't guarantee emptiness based on the convex hull property of the Bernstein basis.
+Return `true` if cell `I` is guaranteed to contain no interface (when
+`surface=true`) or no interior (when `surface=false`), based on the convex-hull
+property of the Bernstein basis.
 """
-function proven_empty(itp::PiecewisePolynomialInterpolant, I::CartesianIndex; surface = false)
-    m, M = cell_extrema(itp, I)
-    if surface
-        return m * M > 0
-    else
-        return m > 0
-    end
+function proven_empty(cf::InterpolatedField, I::CartesianIndex; surface = false)
+    m, M = cell_extrema(cf, I)
+    return surface ? (m * M > 0) : (m > 0)
 end
+
+# Evaluate the field, its gradient, and its Hessian at a point `x` by differentiating the
+# local Bernstein patch. `x` may be any point-like object (`SVector`, `Tuple`, or
+# `AbstractVector`); the `Real...` methods let callers pass coordinates as separate scalars.
+@inline (cf::InterpolatedField)(x) = local_interpolant(cf, x)(x)
+@inline (cf::InterpolatedField)(x::Real...) = cf(x)
+
+"""
+    gradient(cf::InterpolatedField, x)
+
+Evaluate the spatial gradient vector of the interpolated field at the point `x`.
+"""
+gradient(cf::InterpolatedField, x) = gradient(local_interpolant(cf, x), x)
+gradient(cf::InterpolatedField, x::Real...) = gradient(cf, x)
+
+"""
+    hessian(cf::InterpolatedField, x)
+
+Evaluate the spatial Hessian matrix of the interpolated field at the point `x`.
+"""
+hessian(cf::InterpolatedField, x) = hessian(local_interpolant(cf, x), x)
+hessian(cf::InterpolatedField, x::Real...) = hessian(cf, x)
+
+"""
+    value_and_gradient(cf::InterpolatedField, x)
+
+Evaluate the value and spatial gradient vector of the interpolated field at the point `x`.
+"""
+value_and_gradient(cf::InterpolatedField, x) = value_and_gradient(local_interpolant(cf, x), x)
+value_and_gradient(cf::InterpolatedField, x::Real...) = value_and_gradient(cf, x)
+
+"""
+    value_gradient_hessian(cf::InterpolatedField, x)
+
+Evaluate the value, spatial gradient vector, and Hessian matrix of the interpolated field
+at the point `x`.
+"""
+value_gradient_hessian(cf::InterpolatedField, x) = value_gradient_hessian(local_interpolant(cf, x), x)
+value_gradient_hessian(cf::InterpolatedField, x::Real...) = value_gradient_hessian(cf, x)
