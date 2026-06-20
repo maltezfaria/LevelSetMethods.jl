@@ -100,4 +100,22 @@ Export a surface mesh of the 3D interface (where ϕ = 0) to `filename`.
 export_surface_mesh(args...; kwargs...) =
     error("MMG extension not loaded. Load MMG_jll to use this functionality.")
 
+"""
+    quadrature(ϕ::InterpolatedField; order, surface=false)
+
+Generate a quadrature for the implicit domain defined by `ϕ`.
+If `surface=true`, generate a quadrature for the interface `ϕ=0`;
+otherwise for the interior `ϕ < 0`.
+
+Returns a `Vector` of `(region, quadrature)` pairs, where `region` is a
+single-cell `CartesianIndices` and `quadrature` is an `ImplicitIntegration.Quadrature`.
+
+!!! note
+    Requires loading `ImplicitIntegration.jl` to activate the extension.
+    `ϕ` must be an [`InterpolatedField`](@ref), e.g. `InterpolatedField(mf, order)`.
+"""
+function quadrature(ϕ; order, surface = false)
+    error("ImplicitIntegration extension not loaded. Load ImplicitIntegration to use this functionality.")
+end
+
 end # module
