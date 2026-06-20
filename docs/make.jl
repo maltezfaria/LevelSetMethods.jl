@@ -36,6 +36,7 @@ makedocs(;
         collapselevel = 2,
     ), pages = vcat(
         "Home" => "index.md",
+        "geometry.md",
         "terms.md",
         "interpolation.md",
         "time-integrators.md",

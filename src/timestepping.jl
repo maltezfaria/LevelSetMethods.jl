@@ -2,9 +2,11 @@
     abstract type TimeIntegrator end
 
 Abstract type for time integrators. See `subtypes(TimeIntegrator)` for a list of available
-time integrators.
+time integrators. Every concrete integrator stores a `cfl` safety factor.
 """
 abstract type TimeIntegrator end
+
+cfl(integrator::TimeIntegrator) = integrator.cfl
 
 """
     struct ForwardEuler
@@ -24,7 +26,6 @@ ForwardEuler (1st order explicit)
 @kwdef struct ForwardEuler <: TimeIntegrator
     cfl::Float64 = 0.5
 end
-cfl(fe::ForwardEuler) = fe.cfl
 
 """
     struct RK2
@@ -45,7 +46,6 @@ RK2 (2nd order TVD Runge-Kutta, Heun's method)
 @kwdef struct RK2 <: TimeIntegrator
     cfl::Float64 = 0.5
 end
-cfl(rk2::RK2) = rk2.cfl
 
 """
     struct RK3
@@ -66,8 +66,6 @@ RK3 (3rd order TVD Runge-Kutta)
     cfl::Float64 = 0.5
 end
 
-cfl(rk3::RK3) = rk3.cfl
-
 """
     struct SemiImplicitI2OE
 
@@ -87,191 +85,121 @@ SemiImplicitI2OE (semi-implicit advection, Mikula et al.)
 @kwdef struct SemiImplicitI2OE <: TimeIntegrator
     cfl::Float64 = 2.0
 end
-cfl(i2oe::SemiImplicitI2OE) = i2oe.cfl
 
-function Base.show(io::IO, ::MIME"text/plain", s::ForwardEuler)
-    println(io, "ForwardEuler (1st order explicit)")
-    return print(io, "  └─ cfl: $(s.cfl)")
-end
+_describe(::ForwardEuler) = "ForwardEuler (1st order explicit)"
+_describe(::RK2) = "RK2 (2nd order TVD Runge-Kutta, Heun's method)"
+_describe(::RK3) = "RK3 (3rd order TVD Runge-Kutta)"
+_describe(::SemiImplicitI2OE) = "SemiImplicitI2OE (semi-implicit advection, Mikula et al.)"
 
-function Base.show(io::IO, ::MIME"text/plain", s::RK2)
-    println(io, "RK2 (2nd order TVD Runge-Kutta, Heun's method)")
-    return print(io, "  └─ cfl: $(s.cfl)")
-end
-
-function Base.show(io::IO, ::MIME"text/plain", s::RK3)
-    println(io, "RK3 (3rd order TVD Runge-Kutta)")
-    return print(io, "  └─ cfl: $(s.cfl)")
-end
-
-function Base.show(io::IO, ::MIME"text/plain", s::SemiImplicitI2OE)
-    println(io, "SemiImplicitI2OE (semi-implicit advection, Mikula et al.)")
+function Base.show(io::IO, ::MIME"text/plain", s::TimeIntegrator)
+    println(io, _describe(s))
     return print(io, "  └─ cfl: $(s.cfl)")
 end
 
 # common integration logic
-@noinline function _integrate!(ϕ::MeshField, integrator::TimeIntegrator, terms, reinit, tc, tf, Δt_max, log)
-    src = ϕ
+
+function _integrate!(ls, ϕ::AbstractMeshField, integrator::TimeIntegrator, terms, tc, tf, Δt_max, prehook, posthook)
     buffers = _alloc_buffers(integrator, ϕ)
     α = cfl(integrator)
-    nsteps = 0
-    nterms = length(terms)
-    update_times = zeros(nterms)
-    compute_times = zeros(nterms)
     while tc <= tf - eps(tc)
-        t_step = time_ns()
-        fill!(update_times, 0.0)
-        fill!(compute_times, 0.0)
-
-        reinit_time, did_reinit = _timed_reinit!(src, reinit, nsteps)
-
-        Δt_cfl = α * compute_cfl(terms, src, tc)
-        Δt = min(Δt_max, Δt_cfl, tf - tc)
-
-        src, buffers = _advance!(integrator, src, buffers, terms, tc, Δt, update_times, compute_times)
-
+        prehook(ls)
+        Δt = min(Δt_max, α * compute_cfl(terms, ϕ, tc), tf - tc)
+        _advance!(integrator, ϕ, buffers, terms, tc, Δt)
         tc += Δt
-        nsteps += 1
-        ϕ_min, ϕ_max = _level_set_extrema(src)
-        _push_record!(log, tc, t_step, reinit_time, did_reinit, update_times, compute_times, ϕ_min, ϕ_max)
+        ls.t = tc
+        update_band!(ϕ)   # re-tube before the posthook (no-op on a full grid)
+        posthook(ls)
         @debug tc, Δt
     end
-    src === ϕ || copy!(ϕ, src)
-    return ϕ
+    # land on `tf` exactly (the loop stops within floating-point accumulation of it)
+    ls.t = tf
+    return nothing
 end
 
 # --- ForwardEuler ---
 
-_alloc_buffers(::ForwardEuler, ϕ) = (deepcopy(ϕ),)
+_alloc_buffers(::ForwardEuler, ϕ) = (copy(ϕ),)
 
-function _advance!(::ForwardEuler, src, (dst,), terms, tc, Δt, update_times, compute_times)
-    update_bcs!(src, tc)
-    _clear_buffer!(dst)
-    for I in eachindex(src)
-        dst[I] = src[I]
-    end
+function _advance!(::ForwardEuler, ϕ, (dst,), terms, tc, Δt)
+    copy!(dst, ϕ)   # dst := ϕ, syncing its active set to the current band
     for k in eachindex(terms)
-        t0 = time_ns()
-        update_term!(terms[k], src, tc)
-        update_times[k] += (time_ns() - t0) / 1.0e9
-        t0 = time_ns()
-        for I in eachindex(src)
-            dst[I] -= Δt * _compute_term(terms[k], src, I, tc)
+        update_term!(terms[k], ϕ, tc)
+        for I in active_nodeindices(ϕ)
+            dst[I] -= Δt * _compute_term(terms[k], ϕ, I, tc)
         end
-        compute_times[k] += (time_ns() - t0) / 1.0e9
     end
-    return dst, (src,)
+    return copy!(ϕ, dst)
 end
 
 # --- RK2 (Heun's method) ---
 
-_alloc_buffers(::RK2, ϕ) = (deepcopy(ϕ), deepcopy(ϕ))
+_alloc_buffers(::RK2, ϕ) = (copy(ϕ), copy(ϕ))
 
-function _advance!(::RK2, src, (pred, corr), terms, tc, Δt, update_times, compute_times)
-    # Stage 1: predictor and half-step accumulator
-    update_bcs!(src, tc)
-    _clear_buffer!(pred)
-    _clear_buffer!(corr)
-    for I in eachindex(src)
-        pred[I] = src[I]
-        corr[I] = src[I]
-    end
+function _advance!(::RK2, ϕ, (pred, corr), terms, tc, Δt)
+    # Stage 1: predictor and half-step accumulator, both seeded with ϕ (which also syncs
+    # their active sets to the current band)
+    copy!(pred, ϕ)
+    copy!(corr, ϕ)
     for k in eachindex(terms)
-        t0 = time_ns()
-        update_term!(terms[k], src, tc)
-        update_times[k] += (time_ns() - t0) / 1.0e9
-        t0 = time_ns()
-        for I in eachindex(src)
-            v = _compute_term(terms[k], src, I, tc)
+        update_term!(terms[k], ϕ, tc)
+        for I in active_nodeindices(ϕ)
+            v = _compute_term(terms[k], ϕ, I, tc)
             pred[I] -= Δt * v
             corr[I] -= 0.5 * Δt * v
         end
-        compute_times[k] += (time_ns() - t0) / 1.0e9
     end
     # Stage 2: correct with slope at predictor
-    update_bcs!(pred, tc + Δt)
     for k in eachindex(terms)
-        t0 = time_ns()
         update_term!(terms[k], pred, tc + Δt)
-        update_times[k] += (time_ns() - t0) / 1.0e9
-        t0 = time_ns()
-        for I in eachindex(src)
+        for I in active_nodeindices(ϕ)
             corr[I] -= 0.5 * Δt * _compute_term(terms[k], pred, I, tc + Δt)
         end
-        compute_times[k] += (time_ns() - t0) / 1.0e9
     end
-    return corr, (src, pred)
+    return copy!(ϕ, corr)
 end
 
 # --- RK3 (Shu-Osher TVD) ---
 
-_alloc_buffers(::RK3, ϕ) = (deepcopy(ϕ), deepcopy(ϕ))
+_alloc_buffers(::RK3, ϕ) = (copy(ϕ), copy(ϕ))
 
-function _advance!(::RK3, src, (buf1, buf2), terms, tc, Δt, update_times, compute_times)
-    # Stage 1: buf1 = src - Δt*L(src)
-    update_bcs!(src, tc)
-    _clear_buffer!(buf1)
-    for I in eachindex(src)
-        buf1[I] = src[I]
-    end
+function _advance!(::RK3, ϕ, (buf1, buf2), terms, tc, Δt)
+    # Stage 1: buf1 = ϕ - Δt*L(ϕ)
+    copy!(buf1, ϕ)   # buf1 := ϕ, syncing its active set to the current band
     for k in eachindex(terms)
-        t0 = time_ns()
-        update_term!(terms[k], src, tc)
-        update_times[k] += (time_ns() - t0) / 1.0e9
-        t0 = time_ns()
-        for I in eachindex(src)
-            buf1[I] -= Δt * _compute_term(terms[k], src, I, tc)
+        update_term!(terms[k], ϕ, tc)
+        for I in active_nodeindices(ϕ)
+            buf1[I] -= Δt * _compute_term(terms[k], ϕ, I, tc)
         end
-        compute_times[k] += (time_ns() - t0) / 1.0e9
     end
-    # Stage 2: buf2 = 3/4*src + 1/4*(buf1 - Δt*L(buf1))
-    update_bcs!(buf1, tc + Δt)
-    _clear_buffer!(buf2)
-    for I in eachindex(src)
-        buf2[I] = 0.75 * src[I] + 0.25 * buf1[I]
+    # Stage 2: buf2 = 3/4*ϕ + 1/4*(buf1 - Δt*L(buf1))
+    copy!(buf2, ϕ)   # sync buf2's active set to the current band (values overwritten below)
+    for I in active_nodeindices(ϕ)
+        buf2[I] = 0.75 * ϕ[I] + 0.25 * buf1[I]
     end
     for k in eachindex(terms)
-        t0 = time_ns()
         update_term!(terms[k], buf1, tc + Δt)
-        update_times[k] += (time_ns() - t0) / 1.0e9
-        t0 = time_ns()
-        for I in eachindex(src)
+        for I in active_nodeindices(ϕ)
             buf2[I] -= 0.25 * Δt * _compute_term(terms[k], buf1, I, tc + Δt)
         end
-        compute_times[k] += (time_ns() - t0) / 1.0e9
     end
-    # Stage 3: buf1 = (1/3)*src + (2/3)*(buf2 - Δt*L(buf2))
-    update_bcs!(buf2, tc + 0.5 * Δt)
-    _clear_buffer!(buf1)
-    for I in eachindex(src)
-        buf1[I] = (src[I] + 2 * buf2[I]) / 3
+    # Stage 3: ϕ_new = (1/3)*ϕ + (2/3)*(buf2 - Δt*L(buf2)). Reads ϕ before the final write.
+    copy!(buf1, ϕ)   # sync buf1's active set to the current band (values overwritten below)
+    for I in active_nodeindices(ϕ)
+        buf1[I] = (ϕ[I] + 2 * buf2[I]) / 3
     end
     for k in eachindex(terms)
-        t0 = time_ns()
         update_term!(terms[k], buf2, tc + 0.5 * Δt)
-        update_times[k] += (time_ns() - t0) / 1.0e9
-        t0 = time_ns()
-        for I in eachindex(src)
+        for I in active_nodeindices(ϕ)
             buf1[I] -= (2 / 3) * Δt * _compute_term(terms[k], buf2, I, tc + 0.5 * Δt)
         end
-        compute_times[k] += (time_ns() - t0) / 1.0e9
     end
-    return buf1, (src, buf2)
+    return copy!(ϕ, buf1)
 end
 
-function _integrate!(
-        ϕ::MeshField,
-        integrator::SemiImplicitI2OE,
-        terms,
-        reinit,
-        tc,
-        tf,
-        Δt_max,
-        log,
-    )
-    # Check domain compatibility (FullDomain only for now)
-    domain(ϕ) isa FullDomain || throw(ArgumentError("SemiImplicitI2OE only supports FullDomain"))
+_integrate!(_ls, ϕ::AbstractMeshField, ::SemiImplicitI2OE, _terms, _tc, _tf, _Δt, _pre, _post) =
+    throw(ArgumentError("SemiImplicitI2OE requires a full-grid MeshField, got $(typeof(ϕ))"))
 
+function _integrate!(ls, ϕ::MeshField, integrator::SemiImplicitI2OE, terms, tc, tf, Δt_max, prehook, posthook)
     _validate_i2oe_setup(ϕ, terms)
     term = only(terms)
     vals = values(ϕ)
@@ -281,36 +209,23 @@ function _integrate!(
     velocity_components = ntuple(_ -> zeros(T, size(vals)), N)
 
     α = cfl(integrator)
-    nsteps = 0
-    nterms = length(terms)
-    update_times = zeros(nterms)
-    compute_times = zeros(nterms)
     while tc <= tf - eps(tc)
-        t_step = time_ns()
-        fill!(update_times, 0.0)
-        fill!(compute_times, 0.0)
+        prehook(ls)
 
-        reinit_time, did_reinit = _timed_reinit!(ϕ, reinit, nsteps)
-
-        update_bcs!(ϕ, tc)
-        _timed_update_terms!(terms, ϕ, tc, update_times)
-        Δt_cfl = α * compute_cfl(terms, ϕ, tc)
-        Δt = min(Δt_max, Δt_cfl, tf - tc)
+        update_term!(term, ϕ, tc)
+        Δt = min(Δt_max, α * compute_cfl(terms, ϕ, tc), tf - tc)
 
         copy!(old_vals, vals)
         _fill_advection_velocity_components!(velocity_components, term, ϕ, tc)
-
-        t0_compute = time_ns()
         _i2oe_global_step!(vals, old_vals, velocity_components, ϕ, Δt)
-        compute_times[1] += (time_ns() - t0_compute) / 1.0e9
 
         tc += Δt
-        nsteps += 1
-        ϕ_min, ϕ_max = _level_set_extrema(ϕ)
-        _push_record!(log, tc, t_step, reinit_time, did_reinit, update_times, compute_times, ϕ_min, ϕ_max)
+        ls.t = tc
+        posthook(ls)
         @debug tc, Δt
     end
-    return ϕ
+    ls.t = tf
+    return nothing
 end
 
 function _validate_i2oe_setup(ϕ, terms)
@@ -323,26 +238,10 @@ function _validate_i2oe_setup(ϕ, terms)
     return nothing
 end
 
-function _fill_advection_velocity_components!(out, term::AdvectionTerm{<:MeshField}, ϕ::MeshField, _t)
-    vel = velocity(term)
+function _fill_advection_velocity_components!(out, term::AdvectionTerm, ϕ::MeshField, t)
     N = ndims(ϕ)
-    mesh(vel) == mesh(ϕ) ||
-        throw(ArgumentError("advection velocity field must be defined on the same mesh"))
-    for I in eachindex(ϕ)
-        vI = vel[I]
-        for dim in 1:N
-            out[dim][I] = vI[dim]
-        end
-    end
-    return out
-end
-
-function _fill_advection_velocity_components!(out, term::AdvectionTerm{<:Function}, ϕ::MeshField, t)
-    vel = velocity(term)
-    N = ndims(ϕ)
-    g = mesh(ϕ)
-    for I in eachindex(ϕ)
-        vI = vel(g[I], t)
+    for I in active_nodeindices(ϕ)
+        vI = _eval_field(velocity(term), ϕ, I, t)
         for dim in 1:N
             out[dim][I] = vI[dim]
         end
@@ -358,7 +257,6 @@ function _i2oe_global_step!(vals, old_vals, velocity_components, ϕ::MeshField, 
     mₚ = prod(Δ)
     fac = T(Δt / (2 * mₚ))
     bcs = boundary_conditions(ϕ)
-    grid = mesh(ϕ)
     LI = LinearIndices(vals)
     nb_nodes = length(vals)
     rows = Int[]
@@ -369,15 +267,15 @@ function _i2oe_global_step!(vals, old_vals, velocity_components, ϕ::MeshField, 
     sizehint!(cols, nb_nodes * (2N + 1))
     sizehint!(coeffs, nb_nodes * (2N + 1))
 
-    for I in eachindex(ϕ)
+    for I in active_nodeindices(ϕ)
         row = LI[I]
         uold_p = old_vals[I]
         diag = one(T)
         rhsp = uold_p
         for dim in 1:N
             area = _i2oe_face_measure(Δ, dim)
-            rel_m = _i2oe_neighbor_relation(I, dim, -1, vals, bcs, grid)
-            rel_p = _i2oe_neighbor_relation(I, dim, +1, vals, bcs, grid)
+            rel_m = _i2oe_neighbor_relation(I, dim, -1, vals, bcs)
+            rel_p = _i2oe_neighbor_relation(I, dim, +1, vals, bcs)
 
             vface_m = _i2oe_face_velocity(velocity_components[dim], I, rel_m, dim)
             vface_p = _i2oe_face_velocity(velocity_components[dim], I, rel_p, dim)
@@ -465,37 +363,47 @@ function _i2oe_neighbor_value(old_vals, uold_p, rel)
     return α * uold_p + β * uold_idx + γ
 end
 
-function _i2oe_neighbor_relation(I, dim, side, vals, bcs, grid)
+function _i2oe_neighbor_relation(I, dim, side, vals, bcs)
     T = float(eltype(vals))
-    N = ndims(vals)
     ax = axes(vals, dim)
     Ioff = side < 0 ? _decrement_index(I, dim) : _increment_index(I, dim)
-    if Ioff[dim] in ax
-        return (zero(T), one(T), Ioff, zero(T))
-    end
-
+    Ioff[dim] in ax && return (zero(T), one(T), Ioff, zero(T))
     bc = side < 0 ? bcs[dim][1] : bcs[dim][2]
-    if bc isa PeriodicBC
-        Iq = _wrap_index_periodic(Ioff, ax, dim)
-        return (zero(T), one(T), Iq, zero(T))
-    elseif bc isa NeumannBC
-        Iq = CartesianIndex(ntuple(s -> s == dim ? clamp(Ioff[s], first(ax), last(ax)) : Ioff[s], N))
-        return (zero(T), one(T), Iq, zero(T))
-    elseif bc isa LinearExtrapolationBC
-        i, a, b = Ioff[dim], first(ax), last(ax)
-        Ion_d, Iin_d, dist = i < a ? (a, a + 1, a - i) : (b, b - 1, i - b)
-        Ion = CartesianIndex(ntuple(s -> s == dim ? Ion_d : Ioff[s], N))
-        Iin = CartesianIndex(ntuple(s -> s == dim ? Iin_d : Ioff[s], N))
-        Ion == I || throw(
-            ArgumentError("SemiImplicitI2OE expected nearest ghost cell for LinearExtrapolationBC"),
-        )
-        return (one(T) + T(dist), -T(dist), Iin, zero(T))
-    elseif bc isa DirichletBC
-        xghost = _getindex(grid, Ioff)
-        return (zero(T), zero(T), nothing, T(bc.f(xghost, bc.t)))
-    else
-        error("boundary condition $bc is not supported by SemiImplicitI2OE")
-    end
+    return _i2oe_relation(bc, Ioff, I, ax, dim, T)
+end
+
+"""
+    _i2oe_relation(bc, Ioff, I, ax, dim, T) -> (α, β, idx, γ)
+
+Express the ghost value of the [`SemiImplicitI2OE`](@ref) scheme at the out-of-bounds
+neighbor `Ioff` of node `I` (along dimension `dim`, with in-bounds range `ax` and element
+type `T`) as the affine relation `α·u[I] + β·u[idx] + γ`. Optional interface method of
+[`BoundaryCondition`](@ref); the fallback rejects conditions the integrator cannot handle.
+"""
+_i2oe_relation(bc::BoundaryCondition, Ioff, I, ax, dim, ::Type{T}) where {T} =
+    error("boundary condition $bc is not supported by SemiImplicitI2OE")
+
+function _i2oe_relation(::PeriodicBC, Ioff, I, ax, dim, ::Type{T}) where {T}
+    Iq = _wrap_index_periodic(Ioff, ax, dim)
+    return (zero(T), one(T), Iq, zero(T))
+end
+
+function _i2oe_relation(::NeumannBC, Ioff, I, ax, dim, ::Type{T}) where {T}
+    N = length(Ioff)
+    Iq = CartesianIndex(ntuple(s -> s == dim ? clamp(Ioff[s], first(ax), last(ax)) : Ioff[s], N))
+    return (zero(T), one(T), Iq, zero(T))
+end
+
+function _i2oe_relation(::LinearExtrapolationBC, Ioff, I, ax, dim, ::Type{T}) where {T}
+    N = length(Ioff)
+    i, a, b = Ioff[dim], first(ax), last(ax)
+    Ion_d, Iin_d, dist = i < a ? (a, a + 1, a - i) : (b, b - 1, i - b)
+    Ion = CartesianIndex(ntuple(s -> s == dim ? Ion_d : Ioff[s], N))
+    Iin = CartesianIndex(ntuple(s -> s == dim ? Iin_d : Ioff[s], N))
+    Ion == I || throw(
+        ArgumentError("SemiImplicitI2OE expected nearest ghost cell for LinearExtrapolationBC"),
+    )
+    return (one(T) + T(dist), -T(dist), Iin, zero(T))
 end
 
 function _i2oe_face_velocity(velcomp, I, rel, _dim)
@@ -510,10 +418,4 @@ function _i2oe_face_measure(Δ, dim)
     N = length(Δ)
     N == 1 && return one(eltype(Δ))
     return prod(Δ[d] for d in 1:N if d != dim)
-end
-
-function _compute_terms(terms, ϕ, I, t)
-    return sum(terms) do term
-        return _compute_term(term, ϕ, I, t)
-    end
 end

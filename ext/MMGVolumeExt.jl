@@ -2,26 +2,21 @@ module MMGVolumeExt
 
 import MMG_jll as MMG
 import LevelSetMethods as LSM
-# using DelimitedFiles # using or import ? # faster with writedlm ?
-
-function __init__()
-    return @info "Loading MMGVolume extension for LevelSetMethods.jl"
-end
 
 """
     export_volume_mesh(eq::LevelSetEquation, output; kwargs...)
 
-Call [`export_volume_mesh`](@ref LSM.export_volume_mesh(::LSM.LevelSet)) on `current_state(eq)`.
+Call [`export_volume_mesh`](@ref LSM.export_volume_mesh(::LSM.MeshField)) on `current_state(eq)`.
 """
 function LSM.export_volume_mesh(eq::LSM.LevelSetEquation, args...; kwargs...)
     return LSM.export_volume_mesh(LSM.current_state(eq), args...; kwargs...)
 end
 
 """
-    export_volume_mesh(ϕ::LevelSet, output::String;
+    export_volume_mesh(ϕ::MeshField, output::String;
         hgrad = nothing, hmin = nothing, hmax = nothing, hausd = nothing)
 
-Compute a mesh of the domains associated with [`LevelSet`](@ref LSM.LevelSet) `eq` using
+Compute a mesh of the domains associated with [`MeshField`](@ref LSM.MeshField) `eq` using
 either MMG2d_O3 or MMG3d_O3.
 
 `hgrad` control the growth ratio between two adjacent edges.
@@ -39,7 +34,7 @@ For more information, see the official [MMG documentation](http://www.mmgtools.o
     Only works for 2 and 3 dimensional level-set.
 """
 function LSM.export_volume_mesh(
-        ϕ::LSM.LevelSet,
+        ϕ::LSM.MeshField,
         output::String;
         hgrad = nothing,
         hmin = nothing,
@@ -145,11 +140,10 @@ function LSM.export_volume_mesh(
         for (name, value) in
             [("hgrad", hgrad), ("hmin", hmin), ("hmax", hmax), ("hausd", hausd)]
             if value !== nothing
-                push!(arguments, name)
+                push!(arguments, '-' * name)
                 push!(arguments, string(value))
             end
         end
-        println(arguments)
         run(`$(command) $arguments`)
 
     finally

@@ -87,7 +87,10 @@ b = (+1.0, +1.0)
 n = (50, 50)
 grid = CartesianGrid(a, b, n)
 
-ϕ = LevelSetMethods.star(grid)
+ϕ = MeshField(grid) do x # a star; see the [geometry](@ref) page
+    r, θ = norm(x), atan(x[2], x[1])
+    return r - (1 + 0.25 * cos(5θ))
+end
 
 term1 = NormalMotionTerm(MeshField(X -> 0.0, grid))
 term2 = CurvatureTerm(MeshField(X -> -1.0, grid))

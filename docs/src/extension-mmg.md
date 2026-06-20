@@ -17,7 +17,10 @@ Example in 2D:
 ```@example volume2D
 using LevelSetMethods, MMG_jll
 grid = CartesianGrid((-2, -2), (2, 2), (50, 50))
-ϕ = LevelSetMethods.star(grid)
+ϕ = MeshField(grid) do x # a star; see the [geometry](@ref) page
+    r, θ = hypot(x...), atan(x[2], x[1])
+    return r - (1 + 0.25 * cos(5θ))
+end
 volume_mesh2d = LevelSetMethods.export_volume_mesh(ϕ, joinpath(@__DIR__, "volume2D.mesh"))
 ```
 
@@ -47,7 +50,7 @@ And similarly in 3D:
 ```@example volume3D
 using LevelSetMethods, MMG_jll
 grid = CartesianGrid((-1, -1, -1), (+1, +1, +1), (20, 20, 20))
-ϕ = LevelSetMethods.sphere(grid; radius = 0.5)
+ϕ = MeshField(x -> hypot(x...) - 0.5, grid) # a sphere; see the [geometry](@ref) page
 volume_mesh3d = LevelSetMethods.export_volume_mesh(ϕ, joinpath(@__DIR__, "volume3d.mesh"))
 ```
 
@@ -60,10 +63,10 @@ Using the `mmgs_O3` utility, the `MarchingCubes.jl` library and the `export_surf
 ```@example surface3D
 using LevelSetMethods, MMG_jll, MarchingCubes
 grid = CartesianGrid((-2, -1, -1), (+2, +1, +1), (40, 20, 20))
-ϕ₁ = LevelSetMethods.sphere(grid; radius = 0.5, center = (-1, 0, 0))
-ϕ₂ = LevelSetMethods.sphere(grid; radius = 0.5, center = (+1, 0, 0))
-ϕ₃ = LevelSetMethods.rectangle(grid; center = (0, 0, 0), width = (2, 0.25, 0.25))
-ϕ  = ϕ₁ ∪ ϕ₂ ∪ ϕ₃
+ϕ₁ = MeshField(x -> hypot((x .- (-1, 0, 0))...) - 0.5, grid)
+ϕ₂ = MeshField(x -> hypot((x .- (+1, 0, 0))...) - 0.5, grid)
+ϕ₃ = MeshField(x -> maximum(abs.(x) .- (2, 0.25, 0.25) ./ 2), grid)
+ϕ  = ϕ₁ ∪ ϕ₂ ∪ ϕ₃ # two spheres joined by a bar; see the [geometry](@ref) page
 surf_mesh3d = LevelSetMethods.export_surface_mesh(ϕ, joinpath(@__DIR__,"surface3D.mesh"); hausd = 1.2, hmax = 1.0)
 ```
 

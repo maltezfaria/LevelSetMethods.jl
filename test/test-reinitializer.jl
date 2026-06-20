@@ -2,7 +2,7 @@ using Test
 using LinearAlgebra
 using StaticArrays
 import LevelSetMethods as LSM
-using LevelSetMethods: NewtonSDF, update!, get_sample_points, interpolate
+using LevelSetMethods: NewtonSDF, get_sample_points
 
 function check_allocs(f, x)
     f(x) # warmup
@@ -14,10 +14,10 @@ end
         grid = LSM.CartesianGrid((-1.0, -1.0), (1.0, 1.0), (50, 50))
         r = 0.5
         exact_sdf(x) = norm(x) - r
-        ϕ = LSM.LevelSet(exact_sdf, grid)
+        ϕ = LSM.MeshField(exact_sdf, grid)
         sdf = NewtonSDF(ϕ; upsample = 4)
 
-        @test sdf isa LSM.AbstractSignedDistanceFunction
+        @test sdf isa LSM.NewtonSDF
 
         # spot checks: inside, on, and outside the interface
         @test sdf(SVector(0.0, 0.0)) ≈ -r atol = 2.0e-5
@@ -25,9 +25,9 @@ end
         @test sdf(SVector(1.0, 0.0)) ≈ 1 - r atol = 2.0e-5
 
         # global accuracy over sampled grid points
-        indices = CartesianIndices(grid)
+        indices = nodeindices(grid)
         max_err = maximum(1:10:length(indices)) do k
-            abs(sdf(grid[indices[k]]) - exact_sdf(grid[indices[k]]))
+            abs(sdf(getnode(grid, indices[k])) - exact_sdf(getnode(grid, indices[k])))
         end
         @test max_err < 1.0e-5
 
@@ -38,85 +38,97 @@ end
         grid = LSM.CartesianGrid((-1.0, -1.0, -1.0), (1.0, 1.0, 1.0), (25, 25, 25))
         r = 0.45
         exact_sdf(x) = norm(x) - r
-        ϕ = LSM.LevelSet(exact_sdf, grid)
+        ϕ = LSM.MeshField(exact_sdf, grid)
         sdf = NewtonSDF(ϕ; upsample = 3)
 
         @test sdf(SVector(r, 0.0, 0.0)) ≈ 0.0 atol = 1.0e-4
         @test sdf(SVector(0.0, 0.0, 0.0)) ≈ -r atol = 1.0e-4
 
-        indices = CartesianIndices(grid)
+        indices = nodeindices(grid)
         max_err = maximum(1:20:length(indices)) do k
-            abs(sdf(grid[indices[k]]) - exact_sdf(grid[indices[k]]))
+            abs(sdf(getnode(grid, indices[k])) - exact_sdf(getnode(grid, indices[k])))
         end
         @test max_err < 5.0e-3
 
         @test check_allocs(sdf, SVector(0.25, 0.25, 0.25)) == 0
     end
 
-    @testset "from PiecewisePolynomialInterpolant" begin
-        grid = LSM.CartesianGrid((-1.0, -1.0), (1.0, 1.0), (30, 30))
-        ϕ = LSM.LevelSet(x -> norm(x) - 0.5, grid)
-        itp = interpolate(ϕ, 3)
-        sdf = NewtonSDF(itp; upsample = 4)
-        @test sdf(SVector(0.5, 0.0)) ≈ 0.0 atol = 2.0e-5
-    end
-
     @testset "get_sample_points" begin
         grid = LSM.CartesianGrid((-1.0, -1.0), (1.0, 1.0), (20, 20))
-        ϕ = LSM.LevelSet(x -> norm(x) - 0.5, grid)
+        ϕ = LSM.MeshField(x -> norm(x) - 0.5, grid)
         sdf = NewtonSDF(ϕ; upsample = 3)
         pts = get_sample_points(sdf)
         @test length(pts) > 0
-        @test maximum(p -> abs(sdf.itp(p)), pts) < 1.0e-6
-    end
-
-    @testset "update!" begin
-        grid = LSM.CartesianGrid((-1.0, -1.0), (1.0, 1.0), (40, 40))
-        r1, r2 = 0.5, 0.3
-        sdf = NewtonSDF(LSM.LevelSet(x -> norm(x) - r1, grid); upsample = 4)
-        @test sdf(SVector(r1, 0.0)) ≈ 0.0 atol = 2.0e-4
-
-        update!(sdf, LSM.LevelSet(x -> norm(x) - r2, grid))
-        @test sdf(SVector(r2, 0.0)) ≈ 0.0 atol = 2.0e-4
-        @test sdf(SVector(r1, 0.0)) ≈ r1 - r2 atol = 1.0e-4
+        @test maximum(p -> abs(sdf.meshfield(p)), pts) < 1.0e-6
     end
 
     @testset "deepcopy" begin
         grid = LSM.CartesianGrid((-1.0, -1.0), (1.0, 1.0), (30, 30))
-        sdf = NewtonSDF(LSM.LevelSet(x -> norm(x) - 0.5, grid); upsample = 4)
+        sdf = NewtonSDF(LSM.MeshField(x -> norm(x) - 0.5, grid); upsample = 4)
         sdf2 = deepcopy(sdf)
         @test sdf2(SVector(0.5, 0.0)) ≈ 0.0 atol = 2.0e-5
         @test sdf2(SVector(0.0, 0.0)) ≈ -0.5 atol = 2.0e-5
     end
 end
 
-@testset "NewtonReinitializer" begin
+@testset "reinitialize!" begin
     @testset "2D circle" begin
         grid = LSM.CartesianGrid((-1.0, -1.0), (1.0, 1.0), (100, 100))
         exact_sdf(x) = sqrt(x[1]^2 + x[2]^2) - 0.5
-        ϕ = LSM.LevelSet(x -> (x[1]^2 + x[2]^2) - 0.25, grid)
+        ϕ = LSM.MeshField(x -> (x[1]^2 + x[2]^2) - 0.25, grid)
 
         @test abs(LSM.volume(ϕ) - π / 4) < 1.0e-2
 
-        LSM.reinitialize!(ϕ, LSM.NewtonReinitializer())
+        LSM.reinitialize!(ϕ)
 
-        max_err = maximum(eachindex(grid)) do i
-            abs(ϕ[i] - exact_sdf(grid[i]))
+        max_err = maximum(nodeindices(grid)) do i
+            abs(ϕ[i] - exact_sdf(getnode(grid, i)))
         end
-        @test max_err < 1.0e-8
+        # the Newton solver stops at the default tolerance sqrt(eps(Float64))
+        @test max_err < 2 * sqrt(eps(Float64))
         @test abs(LSM.volume(ϕ) - π / 4) < 1.0e-2  # volume preserved
     end
 
     @testset "3D sphere" begin
         grid = LSM.CartesianGrid((-1.0, -1.0, -1.0), (1.0, 1.0, 1.0), (31, 31, 31))
         exact_sdf(x) = sqrt(x[1]^2 + x[2]^2 + x[3]^2) - 0.45
-        ϕ = LSM.LevelSet(x -> (x[1]^2 + x[2]^2 + x[3]^2) - 0.45^2, grid)
+        ϕ = LSM.MeshField(x -> (x[1]^2 + x[2]^2 + x[3]^2) - 0.45^2, grid)
 
-        LSM.reinitialize!(ϕ, LSM.NewtonReinitializer(; upsample = 4))
+        LSM.reinitialize!(ϕ; upsample = 4)
 
-        max_err = maximum(eachindex(grid)) do i
-            abs(ϕ[i] - exact_sdf(grid[i]))
+        max_err = maximum(nodeindices(grid)) do i
+            abs(ϕ[i] - exact_sdf(getnode(grid, i)))
         end
         @test max_err < 5.0e-3
+    end
+end
+
+@testset "reinitialize! h-convergence" begin
+    _orders(errs, Ns) = [log(errs[i] / errs[i + 1]) / log(Ns[i + 1] / Ns[i]) for i in 1:(length(Ns) - 1)]
+
+    r = 0.5
+    exact_sdf(x) = norm(x) - r
+
+    # The input is the exact SDF sampled on the grid. Although nodal values are exact,
+    # the interpolant approximates ‖x‖-r between nodes with O(h^(k+1)) error, which
+    # shifts the reconstructed zero set and limits the SDF accuracy accordingly.
+    #
+    # bc = ExtrapolationBC(k): ghost-node extrapolation matches the interpolant order so
+    # that boundary cells do not cap the convergence rate.
+    #
+    # xtol = ftol = 1e-14: the default tolerances (1e-8) would floor the error before
+    # the interpolant-limited regime is reached.
+    Ns = [20, 40, 80]
+    for k in [2, 3, 4]
+        @testset "order = $k → O(h^$(k + 1))" begin
+            errors = map(Ns) do N
+                grid = CartesianGrid((-1.0, -1.0), (1.0, 1.0), (N, N))
+                ϕ = MeshField(exact_sdf, grid; bc = ExtrapolationBC(k))
+                reinitialize!(ϕ; order = k, upsample = 10, xtol = 1.0e-14, ftol = 1.0e-14)
+                maximum(I -> abs(ϕ[I] - exact_sdf(getnode(grid, I))), nodeindices(grid))
+            end
+            orders = _orders(errors, Ns)
+            @test all(≥(k + 0.5), orders)
+        end
     end
 end

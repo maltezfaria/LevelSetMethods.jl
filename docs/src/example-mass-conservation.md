@@ -27,8 +27,8 @@ center = (-0.75, 0)
 radius = 0.5
 h = 1.0
 w = 0.2
-disk = LevelSetMethods.circle(grid; center, radius)
-rec = LevelSetMethods.rectangle(grid; center = center .- (0, radius), width = (w, h))
+disk = MeshField(x -> hypot((x .- center)...) - radius, grid)
+rec = MeshField(x -> maximum(abs.(x .- (center .- (0, radius))) .- (w, h) ./ 2), grid)
 ϕ₀ = setdiff(disk, rec)
 V₀ = LevelSetMethods.volume(ϕ₀)
 tf = 2π   # one full revolution

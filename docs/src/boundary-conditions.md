@@ -5,7 +5,7 @@ The following boundary conditions are available:
 | Type | Description |
 | ---- | ----------- |
 | [`PeriodicBC`](@ref) | Periodic (wrap-around) |
-| [`DirichletBC`](@ref) | Prescribed boundary value |
+| [`SymmetryBC`](@ref) | Symmetry plane (reflection; for axisymmetric problems) |
 | [`ExtrapolationBC{P}`](@ref ExtrapolationBC) | P-th order one-sided polynomial extrapolation |
 | `NeumannBC` | Alias for `ExtrapolationBC{0}` (constant extension, ∂ϕ/∂n = 0) |
 | `LinearExtrapolationBC` | Alias for `ExtrapolationBC{1}` (linear extrapolation, ∂²ϕ/∂n² = 0) |
@@ -30,7 +30,7 @@ Here is how it looks in practice:
 ```@example boundary-conditions
 using LevelSetMethods, GLMakie
 grid = CartesianGrid((-1,-1), (1,1), (100, 100))
-ϕ₀    = LevelSet(x -> sqrt(x[1]^2 + x[2]^2) - 0.5, grid)
+ϕ₀    = MeshField(x -> sqrt(x[1]^2 + x[2]^2) - 0.5, grid)
 bc   = PeriodicBC()
 eq   = LevelSetEquation(; ic = deepcopy(ϕ₀), bc, terms = AdvectionTerm((x,t) -> (1,0)))
 fig = Figure(; size = (1200, 300))

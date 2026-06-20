@@ -1,7 +1,20 @@
 """
     abstract type BoundaryCondition
 
-Types used to specify boundary conditions.
+Abstract supertype for boundary conditions. A boundary condition determines the value of a
+field at *ghost* indices that lie outside the mesh, closing finite-difference stencils near
+the domain boundary.
+
+A concrete subtype `bc` must implement:
+
+  - [`bc_stencil`](@ref)`(bc, I, ax, dim)`: return an iterable of `(weight, index)` pairs whose
+    weighted sum `Σ wⱼ · ϕ[Iⱼ]` gives the ghost value at the out-of-bounds index `I` along
+    dimension `dim` (with `ax` the in-bounds range). `dim` is part of the signature because an
+    index can be out of bounds in several dimensions at once (e.g. a corner ghost), and each
+    returned index is resolved along the remaining dimensions by the caller.
+
+[`bc_stencil`](@ref) is a *pure* function of indices: it never touches the field, so the
+field-reading and accumulation live entirely in the indexing code (see [`_getindexbc`](@ref)).
 """
 abstract type BoundaryCondition end
 
@@ -10,16 +23,6 @@ abstract type BoundaryCondition end
 
 Singleton type representing periodic boundary conditions. Ghost cells are filled by wrapping
 around to the opposite side of the domain.
-
-```jldoctest
-using LevelSetMethods
-PeriodicBC()
-
-# output
-
-Periodic
-```
-
 """
 struct PeriodicBC <: BoundaryCondition end
 
@@ -33,15 +36,6 @@ into the ghost region.
 `ExtrapolationBC{0}` (aliased as [`NeumannBC`](@ref)) gives constant extension
 (∂ϕ/∂n = 0 at the boundary face). `ExtrapolationBC{1}` (aliased as
 [`LinearExtrapolationBC`](@ref)) gives linear extrapolation (∂²ϕ/∂n² = 0).
-
-```jldoctest
-using LevelSetMethods
-ExtrapolationBC(4)
-
-# output
-
-Degree 4 extrapolation
-```
 """
 struct ExtrapolationBC{_P} <: BoundaryCondition
     function ExtrapolationBC{P}() where {P}
@@ -68,6 +62,17 @@ to ∂²ϕ/∂n² = 0 at the boundary face.
 """
 const LinearExtrapolationBC = ExtrapolationBC{1}
 
+"""
+    struct SymmetryBC <: BoundaryCondition
+
+Symmetry-plane (reflective) boundary condition: the field is mirrored across the boundary
+node, `ϕ[b - k] = ϕ[b + k]`. Like [`NeumannBC`](@ref) it enforces ∂ϕ/∂n = 0, but by
+*reflection* rather than flat extension, so it also preserves curvature symmetrically and
+makes the interface meet the boundary perpendicularly. This is the correct condition on a
+symmetry axis, e.g. for axisymmetric simulations.
+"""
+struct SymmetryBC <: BoundaryCondition end
+
 
 """
     _lagrange_extrap_weight(j, k, P)
@@ -79,6 +84,7 @@ polynomial fitted to P+1 nodes.
 Nodes are at positions 0, 1, …, P (relative to the boundary);
 the ghost is at position -k.  The weight is
 
+# TODO: maybe write this as proper latex math?
     wⱼ = ∏_{m=0, m≠j}^{P}  (-k - m) / (j - m)
 """
 function _lagrange_extrap_weight(j::Int, k::Int, P::Int)
@@ -90,41 +96,67 @@ function _lagrange_extrap_weight(j::Int, k::Int, P::Int)
     return w
 end
 
-"""
-    struct DirichletBC{T} <: BoundaryCondition
-
-A Dirichlet boundary condition taking values of `f(x, t)` at the boundary,
-where `x` is the spatial coordinate and `t` is the current time.
-"""
-mutable struct DirichletBC{T} <: BoundaryCondition
-    f::T
-    t::Float64 # state passed to `f` for time-dependent BCs
-end
-
-function DirichletBC(f)
-    isempty(methods(f)) &&
-        throw(ArgumentError("DirichletBC requires a callable, got $(typeof(f))"))
-    return DirichletBC(f, 0.0)
-end
-
-"""
-    update_bc!(bc::BoundaryCondition, t)
-
-Update the current time stored in a boundary condition. Only meaningful for
-[`DirichletBC`](@ref); all other BC types are no-ops.
-"""
-update_bc!(bc::BoundaryCondition, _) = bc
-update_bc!(bc::DirichletBC, t) = (bc.t = t; bc)
-
 Base.show(io::IO, ::PeriodicBC) = print(io, "Periodic")
+Base.show(io::IO, ::ExtrapolationBC{0}) = print(io, "Neumann")
+Base.show(io::IO, ::ExtrapolationBC{1}) = print(io, "Linear extrapolation")
 Base.show(io::IO, ::ExtrapolationBC{P}) where {P} = print(io, "Degree $P extrapolation")
-Base.show(io::IO, ::DirichletBC) = print(io, "Dirichlet")
+Base.show(io::IO, ::SymmetryBC) = print(io, "Symmetry")
+
+# Wrap an out-of-bounds index back into the grid for a periodic boundary along `dim`.
+# TODO: is there no periodic wrapping
+function _wrap_index_periodic(I::CartesianIndex{N}, ax, dim) where {N}
+    i = I[dim]
+    return ntuple(N) do d
+        if d == dim
+            if i < first(ax)
+                return (last(ax) - (first(ax) - i))
+            elseif i > last(ax)
+                return (first(ax) + (i - last(ax)))
+            end
+        end
+        return I[d]
+    end |> CartesianIndex
+end
+
+"""
+    bc_stencil(bc::BoundaryCondition, I, ax, dim) -> NTuple of (weight, index)
+
+Express the ghost value at the out-of-bounds index `I` (along dimension `dim`, with in-bounds
+range `ax`) as a weighted sum `Σ wⱼ · ϕ[Iⱼ]`, returned as a tuple of `(weight, index)` pairs.
+Each returned index is in range along `dim` but may still be out of bounds in other
+dimensions; the caller ([`_getindexbc`](@ref)) resolves those by recursion. Primary interface
+method of [`BoundaryCondition`](@ref); pure function of indices, with no field access.
+"""
+function bc_stencil end
+
+bc_stencil(::PeriodicBC, I, ax, dim) = ((1.0, _wrap_index_periodic(I, ax, dim)),)
+
+function bc_stencil(::ExtrapolationBC{P}, I::CartesianIndex{N}, ax, dim) where {N, P}
+    k = I[dim] < first(ax) ? (first(ax) - I[dim]) : (I[dim] - last(ax))
+    b = I[dim] < first(ax) ? first(ax) : last(ax)
+    # d = ±1 flips direction so both boundaries map to the same local coordinate
+    d = I[dim] < first(ax) ? 1 : -1
+    return ntuple(Val(P + 1)) do jp1
+        j = jp1 - 1
+        Ij = CartesianIndex(ntuple(s -> s == dim ? b + d * j : I[s], Val(N)))
+        (_lagrange_extrap_weight(j, k, P), Ij)
+    end
+end
+
+function bc_stencil(::SymmetryBC, I::CartesianIndex{N}, ax, dim) where {N}
+    k = I[dim] < first(ax) ? (first(ax) - I[dim]) : (I[dim] - last(ax))
+    b = I[dim] < first(ax) ? first(ax) : last(ax)
+    # reflect about the boundary node: the ghost at b - k mirrors the interior node at b + k
+    d = I[dim] < first(ax) ? 1 : -1
+    Imirror = CartesianIndex(ntuple(s -> s == dim ? b + d * k : I[s], Val(N)))
+    return ((1.0, Imirror),)
+end
 
 """
     _normalize_bc(bc, dim)
 
 Normalize the `bc` argument into a `dim`-tuple of `(left, right)` pairs, one per spatial
-dimension, as expected by [`add_boundary_conditions`](@ref).
+dimension, as expected by [`_add_boundary_conditions`](@ref).
 
 - A single `BoundaryCondition` is applied to all sides.
 - A length-`dim` collection applies each entry to both sides of the corresponding dimension.
@@ -132,28 +164,27 @@ dimension, as expected by [`add_boundary_conditions`](@ref).
   dimension.
 """
 function _normalize_bc(bc, dim)
-    if isa(bc, BoundaryCondition)
-        return ntuple(_ -> (bc, bc), dim)
-    else
-        length(bc) == dim || throw(ArgumentError("invalid number of boundary conditions"))
-        return ntuple(dim) do i
-            if isa(bc[i], BoundaryCondition)
-                return (bc[i], bc[i])
-            else
-                length(bc[i]) == 2 && all(isa(bc[i][n], BoundaryCondition) for n in 1:2) ||
-                    throw(ArgumentError("invalid boundary condition for dimension $i"))
-                # check that periodic boundary conditions are not mixed with others
-                if any(isa(bc[i][n], PeriodicBC) for n in 1:2)
-                    all(isa(bc[i][n], PeriodicBC) for n in 1:2) || throw(
-                        ArgumentError(
-                            "periodic boundary conditions cannot be mixed with others in dimension $i",
-                        ),
-                    )
-                end
-                return (bc[i][1], bc[i][2])
-            end
-        end
-    end
+    isa(bc, BoundaryCondition) && return ntuple(_ -> (bc, bc), dim)
+    length(bc) == dim || throw(ArgumentError("invalid number of boundary conditions"))
+    return ntuple(i -> _normalize_bc_pair(bc[i], i), dim)
+end
+
+"""
+    _normalize_bc_pair(bc, dim) -> (left, right)
+
+Normalize the boundary condition(s) for a single dimension `dim` into a `(left, right)`
+pair. A single `BoundaryCondition` applies to both sides; a length-2 collection is taken as
+`(left, right)`. Periodicity must hold on both sides of a dimension or neither.
+"""
+function _normalize_bc_pair(bc, dim)
+    isa(bc, BoundaryCondition) && return (bc, bc)
+    (length(bc) == 2 && all(b -> isa(b, BoundaryCondition), bc)) ||
+        throw(ArgumentError("invalid boundary condition for dimension $dim"))
+    left, right = bc
+    (left isa PeriodicBC) ⊻ (right isa PeriodicBC) && throw(
+        ArgumentError("periodic boundary conditions cannot be mixed with others in dimension $dim"),
+    )
+    return (left, right)
 end
 
 """

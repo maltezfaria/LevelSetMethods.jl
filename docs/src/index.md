@@ -39,8 +39,10 @@ Here is how it looks in practice to create a simple `LevelSetEquation`:
 ```@example ls-intro
 using LevelSetMethods
 grid = CartesianGrid((-1, -1), (1, 1), (100, 100))
-# ϕ    = LevelSet(x -> sqrt(2*x[1]^2 + x[2]^2) - 1/2, grid) # a disk
-ϕ    = LevelSetMethods.dumbbell(grid) # a predefined shape
+# a dumbbell, built from two disks and a bar (see the [Creating level sets](@ref geometry) page)
+disk(c) = MeshField(x -> hypot((x .- c)...) - 0.25, grid)
+bar     = MeshField(x -> maximum(abs.(x) .- (1.0, 0.2) ./ 2), grid)
+ϕ       = disk((-0.5, 0.0)) ∪ disk((0.5, 0.0)) ∪ bar
 𝐮    = (x,t) -> (-x[2], x[1])
 eq   = LevelSetEquation(;
   terms = (AdvectionTerm(𝐮),),
