@@ -12,11 +12,13 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [weakdeps]
+ImplicitIntegration = "bc256489-3a69-4a66-afc4-127cc87e6182"
 MMG_jll = "86086c02-e288-5929-a127-40944b0018b7"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 MarchingCubes = "299715c1-40a9-479a-aaf9-4a633d36f717"
 
 [extensions]
+ImplicitIntegrationExt = "ImplicitIntegration"
 MMGSurfaceExt = ["MMG_jll", "MarchingCubes"]
 MMGVolumeExt = "MMG_jll"
 MakieExt = "Makie"
@@ -24,6 +26,7 @@ MakieExt = "Makie"
 [compat]
 DiffResults = "1.1.0"
 ForwardDiff = "1.3.2"
+ImplicitIntegration = "0.2"
 LinearAlgebra = "1"
 MMG_jll = "5"
 Makie = "0.21, 0.22, 0.23, 0.24"
