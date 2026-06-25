@@ -88,9 +88,7 @@ II.split(p::BP, _lb, _ub, dir) = _split(p, dir, 0.5)
 
 # --- quadrature ---
 
-_single_cell(I::CartesianIndex{N}) where {N} = CartesianIndices(ntuple(d -> I[d]:I[d], Val(N)))
-
-function LevelSetMethods.quadrature(ϕ::LSM.InterpolatedField; order, surface = false)
+function LevelSetMethods.quadrature(ϕ::LSM.InterpolatedField; quadrature_order, surface = false)
     # FIXME: volume integrals (surface=false) on a NarrowBandMeshField are not supported.
     # We iterate active_cellindices (band cells only), so interior cells deep inside the zero
     # level set are never visited and their volume is silently omitted. Volume support could
@@ -101,24 +99,22 @@ function LevelSetMethods.quadrature(ϕ::LSM.InterpolatedField; order, surface = 
                 "Use a full MeshField for volume integrals, or pass surface=true for surface integrals."
         )
     end
-
-    grid = LSM.mesh(ϕ)
-    N = ndims(grid)
-    results = Tuple{CartesianIndices{N, NTuple{N, UnitRange{Int}}}, II.Quadrature}[]
-
+    N = ndims(LSM.mesh(ϕ))
+    quads = Dict{CartesianIndex{N}, II.Quadrature}()
     for I in LSM.active_cellindices(ϕ.field)
         LSM.proven_empty(ϕ, I; surface) && continue
         # bp's coeffs alias the task scratch buffer (see make_interpolant); quadgen only reads
         # them (its sub-polynomials are fresh arrays) and finishes before the next cell, so no
         # copy is needed.
         bp = LSM.make_interpolant(ϕ, I)
-        out = II.quadgen(bp, LSM.low_corner(bp), LSM.high_corner(bp); order, surface)
-        if !isempty(out.quad.coords)
-            push!(results, (_single_cell(I), out.quad))
-        end
+        out = II.quadgen(bp, LSM.low_corner(bp), LSM.high_corner(bp); order = quadrature_order, surface)
+        isempty(out.quad.coords) || (quads[I] = out.quad)
     end
+    return quads
+end
 
-    return results
+function LevelSetMethods.quadrature(mf::LSM.AbstractMeshField; interpolation_order, quadrature_order, surface = false)
+    return LevelSetMethods.quadrature(LSM.InterpolatedField(mf, interpolation_order); quadrature_order, surface)
 end
 
 end # module

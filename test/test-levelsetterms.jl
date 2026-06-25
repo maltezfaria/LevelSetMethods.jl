@@ -37,7 +37,7 @@ end
     ϕ = LSM.MeshField(x -> 2 * (x[1] - 0.3), grid)
     eq = LSM.LevelSetEquation(;
         terms = (LSM.EikonalReinitializationTerm(ϕ),),
-        ic = deepcopy(ϕ),
+        ic = ϕ,
         bc = LSM.LinearExtrapolationBC(),
     )
     integrate!(eq, 2.0)

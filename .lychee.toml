@@ -8,10 +8,9 @@ exclude = [
   ".*.gif$",
   ".*volume2d.png$",
   ".*surface3d.png$",
+  ".*volume3d.png$",
   # ignore @cite tags
   "@cite",
 ]
 
-exclude_path = [
-  "docs/build"
-]
+exclude_path = ["docs/build"]

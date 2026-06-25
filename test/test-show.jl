@@ -14,6 +14,14 @@ showstr(x) = sprint(show, MIME("text/plain"), x)
     @test occursin("└─ spacing: h = (0.1111, 0.3333)", s)
 end
 
+@testset "CartesianCell" begin
+    g = CartesianGrid((0, 0), (1, 1), (10, 4))
+    s = showstr(getcell(g, CartesianIndex(1, 1)))
+    @test startswith(s, "CartesianCell in ℝ²")
+    @test occursin("├─ lower corner: (0.0, 0.0)", s)
+    @test occursin("└─ upper corner: (0.1111, 0.3333)", s)
+end
+
 @testset "BoundaryConditions" begin
     @test sprint(show, PeriodicBC()) == "Periodic"
     @test sprint(show, NeumannBC()) == "Neumann"

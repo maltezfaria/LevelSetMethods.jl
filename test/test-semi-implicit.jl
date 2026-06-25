@@ -11,7 +11,7 @@ using Test
     eq = LevelSetEquation(;
         terms = (AdvectionTerm(vel, Upwind()),),
         integrator = SemiImplicitI2OE(cfl = 3.0),
-        ic = deepcopy(ϕ0),
+        ic = ϕ0,
         bc = PeriodicBC(),
     )
 
@@ -35,7 +35,7 @@ end
     eq = LevelSetEquation(;
         terms = (AdvectionTerm(vel, Upwind()),),
         integrator = SemiImplicitI2OE(cfl = 2.5),
-        ic = deepcopy(ϕ0),
+        ic = ϕ0,
         bc = PeriodicBC(),
     )
 
@@ -57,7 +57,7 @@ end
     eq_neumann = LevelSetEquation(;
         terms = (term_neumann,),
         integrator = SemiImplicitI2OE(cfl = 4.0),
-        ic = deepcopy(ϕ0),
+        ic = ϕ0,
         bc = LinearExtrapolationBC(),
     )
     integrate!(eq_neumann, 0.6)
@@ -100,13 +100,13 @@ end
     eq_semi = LevelSetEquation(;
         terms = (AdvectionTerm(vel, Upwind()),),
         integrator = SemiImplicitI2OE(cfl = 2.0),
-        ic = deepcopy(ϕ0),
+        ic = ϕ0,
         bc = PeriodicBC(),
     )
     eq_explicit = LevelSetEquation(;
         terms = (AdvectionTerm(vel, Upwind()),),
         integrator = ForwardEuler(cfl = 2.0),
-        ic = deepcopy(ϕ0),
+        ic = ϕ0,
         bc = PeriodicBC(),
     )
 
@@ -140,13 +140,13 @@ end
     eq_semi = LevelSetEquation(;
         terms = (AdvectionTerm(vel, Upwind()),),
         integrator = SemiImplicitI2OE(cfl = cfl_high),
-        ic = deepcopy(ϕ0),
+        ic = ϕ0,
         bc = PeriodicBC(),
     )
     eq_explicit = LevelSetEquation(;
         terms = (AdvectionTerm(vel, Upwind()),),
         integrator = ForwardEuler(cfl = cfl_high),
-        ic = deepcopy(ϕ0),
+        ic = ϕ0,
         bc = PeriodicBC(),
     )
 

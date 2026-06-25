@@ -14,7 +14,9 @@ a full-grid discretization or a [`NarrowBandMeshField`](@ref) for a narrow-band
 discretization.
 
 Calling [`integrate!(eq, tf)`](@ref) will evolve the equation up to time `tf`, modifying
-`current_state(eq)` and `current_time(eq)` in place.
+`current_state(eq)` and `current_time(eq)` in place. The initial condition `ic` is copied
+into the equation, so the field you pass in is never modified; reach the evolving state
+through [`current_state`](@ref).
 
 Boundary conditions come from the `bc` keyword, or from `ic` if it already carries them
 (passing both warns and `bc` wins); it is an error if neither supplies them. If a single
@@ -62,14 +64,15 @@ function LevelSetEquation(;
         t = 0,
     )
     terms = _normalize_terms(terms)
+    # copy `ic` so the equation owns its state: integrating never mutates the caller's field
     state = if isnothing(bc)
         has_boundary_conditions(ic) ||
             throw(ArgumentError("no boundary conditions: pass `bc` or build `ic` with one"))
-        ic
+        copy(ic)
     else
         has_boundary_conditions(ic) &&
             @warn "ic already has boundary conditions; these will be overwritten by bc"
-        _add_boundary_conditions(ic, bc)
+        _add_boundary_conditions(copy(ic), bc)
     end
     return LevelSetEquation(terms, integrator, state, t)
 end
@@ -182,8 +185,8 @@ advanced, and `posthook(ls)` runs after the step has been committed. Both receiv
 the default `identity` is a no-op.
 
 Reinitialization of the level-set to a signed distance function is not built in by default,
-but can be easily added by creating a `posthook`: pass `posthook = eq ->
-reinitialize!(current_state(eq))` (see [`reinitialize!`](@ref)) to reinitialize after every
+but can be easily added by creating a `prehook`: pass `prehook = eq ->
+reinitialize!(current_state(eq))` (see [`reinitialize!`](@ref)) to reinitialize before every
 step, or gate the call on any criterion (elapsed time, `|∇ϕ|` drift, a step counter closed
 over by the hook). The integrator never reinitializes on its own — keeping a signed distance
 function is entirely the caller's choice.

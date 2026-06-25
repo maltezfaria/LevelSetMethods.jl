@@ -1,61 +1,73 @@
+```@meta
+CurrentModule = LevelSetMethods
+```
+
 # [Makie extension](@id extension-makie)
 
-[Makie](https://docs.makie.org/v0.21/) can be used to visualize level set functions in both 2
-and 3 dimensions. After loading one of the `Makie` backends (we recommend `GLMakie` for 3D),
-you can simply call `plot` on the level set function to visualize it. For example:
+Loading a [Makie](https://docs.makie.org) backend activates plotting recipes for level sets.
+We recommend [`GLMakie`](https://docs.makie.org) for 3D plots and animations. Once a backend
+is loaded you can call `plot` directly on a [`MeshField`](@ref), a
+[`NarrowBandMeshField`](@ref), or a [`LevelSetEquation`](@ref).
 
-```@example contour2D
+`LevelSetMethods` ships a `Theme` with sensible defaults for these plots; apply it once with
+[`LevelSetMethods.set_makie_theme!`](@ref) (or fetch it with
+[`LevelSetMethods.makie_theme`](@ref) to scope it to a `with_theme` block).
+
+## Two dimensions
+
+By default `plot` draws the zero contour and shades the interior ``\phi < 0``:
+
+```@example makie2d
 using LevelSetMethods, GLMakie
-grid = CartesianGrid((-2, -2), (2, 2), (100, 100))
-ϕ = MeshField(grid) do x # a star; see the [geometry](@ref) page
+LevelSetMethods.set_makie_theme!()
+grid = CartesianGrid((-2, -2), (2, 2), (64, 64))
+ϕ = MeshField(grid) do x   # a star; see the geometry page
     r, θ = hypot(x...), atan(x[2], x[1])
     return r - (1 + 0.25 * cos(5θ))
 end
 plot(ϕ)
 ```
 
-By default, only the zero level set is plotted as a contour line. For more control, simply
-call the `contour` (or `contourf`) function from `Makie` directly. For example:
+For more control, call Makie's `contour` (or `contourf`) directly — for example to draw
+several level sets at once:
 
-```@example contour2D
+```@example makie2d
 contour(ϕ; levels = [-0.5, 0, 0.5], labels = true)
 ```
 
-Although you can manually customize the `Axis` attributes for the plot, `LevelSetMethods`
-provides a `Theme` with some reasonable defaults for plotting level set functions:
+## Three dimensions
 
-```@example contour2D
-theme = LevelSetMethods.makie_theme()
-with_theme(theme) do
-  plot(ϕ)
-end
-```
+In 3D, `plot` renders the zero level set as an isosurface:
 
-In `3D`, the `plot` function will plot the zero level set as an isosurface. For example:
-
-```@example volume3D
+```@example makie3d
 using LevelSetMethods, GLMakie, LinearAlgebra
-grid = CartesianGrid((-1.5, -1.5, -1.5), (1.5, 1.5, 1.5), (50, 50, 50))
+GLMakie.activate!()   # only GLMakie can render the volume isosurface
+LevelSetMethods.set_makie_theme!()
+grid = CartesianGrid((-1.5, -1.5, -1.5), (1.5, 1.5, 1.5), (32, 32, 32))
 P1, P2 = (-1, 0, 0), (1, 0, 0)
-b = 1.05
-ϕ = MeshField(grid) do x
-  norm(x .- P1)*norm(x .- P2) - b^2
-end
-theme = LevelSetMethods.makie_theme()
-with_theme(theme) do
-  plot(ϕ)
-end
+ϕ = MeshField(x -> norm(x .- P1) * norm(x .- P2) - 1.05^2, grid)   # a Cassini surface
+plot(ϕ)
 ```
 
-Once again, you can manually customize the options by calling the `volume` function from
-`Makie` directly:
+As in 2D, dropping down to Makie's `volume` gives full control — here drawing a different
+isovalue:
 
-```@example volume3D
-with_theme(theme) do
-  Makie.volume(ϕ; algorithm = :iso, isovalue = 0.5)
-end
+```@example makie3d
+Makie.volume(ϕ; algorithm = :iso, isovalue = 0.5)
 ```
 
-!!! tip "Plotting a `LevelSetEquation`"
-    Calling `plot` on a [`LevelSetEquation`](@ref) defaults to plotting the `MeshField` given by its
-    `current_state`; exactly the same as calling `plot(current_state(equation))`.
+```@example makie3d
+using CairoMakie          # hide
+CairoMakie.activate!()    # restore the headless default for later pages # hide
+nothing                   # hide
+```
+
+## Equations and narrow bands
+
+Calling `plot` on a [`LevelSetEquation`](@ref) plots its
+[`current_state`](@ref) — equivalent to `plot(current_state(eq))` — which makes it convenient
+to animate a simulation by replotting as it advances (see the [examples](@ref zalesak)).
+
+The recipe is band-aware: plotting a [`NarrowBandMeshField`](@ref) (or an equation whose state
+is one) shades the *active* cells in 2D and scatters the active nodes in 3D, so you can see the
+band travel with the interface — the [narrow-band page](@ref narrow-band) shows this in action.

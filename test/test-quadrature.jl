@@ -10,8 +10,18 @@ _total(quads, f = x -> 1.0) = sum(integrate(f, q) for (_, q) in quads)
         R = 0.5
         grid = CartesianGrid((-1.0, -1.0), (1.0, 1.0), (21, 21))
         ϕ = InterpolatedField(MeshField(x -> x[1]^2 + x[2]^2 - R^2, grid), 3)
-        @test _total(LevelSetMethods.quadrature(ϕ; order = 4, surface = false)) ≈ π * R^2 atol = 1.0e-4
-        @test _total(LevelSetMethods.quadrature(ϕ; order = 4, surface = true)) ≈ 2π * R atol = 1.0e-3
+        @test _total(LevelSetMethods.quadrature(ϕ; quadrature_order = 4, surface = false)) ≈ π * R^2 atol = 1.0e-4
+        @test _total(LevelSetMethods.quadrature(ϕ; quadrature_order = 4, surface = true)) ≈ 2π * R atol = 1.0e-3
+    end
+
+    @testset "AbstractMeshField convenience form" begin
+        R = 0.5
+        grid = CartesianGrid((-1.0, -1.0), (1.0, 1.0), (21, 21))
+        mf = MeshField(x -> x[1]^2 + x[2]^2 - R^2, grid)
+        ϕ = InterpolatedField(mf, 3)
+        # wrapping mf must match quadraturing the explicit InterpolatedField
+        @test _total(LevelSetMethods.quadrature(mf; interpolation_order = 3, quadrature_order = 4)) ≈
+            _total(LevelSetMethods.quadrature(ϕ; quadrature_order = 4)) rtol = 1.0e-12
     end
 
     @testset "2D ellipse" begin
@@ -20,16 +30,16 @@ _total(quads, f = x -> 1.0) = sum(integrate(f, q) for (_, q) in quads)
         ϕ = InterpolatedField(MeshField(x -> (x[1] / a)^2 + (x[2] / b)^2 - 1.0, grid), 3)
         h = ((a - b) / (a + b))^2
         peri_approx = π * (a + b) * (1 + 3h / (10 + sqrt(4 - 3h)))
-        @test _total(LevelSetMethods.quadrature(ϕ; order = 4, surface = false)) ≈ π * a * b rtol = 1.0e-3
-        @test _total(LevelSetMethods.quadrature(ϕ; order = 4, surface = true)) ≈ peri_approx rtol = 1.0e-3
+        @test _total(LevelSetMethods.quadrature(ϕ; quadrature_order = 4, surface = false)) ≈ π * a * b rtol = 1.0e-3
+        @test _total(LevelSetMethods.quadrature(ϕ; quadrature_order = 4, surface = true)) ≈ peri_approx rtol = 1.0e-3
     end
 
     @testset "3D sphere" begin
         R = 0.5
         grid = CartesianGrid((-1.0, -1.0, -1.0), (1.0, 1.0, 1.0), (11, 11, 11))
         ϕ = InterpolatedField(MeshField(x -> x[1]^2 + x[2]^2 + x[3]^2 - R^2, grid), 3)
-        @test _total(LevelSetMethods.quadrature(ϕ; order = 2, surface = false)) ≈ 4π / 3 * R^3 atol = 1.0e-3
-        @test _total(LevelSetMethods.quadrature(ϕ; order = 2, surface = true)) ≈ 4π * R^2 atol = 1.0e-2
+        @test _total(LevelSetMethods.quadrature(ϕ; quadrature_order = 2, surface = false)) ≈ 4π / 3 * R^3 atol = 1.0e-3
+        @test _total(LevelSetMethods.quadrature(ϕ; quadrature_order = 2, surface = true)) ≈ 4π * R^2 atol = 1.0e-2
     end
 
     @testset "3D ellipsoid" begin
@@ -40,7 +50,7 @@ _total(quads, f = x -> 1.0) = sum(integrate(f, q) for (_, q) in quads)
                 (x[1] / a)^2 + (x[2] / b)^2 + (x[3] / c)^2 - 1.0
             end, 3
         )
-        @test _total(LevelSetMethods.quadrature(ϕ; order = 3, surface = false)) ≈ (4 / 3) * π * a * b * c rtol = 1.0e-3
+        @test _total(LevelSetMethods.quadrature(ϕ; quadrature_order = 3, surface = false)) ≈ (4 / 3) * π * a * b * c rtol = 1.0e-3
     end
 
     @testset "h-convergence (2D circle, odd interp_order)" begin
@@ -64,12 +74,12 @@ _total(quads, f = x -> 1.0) = sum(integrate(f, q) for (_, q) in quads)
                 area_errs = map(Ns) do N
                     grid = CartesianGrid((-1.0, -1.0), (1.0, 1.0), (N, N))
                     ϕ = InterpolatedField(MeshField(x -> norm(x) - R, grid), k)
-                    abs(_total(LevelSetMethods.quadrature(ϕ; order = q, surface = false)) - π * R^2)
+                    abs(_total(LevelSetMethods.quadrature(ϕ; quadrature_order = q, surface = false)) - π * R^2)
                 end
                 perim_errs = map(Ns) do N
                     grid = CartesianGrid((-1.0, -1.0), (1.0, 1.0), (N, N))
                     ϕ = InterpolatedField(MeshField(x -> norm(x) - R, grid), k)
-                    abs(_total(LevelSetMethods.quadrature(ϕ; order = q, surface = true)) - 2π * R)
+                    abs(_total(LevelSetMethods.quadrature(ϕ; quadrature_order = q, surface = true)) - 2π * R)
                 end
                 @test all(≥(k + 0.5), _orders(area_errs, Ns))
                 @test all(≥(k + 0.5), _orders(perim_errs, Ns))
@@ -83,9 +93,9 @@ _total(quads, f = x -> 1.0) = sum(integrate(f, q) for (_, q) in quads)
         ϕ_full = InterpolatedField(MeshField(x -> x[1]^2 + x[2]^2 - R^2, grid), 3)
         ϕ_nb = NarrowBandMeshField(ϕ_full; nlayers = 3)
         # surface=false (volume integral) is not supported on NarrowBandMeshField
-        @test_throws ErrorException LevelSetMethods.quadrature(ϕ_nb; order = 4, surface = false)
+        @test_throws ErrorException LevelSetMethods.quadrature(ϕ_nb; quadrature_order = 4, surface = false)
         # surface=true (surface integral) works: only interface cells are needed
-        @test _total(LevelSetMethods.quadrature(ϕ_full; order = 4, surface = true)) ≈
-            _total(LevelSetMethods.quadrature(ϕ_nb; order = 4, surface = true)) rtol = 1.0e-10
+        @test _total(LevelSetMethods.quadrature(ϕ_full; quadrature_order = 4, surface = true)) ≈
+            _total(LevelSetMethods.quadrature(ϕ_nb; quadrature_order = 4, surface = true)) rtol = 1.0e-10
     end
 end
