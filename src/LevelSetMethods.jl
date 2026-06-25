@@ -101,20 +101,26 @@ export_surface_mesh(args...; kwargs...) =
     error("MMG extension not loaded. Load MMG_jll to use this functionality.")
 
 """
-    quadrature(ϕ::InterpolatedField; order, surface=false)
+    quadrature(mf::AbstractMeshField; interpolation_order, quadrature_order, surface=false)
+    quadrature(ϕ::InterpolatedField; quadrature_order, surface=false)
 
-Generate a quadrature for the implicit domain defined by `ϕ`.
+Generate a quadrature for the implicit domain defined by the level set.
 If `surface=true`, generate a quadrature for the interface `ϕ=0`;
 otherwise for the interior `ϕ < 0`.
 
-Returns a `Vector` of `(region, quadrature)` pairs, where `region` is a
-single-cell `CartesianIndices` and `quadrature` is an `ImplicitIntegration.Quadrature`.
+The first form wraps `mf` in an [`InterpolatedField`](@ref) of degree `interpolation_order`
+and quadratures over it; pass an [`InterpolatedField`](@ref) directly (second form) to reuse
+an existing interpolant and skip `interpolation_order`. For a high-order rate, keep
+`quadrature_order ≥ interpolation_order` so the rule does not cap the interpolant's accuracy.
+
+Returns a `Dict` mapping each cut cell's `CartesianIndex` to its
+`ImplicitIntegration.Quadrature` (which exposes `coords` and `weights`); provably empty
+cells are omitted.
 
 !!! note
     Requires loading `ImplicitIntegration.jl` to activate the extension.
-    `ϕ` must be an [`InterpolatedField`](@ref), e.g. `InterpolatedField(mf, order)`.
 """
-function quadrature(ϕ; order, surface = false)
+function quadrature(ϕ; kwargs...)
     error("ImplicitIntegration extension not loaded. Load ImplicitIntegration to use this functionality.")
 end
 

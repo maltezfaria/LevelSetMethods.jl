@@ -1,3 +1,7 @@
+```@meta
+CurrentModule = LevelSetMethods
+```
+
 # [Level-set terms](@id terms)
 
 A level-set equation is given by
@@ -15,288 +19,206 @@ using InteractiveUtils # hide
 subtypes(LevelSetMethods.LevelSetTerm)
 ```
 
-Here we investigate the meaning of each term, and how they can be used to model different
-phenomena.
+We look at each in turn. Every example below evolves an equation and tiles a few snapshots
+side by side, so we factor that loop into a small helper:
+
+```@example terms
+using LevelSetMethods, StaticArrays, GLMakie
+LevelSetMethods.set_makie_theme!()
+
+# advance `eq` through `times` (increasing) and tile the states side by side
+function snapshots(eq, times; size = (1000, 280))
+    fig = Figure(; size)
+    for (n, t) in enumerate(times)
+        integrate!(eq, t)
+        ax = Axis(fig[1, n]; title = "t = $t")
+        plot!(ax, eq)
+    end
+    return fig
+end
+nothing # hide
+```
 
 ## [Advection](@id advection)
 
-The simplest term is the advection term, which is given by
+The simplest term is the advection term,
 
 ```math
   \mathbf{u} \cdot \nabla \phi
 ```
 
-where ``\mathbf{u}`` is a velocity field. This term models the transport of the level-set by
-an *external* velocity field (see [osher2003level; Chapter 3](@cite)). You can construct an advection term using the `AdvectionTerm`
-structure:
+where ``\mathbf{u}`` is a velocity field. It models transport of the level-set by an
+*external* velocity field (see [osher2003level; Chapter 3](@cite)). Passing a
+[`MeshField`](@ref) to the `AdvectionTerm` constructor gives a velocity sampled at the grid
+points — useful when the field is time-independent or only known at nodes:
 
-```@example advection-term
-using LevelSetMethods, StaticArrays
-grid = CartesianGrid((-1,-1), (1,1), (100, 100))
-𝐮 = MeshField(x -> SVector(1,0), grid)
-AdvectionTerm(𝐮)
-```
-
-In the example above we passed a [`MeshField`](@ref) object to the `AdvectionTerm`
-constructor, meaning that the velocity field is simply a vector of values at each grid
-point. This is useful if your velocity field is time-independent, or if you only know it at
-grid points. Lets construct a level-set equation with an advection term:
-
-```@example advection-term
+```@example terms
+grid = CartesianGrid((-1, -1), (1, 1), (64, 64))
+𝐮 = MeshField(x -> SVector(1, 0), grid)
 ϕ₀ = MeshField(x -> sqrt(x[1]^2 + x[2]^2) - 0.5, grid)
 eq = LevelSetEquation(; terms = (AdvectionTerm(𝐮),), ic = ϕ₀, bc = NeumannBC())
+snapshots(eq, [0.0, 0.5, 0.75, 1.0])
 ```
 
-To see how the advection term affects the level-set, we can solve the equation for a few
-time steps:
+The level-set is advected to the right. For a time-dependent field, pass a function `(x, t)`
+instead — it receives the spatial coordinates `x` (an abstract vector of length `d`) and the
+time `t`, and must return a vector of length `d`:
 
-```@example advection-term
-using GLMakie
-LevelSetMethods.set_makie_theme!()
-fig = Figure(; size = (1200, 300))
-# create a 2 x 2 figure
-for (n,t) in enumerate([0.0, 0.5, 0.75, 1.0])
-    I = CartesianIndices((2,2))[n]
-    integrate!(eq, t)
-    # ax = Axis(fig[I[1],I[2]])
-    ax = Axis(fig[1,n], title = "t = $t")
-    plot!(ax, eq)
-end
-fig
+```@example terms
+eq = LevelSetEquation(; terms = AdvectionTerm((x, t) -> SVector(x[1]^2, 0)), ic = ϕ₀, bc = NeumannBC())
+snapshots(eq, [0.0, 0.5, 0.75, 1.0])
 ```
 
-In the example above we see that the level-set is advected to the right. If we wanted to
-have instead a time-dependent velocity field, we could pass a function to the
-`AdvectionTerm`, and the velocity field would be computed at each time step. For example:
-
-```@example advection-term
-ϕ₀ = MeshField(x -> sqrt(x[1]^2 + x[2]^2) - 0.5, grid)
-eq = LevelSetEquation(; terms = (AdvectionTerm((x,t) -> SVector(x[1]^2, 0)),), ic = ϕ₀, bc = NeumannBC())
-fig = Figure(; size = (1200, 300))
-# create a 2 x 2 figure
-for (n,t) in enumerate([0.0, 0.5, 0.75, 1.0])
-    I = CartesianIndices((2,2))[n]
-    integrate!(eq, t)
-    ax = Axis(fig[1,n], title = "t = $t")
-    plot!(ax, eq)
-end
-fig
-```
-
-Note that the velocity function must accept two arguments: the spatial coordinates `x`,
-which is an abstract vector of length `d`, and the time `t`. Furthermore, it should return a
-vector of length `d`.
-
-Besides the velocity field, the `AdvectionTerm` constructor also accepts a `scheme` as a
-second argument to specify the discretization scheme. The available options are:
+The constructor also accepts a `scheme` as a second argument:
 
 - `Upwind()`: first-order upwind scheme
 - `WENO5()`: fifth-order WENO scheme (default)
 
-The WENO scheme is more expensive but much more accurate and is usually preferable to the
-upwind scheme, which introduces significant numerical diffusion. To see their differences,
-let us compare both schemes for a purely rotational velocity field:
+The WENO scheme is more expensive but much more accurate, and is usually preferable to the
+upwind scheme, which introduces significant numerical diffusion. Comparing the two on a
+purely rotational velocity field acting on a dumbbell (assembled with the CSG operators from
+the [geometry](@ref geometry) page) makes the difference plain:
 
-```@example advection-term
+```@example terms
 disk(c) = MeshField(x -> hypot((x .- c)...) - 0.25, grid)
 bar = MeshField(x -> maximum(abs.(x) .- (1.0, 0.2) ./ 2), grid)
-ϕ₀ = disk((-0.5, 0.0)) ∪ disk((0.5, 0.0)) ∪ bar # a dumbbell; see the [geometry](@ref) page
-𝐮  = MeshField(grid) do (x,y)
+ϕ₀ = disk((-0.5, 0.0)) ∪ disk((0.5, 0.0)) ∪ bar # a dumbbell
+𝐮  = MeshField(grid) do (x, y)
     SVector(-y, x)
 end
-eq_upwind = LevelSetEquation(; terms = AdvectionTerm(𝐮, Upwind()), ic = deepcopy(ϕ₀), bc = NeumannBC())
-eq_weno   = LevelSetEquation(; terms = AdvectionTerm(𝐮), ic = deepcopy(ϕ₀), bc = NeumannBC())
+eq_upwind = LevelSetEquation(; terms = AdvectionTerm(𝐮, Upwind()), ic = ϕ₀, bc = NeumannBC())
+eq_weno   = LevelSetEquation(; terms = AdvectionTerm(𝐮), ic = ϕ₀, bc = NeumannBC())
 fig = Figure(size = (1000, 400))
-ax = Axis(fig[1,1], title = "Initial")
-plot!(ax, eq_upwind)
-# do half a revolution
-tf = π
-ax = Axis(fig[1,2], title = "Upwind (final time)")
-integrate!(eq_upwind, tf)
-plot!(ax, eq_upwind)
-ax = Axis(fig[1,3], title = "WENO5 (final time)")
-integrate!(eq_weno, tf)
-plot!(ax, eq_weno)
+plot!(Axis(fig[1, 1]; title = "Initial"), eq_upwind)
+integrate!(eq_upwind, π) # half a revolution
+integrate!(eq_weno, π)
+plot!(Axis(fig[1, 2]; title = "Upwind (final time)"), eq_upwind)
+plot!(Axis(fig[1, 3]; title = "WENO5 (final time)"), eq_weno)
 fig
 ```
 
 ## [Normal motion](@id normal-motion)
 
-The normal motion term is given by
+The normal motion term is
 
 ```math
   v |\nabla \phi|
 ```
 
-where ``v`` is a scalar field. This term models the motion of the level-set in the normal
-direction (see [osher2003level; Chapter 6](@cite)). Here is an example of how to use it:
+where ``v`` is a scalar field. It moves the level-set in the normal direction (see
+[osher2003level; Chapter 6](@cite)). Here it is on a star-shaped interface (see the
+[geometry](@ref geometry) page):
 
-```@example normal-motion-term
-using LevelSetMethods
-using GLMakie
-grid = CartesianGrid((-2,-2), (2,2), (100, 100))
-ϕ = MeshField(grid) do x # a star; see the [geometry](@ref) page
+```@example terms
+grid = CartesianGrid((-2, -2), (2, 2), (64, 64))
+ϕ = MeshField(grid) do x # a star
     r, θ = hypot(x...), atan(x[2], x[1])
     return r - (1 + 0.25 * cos(5θ))
 end
-eq = LevelSetEquation(; terms = (NormalMotionTerm((x,t) -> 0.5),), ic = ϕ, bc = NeumannBC())
-fig = Figure(; size = (1200, 300))
-for (n,t) in enumerate([0.0, 0.5, 0.75, 1.0])
-    integrate!(eq, t)
-    ax = Axis(fig[1,n], title = "t = $t")
-    plot!(ax, eq)
-end
-fig
+eq = LevelSetEquation(; terms = (NormalMotionTerm((x, t) -> 0.5),), ic = ϕ, bc = NeumannBC())
+snapshots(eq, [0.0, 0.5, 0.75, 1.0])
 ```
 
 As with `AdvectionTerm`, you can provide an update callback to mutate a mesh-based speed
 field before each stage of time integration:
 
-```@example normal-motion-term
+```@example terms
 vfield = MeshField(x -> 0.0, grid)
-term = NormalMotionTerm(vfield, (v, ϕ, t) -> (values(v) .= 0.25 + 0.1 * t))
-term
+NormalMotionTerm(vfield, (v, ϕ, t) -> (values(v) .= 0.25 + 0.1 * t))
 ```
 
-In Stefan problems, the speed `v` may only be known near the interface
-`ϕ = 0`. You can extend that interface speed to a band around the interface using the
-[`extend_along_normals!`](@ref), and then pass it to `NormalMotionTerm`:
+In Stefan problems, the speed `v` may only be known near the interface `ϕ = 0`. You can
+extend that interface speed to a band around the interface with
+[`extend_along_normals!`](@ref) (see [velocity extension](@ref velocity-extension)), then pass
+the result to `NormalMotionTerm`:
 
-```@example normal-motion-term
-ϕext = MeshField(grid) do x # see the [geometry](@ref) page
-    r, θ = hypot(x...), atan(x[2], x[1])
-    return r - (1 + 0.25 * cos(5θ))
-end
+```@example terms
 v = zeros(Float64, size(grid)...)
 Δ = minimum(LevelSetMethods.meshsize(grid))
-frozen = abs.(values(ϕext)) .<= 1.5Δ
+frozen = abs.(values(ϕ)) .<= 1.5Δ
 for I in CartesianIndices(v)
     frozen[I] || continue
     x = getnode(grid, I)
     v[I] = 0.2 + 0.1 * cos(2π * atan(x[2], x[1]))
 end
-extend_along_normals!(v, ϕext; frozen, nb_iters = 80)
-term = NormalMotionTerm(MeshField(v, grid))
-term
+extend_along_normals!(v, ϕ; frozen, nb_iters = 80)
+NormalMotionTerm(MeshField(v, grid))
 ```
 
 ## [Curvature motion](@id curvature)
 
-This terms models the motion of the level-set in the normal direction with a velocity that
-is proportional to the mean curvature:
+This term moves the level-set in the normal direction with a velocity proportional to the
+mean curvature,
 
 ```math
   b \kappa |\nabla \phi|
 ```
 
-where ``\kappa = \nabla \cdot (\nabla \phi / |\nabla \phi|)`` is the mean curvature. Note that the
-coefficient ``b`` should be negative; a positive value of ``b`` would yield an ill-posed
-evolution problem (akin to a negative diffusion coefficient).
+where ``\kappa = \nabla \cdot (\nabla \phi / |\nabla \phi|)``. The coefficient ``b`` should
+be negative; a positive value yields an ill-posed evolution (akin to a negative diffusion
+coefficient). Here is the classic motion by mean curvature on a spiral-like level-set:
 
-Here is the classic example of motion by mean curvature for a spiral-like level-set:
-
-```@example curvature-term
-using LevelSetMethods, GLMakie
-grid = CartesianGrid((-1,-1), (1,1), (100, 100))
-# create a spiral level-set
-d = 1
-r0 = 0.5
-θ0 = -π / 3
-α = π / 100.0
+```@example terms
+grid = CartesianGrid((-1, -1), (1, 1), (64, 64))
+# a spiral level-set
+d, r0, θ0, α = 1, 0.5, -π / 3, π / 100.0
 R = [cos(α) -sin(α); sin(α) cos(α)]
 M = R * [1/0.06^2 0; 0 1/(4π^2)] * R'
 ϕ = MeshField(grid) do (x, y)
-    r = sqrt(x^2 + y^2)
-    θ = atan(y, x)
+    r, θ = sqrt(x^2 + y^2), atan(y, x)
     result = 1e30
     for i in 0:4
-        θ1 = θ + (2i - 4) * π
-        v = [r - r0; θ1 - θ0]
+        v = [r - r0; (θ + (2i - 4) * π) - θ0]
         result = min(result, sqrt(v' * M * v) - d)
     end
     return result
 end
-eq = LevelSetEquation(; terms = (CurvatureTerm((x,t) -> -0.1),), ic = ϕ, bc = NeumannBC())
-fig = Figure(; size = (1200, 300))
-for (n,t) in enumerate([0.0, 0.1, 0.2, 0.3])
-    integrate!(eq, t)
-    ax = Axis(fig[1,n], title = "t = $t")
-    plot!(ax, eq)
-end
-fig
+eq = LevelSetEquation(; terms = (CurvatureTerm((x, t) -> -0.1),), ic = ϕ, bc = NeumannBC())
+snapshots(eq, [0.0, 0.1, 0.2, 0.3])
 ```
 
 ## [Reinitialization term](@id reinitialization)
 
-The reinitialization term is given by
+The reinitialization term evolves
 
 ```math
   \phi_t + \text{sign}(\phi) \left( |\nabla \phi| - 1 \right) = 0
 ```
 
-This term is used to ensure that the level-set function remains close to a signed distance
-function, which is sometimes important for numerical stability. The idea of the evolution
-equation above is to penalize the deviation of the level-set from a signed distance
-function, where ``|\nabla \phi| = 1``, without changing the zero level-set. In practice a
-smeared `sign` function is used; see [osher2003level; Chapter 7](@cite) for more details.
+to keep the level-set function close to a signed distance function — sometimes important for
+numerical stability. The evolution penalizes deviation from ``|\nabla \phi| = 1`` without
+moving the zero contour; in practice a smeared `sign` is used (see [osher2003level; Chapter
+7](@cite)). Starting from a circle level-set that is *not* a signed distance, the term drives
+it toward the true SDF:
 
-Here is an example of how to use the reinitialization term to obtain a signed distance
-function from a level-set. Let us first create a level-set that is not a signed distance,
-and its signed distance function:
-
-```@example reinitialization-term
-using LevelSetMethods, GLMakie
-grid = CartesianGrid((-1,-1), (1,1), (100, 100))
-ϕ = MeshField(x -> x[1]^2 + x[2]^2 - 0.5^2, grid) # circle level-set, but not a signed distance function
-sdf = MeshField(x -> sqrt(x[1]^2 + x[2]^2) - 0.5, grid) # signed distance function
-LevelSetMethods.set_makie_theme!()
-fig = Figure(; size = (800, 400))
-ax = Axis(fig[1,1], title = "Signed distance function")
-contour!(ax, sdf; levels = [0.25, 0, 0.5], labels = true, labelsize = 14)
-ax = Axis(fig[1,2], title = "ϕ at t = 0")
-contour!(ax, ϕ, levels = [0.25, 0, 0.5], labels = true, labelsize = 14)
-fig
-```
-
-We will now evolve the level-set using the reinitialization term:
-
-```@example reinitialization-term
-eq = LevelSetEquation(; terms = (EikonalReinitializationTerm(),), ic = deepcopy(ϕ), bc = NeumannBC())
-fig = Figure(; size = (1200, 300))
-for (n,t) in enumerate([0.0, 0.25, 0.5, 0.75])
+```@example terms
+grid = CartesianGrid((-1, -1), (1, 1), (64, 64))
+ϕ = MeshField(x -> x[1]^2 + x[2]^2 - 0.5^2, grid)        # circle, but not a signed distance
+eq = LevelSetEquation(; terms = (EikonalReinitializationTerm(),), ic = ϕ, bc = NeumannBC())
+fig = Figure(; size = (1000, 280))
+for (n, t) in enumerate([0.0, 0.25, 0.5, 0.75])
     integrate!(eq, t)
-    ax = Axis(fig[1,n], title = "t = $t")
-    contour!(ax, LevelSetMethods.current_state(eq); levels = [0.25, 0, 0.5], labels = true, labelsize = 14)
+    ax = Axis(fig[1, n]; title = "t = $t")
+    contour!(ax, current_state(eq); levels = [0.25, 0, 0.5], labels = true, labelsize = 14)
 end
 fig
 ```
 
-Observe that as the reinitialization equation evolves, `ϕ` approaches the signed distance function `sdf` depicted in the first figure.
+As the equation evolves, the evenly spaced contours of `ϕ` relax toward those of the signed
+distance function ``\sqrt{x^2 + y^2} - 0.5``.
 
-Alternatively, you can use a modified reinitialization term that applies the sign function to the *initial level-set function* only:
+Alternatively, applying the sign to the *initial* level-set only,
 
 ```math
-  \phi_t + \text{sign}(\phi_0) \left( |\nabla \phi| - 1 \right) = 0
+  \phi_t + \text{sign}(\phi_0) \left( |\nabla \phi| - 1 \right) = 0,
 ```
 
-To enable this behavior, simply pass a `MeshField` object to the `EikonalReinitializationTerm`:
-
-```@example reinitialization-term
-eq = LevelSetEquation(; terms = (EikonalReinitializationTerm(ϕ),), ic = deepcopy(ϕ), bc = NeumannBC())
-fig = Figure(; size = (1200, 300))
-for (n,t) in enumerate([0.0, 0.25, 0.5, 0.75])
-    integrate!(eq, t)
-    ax = Axis(fig[1,n], title = "t = $t")
-    contour!(ax, LevelSetMethods.current_state(eq); levels = [0.25, 0, 0.5], labels = true, labelsize = 14)
-end
-fig
-```
-
-The outcome closely matches that of the previous approach.
+is enabled by passing a `MeshField` to the constructor — `EikonalReinitializationTerm(ϕ)` —
+and yields a closely matching result.
 
 !!! tip "Consider Newton reinitialization instead"
     `EikonalReinitializationTerm` requires many pseudo-time steps to propagate corrections
     away from the interface and can cause spurious mass loss. For most use cases,
     [`reinitialize!`](@ref) (Newton closest-point) is a better choice: it samples the
-    interface, builds a KD-tree, and computes the exact signed distance in a single pass.
-    See the [Reinitialization](@ref reinitialization-newton) section for details.
+    interface, builds a KD-tree, and computes the signed distance to high order in a single
+    pass. See the [Signed distance functions](@ref signed-distance) page for details.

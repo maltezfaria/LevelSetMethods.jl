@@ -434,6 +434,17 @@ function NarrowBandMeshField(ϕ::MeshField; nlayers::Int = 3)
     return nb
 end
 
+"""
+    NarrowBandMeshField(f::Function, grid::CartesianGrid; bc=nothing, nlayers=3)
+
+Construct a narrow-band field by evaluating `f` at each node of `grid`, then restricting to a
+band of `nlayers` around the interface. Equivalent to
+`NarrowBandMeshField(MeshField(f, grid; bc); nlayers)`.
+"""
+function NarrowBandMeshField(f::Function, grid::CartesianGrid; bc = nothing, nlayers::Int = 3)
+    return NarrowBandMeshField(MeshField(f, grid; bc); nlayers)
+end
+
 function Base.getindex(nb::NarrowBandMeshField{N}, I::CartesianIndex{N}) where {N}
     I in CartesianIndices(axes(nb)) && return _ingrid_value(nb, I)
     has_boundary_conditions(nb) || _throw_out_of_grid(nb, I)

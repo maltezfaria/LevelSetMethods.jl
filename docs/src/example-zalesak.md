@@ -1,9 +1,13 @@
+```@meta
+CurrentModule = LevelSetMethods
+```
+
 # [Zalesak disk](@id zalesak)
 
-This example demonstrates the setup and simulation of a Zalesak disk, a standard benchmark
-in computational fluid dynamics, using the `LevelSetMethods.jl`.
+The Zalesak disk — a slotted disk in solid-body rotation — is a standard benchmark for
+advection schemes. We set it up and evolve it below.
 
-## Setting up the Grid and Disk
+## Setting up the grid and disk
 
 ```@setup zalesak_disk_example
 using LevelSetMethods
@@ -11,34 +15,24 @@ using GLMakie
 LevelSetMethods.set_makie_theme!()
 ```
 
-First, we create a Cartesian grid to represent the computational domain. We define a
-circular disk with a rectangular cut to form the Zalesak disk.
+On a Cartesian grid, we carve a rectangular notch out of a disk to form the Zalesak disk.
 
 ```@example zalesak_disk_example
-# Define the computational grid
 grid = CartesianGrid((-1.5, -1.5), (1.5, 1.5), (100, 100))
-# Define the center and radius of the circular disk
-center = (-0.75, 0)
-radius = 0.5
-# Define the height and width of the rectangular notch
-h = 1.0
-w = 0.2
-# Create the circular disk and rectangular notch (see the [geometry](@ref) page)
+center, radius = (-0.75, 0), 0.5
+h, w = 1.0, 0.2                                   # notch height and width
 disk = MeshField(x -> hypot((x .- center)...) - radius, grid)
-rec = MeshField(x -> maximum(abs.(x .- (center .- (0, radius))) .- (w, h) ./ 2), grid)
-# Use set difference to carve out the notch in the disk
-ϕ = setdiff(disk, rec)
+rec  = MeshField(x -> maximum(abs.(x .- (center .- (0, radius))) .- (w, h) ./ 2), grid)
+ϕ = setdiff(disk, rec)                            # carve the notch out; see the geometry page
 plot(ϕ)
 current_figure() # hide
 ```
 
-## Setting Up the Level Set Equation
+## Setting up the level-set equation
 
-We use the level set method to evolve the disk over time with a velocity field that
-simulates rotation:
+We advect the disk with a rotational velocity field:
 
 ```@example zalesak_disk_example
-# Define the advection equation with a rotational velocity field
 eq = LevelSetEquation(;
     ic = ϕ,
     terms = AdvectionTerm((x, t) -> (-x[2], x[1])),
@@ -46,10 +40,9 @@ eq = LevelSetEquation(;
 )
 ```
 
-## Evolving the Zalesak Disk
+## Evolving the Zalesak disk
 
-To evolve the Zalesak disk, we integrate the level set equation over time. We will visualize
-the evolution using `GLMakie`:
+We integrate the equation over a full revolution, recording the evolution with `GLMakie`:
 
 ```@example zalesak_disk_example
 obs = Observable(eq)
@@ -71,34 +64,29 @@ end
 We see some small smearing of the disk due to numerical diffusion; this is a common issue,
 and the situation would be much worse with a low-order upwind scheme.
 
-## Three-dimensional Zalesak Disk
+## A three-dimensional Zalesak disk
 
 The same example can be run in 3D, but the solution takes longer to compute and visualize.
 
 !!! warning "Performance Warning"
     The 3D example below may take a minute or two to run.
 
-```@setup zalesak_disk_3d
-using LevelSetMethods
-using GLMakie
-LevelSetMethods.set_makie_theme!()
-```
-
 ```julia
-# 3D Zalesak's sphere example
+using LevelSetMethods, GLMakie, StaticArrays
+LevelSetMethods.set_makie_theme!()
+
 grid = CartesianGrid((-1, -1, -1), (1, 1, 1), (50, 50, 50))
 center = (-1 / 3, 0, 0)
 radius = 0.5
 disk = MeshField(x -> hypot((x .- center)...) - radius, grid)
-rec = MeshField(x -> maximum(abs.(x .- (center .+ (0, radius, 0))) .- (1 / 3, 1.0, 2) ./ 2), grid)
+rec  = MeshField(x -> maximum(abs.(x .- (center .+ (0, radius, 0))) .- (1 / 3, 1.0, 2) ./ 2), grid)
 ϕ = setdiff(disk, rec)
 eq = LevelSetEquation(;
     ic = ϕ,
     terms = AdvectionTerm((x, t) -> π * SVector(x[2], -x[1], 0)),
     bc = NeumannBC(),
 )
-LevelSetMethods.set_makie_theme!()
-eq.t = 0
+
 obs = Observable(eq)
 fig = Figure()
 ax = Axis3(fig[1, 1])

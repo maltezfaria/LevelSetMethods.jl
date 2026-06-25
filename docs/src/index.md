@@ -1,8 +1,23 @@
 ```@meta
 CurrentModule = LevelSetMethods
+Draft = false
 ```
 
 # LevelSetMethods
+
+`LevelSetMethods.jl` is a Julia package for representing and evolving implicitly defined
+domains in ``\mathbb{R}^d``. Rather than tracking the boundary of a domain ``\Omega``
+directly, it represents ``\Omega`` as the sub-zero region of a scalar *level-set function*
+``\phi``,
+
+```math
+\Omega = \left\{\boldsymbol{x} \in \mathbb{R}^d : \phi(\boldsymbol{x}) < 0 \right\},
+```
+
+with the interface ``\partial\Omega`` recovered as the zero contour ``\{\phi = 0\}``. Moving
+the interface then amounts to evolving ``\phi`` under a partial differential equation. Because
+the interface is never meshed or tracked explicitly, topological changes — merging, splitting,
+pinching off — happen automatically, which is the central appeal of the level-set method.
 
 ## Installation
 
@@ -14,8 +29,9 @@ using Pkg; Pkg.add("LevelSetMethods")
 
 This will install the latest tagged version of the package and its dependencies.
 
-For **visualization**, you may also want to install one of the
-[Makie](https://docs.makie.org) backends (we suggest `GLMakie` for 3D plots and animations).
+For **visualization**, you may also want to install a [Makie](https://docs.makie.org)
+backend: `CairoMakie` is a good default for 2D figures and animations, while `GLMakie` is
+needed for the 3D isosurface plots.
 
 ## Overview
 
@@ -34,71 +50,88 @@ where
 - ``b : \mathbb{R}^d \times \mathbb{R}^+ \to \mathbb{R}`` is a function that multiplies the curvature ``\kappa =
   \nabla \cdot (\nabla \phi / |\nabla \phi|)``
 
-Here is how it looks in practice to create a simple `LevelSetEquation`:
+Here is how it looks in practice. We rotate a dumbbell — assembled from two disks and a bar
+with the set operations of the [geometry](@ref geometry) page — about the origin:
 
 ```@example ls-intro
 using LevelSetMethods
-grid = CartesianGrid((-1, -1), (1, 1), (100, 100))
-# a dumbbell, built from two disks and a bar (see the [Creating level sets](@ref geometry) page)
+grid = CartesianGrid((-1, -1), (1, 1), (50, 50))
 disk(c) = MeshField(x -> hypot((x .- c)...) - 0.25, grid)
-bar     = MeshField(x -> maximum(abs.(x) .- (1.0, 0.2) ./ 2), grid)
-ϕ       = disk((-0.5, 0.0)) ∪ disk((0.5, 0.0)) ∪ bar
-𝐮    = (x,t) -> (-x[2], x[1])
-eq   = LevelSetEquation(;
-  terms = (AdvectionTerm(𝐮),),
-  ic = ϕ,
-  bc = NeumannBC()
-)
+bar = MeshField(x -> maximum(abs.(x) .- (1.0, 0.2) ./ 2), grid)
+ϕ = disk((-0.5, 0.0)) ∪ disk((0.5, 0.0)) ∪ bar
+𝐮 = (x, t) -> (-x[2], x[1])
+eq = LevelSetEquation(; terms = (AdvectionTerm(𝐮),), ic = ϕ, bc = NeumannBC())
 ```
 
-You can easily plot the current state of your level set equation using the `plot` function
-from [Makie](https://docs.makie.org):
+Loading a [Makie](https://docs.makie.org) backend lets you plot the equation with `plot`:
 
 ```@example ls-intro
-using GLMakie # loads the MakieExt from LevelSetMethods
+using CairoMakie # loads the MakieExt from LevelSetMethods
 LevelSetMethods.set_makie_theme!() # optional theme customization
-plot(ϕ)
+plot(eq)
 ```
 
-To step it in time, we can use the [`integrate!`](@ref) function:
+[`integrate!`](@ref) advances the equation in place. Calling it repeatedly at increasing
+times is the idiom behind animations; we wrap that loop in a small helper that writes the
+current [`current_time`](@ref) into the axis title. The recipe only draws the state — Makie
+recipes cannot set the axis title — so the title is the caller's job; we format it with a
+fixed two decimals (`@sprintf`) so its width stays constant and the label does not flicker:
 
 ```@example ls-intro
-integrate!(eq, 1)
-```
-
-This will advance the solution up to `t = 1`, modifying `ϕ` in the process:
-
-```@example ls-intro
-plot(ϕ)
-```
-
-Creating an animation can be achieved by calling `integrate!` in a loop and saving the
-results to a file:
-
-```@example ls-intro
-using GLMakie
-theme = LevelSetMethods.makie_theme()
-anim = with_theme(theme) do
+using Printf
+function animate(eq, filename; tf = π)
     obs = Observable(eq)
     fig = Figure()
     ax = Axis(fig[1, 1])
     plot!(ax, obs)
-    framerate = 30
-    t0 = current_time(eq)
-    tf = t0 + π
-    timestamps = range(t0, tf; step = 1 / framerate)
-    record(fig, joinpath(@__DIR__, "ls_intro.gif"), timestamps) do t_
-        integrate!(eq, t_)
-        return obs[] = eq
+    on(obs) do e
+        ax.title = @sprintf("t = %.2f", current_time(e))
     end
+    record(fig, joinpath(@__DIR__, filename), range(0, tf; step = 1 / 30)) do t
+        integrate!(eq, t)
+        obs[] = eq
+    end
+    return nothing
 end
-```
 
-Here is what the `.gif` file looks like:
+animate(eq, "ls_intro.gif")
+nothing # hide
+```
 
 ![Dumbbell](ls_intro.gif)
 
-For more interesting applications and advanced usage, see the examples section!
+Note that `ic` is *copied* into the equation, so the field `ϕ` you passed in is left
+untouched — the evolving state lives in [`current_state`](@ref).
+
+!!! tip "Keeping a signed distance function"
+    Curvature, normals, and narrow bands all behave best when ``\phi`` is a *signed distance
+    function* (``|\nabla\phi| = 1``), a property advection steadily distorts. The usual remedy
+    is to *reinitialize* between steps by passing a `posthook` to [`integrate!`](@ref):
+    ```julia
+    integrate!(eq, tf; posthook = eq -> reinitialize!(current_state(eq)))
+    ```
+    A PDE-based [`EikonalReinitializationTerm`](@ref) is also available. See
+    [Reinitialization](@ref signed-distance) for the trade-offs and details.
+
+That same equation runs **unchanged** on a *narrow band*. Because the interface fills only a
+thin region of the domain, storing ``\phi`` at every grid node is wasteful — especially in 3D.
+A [`NarrowBandMeshField`](@ref) keeps values only on a band of nodes around the interface, and
+is a drop-in replacement for a [`MeshField`](@ref): swap it in as the initial condition and
+everything else — the terms, the boundary conditions, even the `animate` call above — stays
+exactly the same.
+
+```@example ls-intro
+nb = NarrowBandMeshField(disk((-0.5, 0.0)) ∪ disk((0.5, 0.0)) ∪ bar; nlayers = 3)
+eq_band = LevelSetEquation(; terms = (AdvectionTerm(𝐮),), ic = nb, bc = NeumannBC())
+animate(eq_band, "ls_intro_band.gif")
+nothing # hide
+```
+
+![Dumbbell on a narrow band](ls_intro_band.gif)
+
+The recipe shades the active band cells, which travel along with the interface; only those
+nodes are stored and advanced, so the cost scales with the size of the *interface* rather than
+the *grid* — a substantial saving in 3D. See [Narrow-band fields](@ref narrow-band) for details.
 
 !!! note "Other resources"
     There is an almost one-to-one correspondence between each of the [`LevelSetTerm`](@ref)s
@@ -108,38 +141,31 @@ For more interesting applications and advanced usage, see the examples section!
     inspiration from the great Matlab library `ToolboxLS` by Ian Mitchell
     [mitchell2007toolbox](@cite).
 
-## Optional Dependencies
+## [Extensions](@id extensions)
 
-Some features of `LevelSetMethods.jl` are only available after loading certain
-optional dependencies:
+Some features of `LevelSetMethods.jl` are only available through extensions after loading
+certain optional dependencies:
 
 - **[Makie](https://docs.makie.org)**: Loading a `Makie` backend (like `GLMakie` or `CairoMakie`)
   enables plotting recipes for level sets and equations. See [Makie extension](@ref extension-makie).
 - **[MMG](https://github.com/JuliaBinaryWrappers/MMG_jll.jl.git)**: Loading `MMG_jll` and `MarchingCubes`
   enables exporting level sets as volume or surface meshes. See [MMG extension](@ref extension-mmg).
+- **[ImplicitIntegration](https://github.com/maltezfaria/ImplicitIntegration.jl)**: Loading
+  `ImplicitIntegration` enables high-order quadratures over the implicit domain and its
+  interface. See [ImplicitIntegration extension](@ref extension-implicit-integration).
 
 ## Going further
 
-As illustrated above, the `LevelSetEquation` type is the main structure of this package.
-Becoming familiar with its fields and methods is a good starting point to use the package:
+The [`LevelSetEquation`](@ref) type seen above is the heart of the package, and the rest of
+the manual is organized around it; its docstrings are worth reading in detail.
 
-```@docs
-LevelSetEquation
-```
+The remaining documentation is grouped in the navigation sidebar:
 
-To learn more about the package, you should also check out the following sections:
+- **Building & solving** covers each ingredient of an equation — grids and fields, level
+  sets, terms, time integrators, boundary conditions — one page apiece.
+- **Advanced topics** goes beyond the basics.
+- **Extensions** documents the optional features behind extra dependencies (see
+  [Extensions](@ref extensions) above).
+- **Examples** works through complete applications end to end.
 
-- The section on [terms](@ref terms) for a detailed description of each term and their
-  corresponding customizations
-- The section on [time integrators](@ref time-integrators) for a description of the
-  available time integrators and how to use them
-- The section on [boundary conditions](@ref boundary-conditions) for a description of the
-  available boundary conditions and how to use them
-
-Finally, the examples section contains a list of examples that demonstrate some
-hopefully cool applications.
-
-## Bibliography
-
-```@bibliography
-```
+Every exported name is documented in the [Reference](@ref reference).

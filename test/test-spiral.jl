@@ -24,9 +24,9 @@ import LevelSetMethods as LSM
     reinit_prehook() = eq -> reinitialize!(current_state(eq))
 
     eq_full = LevelSetEquation(;
-        ic = deepcopy(ϕ), terms = (CurvatureTerm(b),), bc = ExtrapolationBC(2),
+        ic = ϕ, terms = (CurvatureTerm(b),), bc = ExtrapolationBC(2),
     )
-    nb = NarrowBandMeshField(deepcopy(ϕ); nlayers = 3)
+    nb = NarrowBandMeshField(ϕ; nlayers = 3)
     eq_nb = LevelSetEquation(;
         ic = nb, terms = (CurvatureTerm(b),), bc = ExtrapolationBC(2),
     )

@@ -8,8 +8,8 @@ abstract type LevelSetTerm end
 """
     update_term!(term::LevelSetTerm, ϕ, t)
 
-Update the internal state of a `LevelSetTerm` before computing its contribution.  This is
-called at each stage of the time integration.
+Update the internal state of a `LevelSetTerm` before computing its contribution. Called before
+the CFL estimate and at each stage of the time integration.
 """
 update_term!(::LevelSetTerm, _, _) = nothing
 
@@ -88,10 +88,11 @@ _upwind⁻(::WENO5, ϕ, I, dim) = weno5⁻(ϕ, I, dim)
 _upwind⁺(::WENO5, ϕ, I, dim) = weno5⁺(ϕ, I, dim)
 
 function _compute_cfl(term::AdvectionTerm, ϕ, I, t)
-    # equation 3.10 of Osher and Fedkiw
+    # CFL for the unsplit multidimensional update: Δt Σ_d |u_d|/Δx_d ≤ 1 (Osher & Fedkiw
+    # eq. 3.10). The sum over dimensions — not the max — is what von Neumann analysis requires.
     𝐮 = _eval_field(velocity(term), ϕ, I, t)
     Δx = meshsize(ϕ)
-    return 1 / maximum(abs.(𝐮) ./ Δx)
+    return 1 / sum(abs.(𝐮) ./ Δx)
 end
 
 """
@@ -169,9 +170,11 @@ function _compute_term(term::NormalMotionTerm, ϕ::AbstractMeshField, I, t)
 end
 
 function _compute_cfl(term::NormalMotionTerm, ϕ, I, t)
+    # Same structure as the advection CFL: v|∇ϕ| is a Hamilton-Jacobi term whose characteristic
+    # speed along dimension d is bounded by |v|, so Δt Σ_d |v|/Δx_d ≤ 1.
     v = _eval_field(speed(term), ϕ, I, t)
-    Δx = minimum(meshsize(ϕ))
-    return Δx / abs(v)
+    Δx = meshsize(ϕ)
+    return 1 / sum(abs(v) ./ Δx)
 end
 
 @inline positive(x) = x > zero(x) ? x : zero(x)

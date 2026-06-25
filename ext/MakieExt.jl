@@ -129,7 +129,13 @@ Makie.@recipe(LevelSetPlot, eq) do scene
         gridcolor = (:black, 0.15),
         cellcolor = (:steelblue, 0.2),
         cellstrokecolor = (:steelblue, 0.5),
-        contourcolor = :black,
+        fill = true,
+        # styling of the zero-contour line. These are standard Makie line attributes, forwarded
+        # to `contour!` via `shared_attributes`, so any other Contour attribute passed to the
+        # recipe (e.g. `colormap`, `alpha`) composes through as well.
+        color = :black,
+        linewidth = 2,
+        linestyle = :solid,
     )
 end
 
@@ -144,12 +150,14 @@ function Makie.plot!(p::LevelSetPlot)
             linesegments!(p, segs; color = p.gridcolor, linewidth = 0.5)
         end
         if to_value(is_nb)
-            rects = @lift _active_cell_rects($ϕ)
-            poly!(p, rects; color = p.cellcolor, strokewidth = 0.5, strokecolor = p.cellstrokecolor)
-        else
+            if to_value(p.fill)
+                rects = @lift _active_cell_rects($ϕ)
+                poly!(p, rects; color = p.cellcolor, strokewidth = 0.5, strokecolor = p.cellstrokecolor)
+            end
+        elseif to_value(p.fill)
             contourf!(p, ϕ; levels = [0], extendlow = (:lightgray, 0.5))
         end
-        contour!(p, ϕ; levels = [0], linewidth = 2, color = p.contourcolor, overdraw = true)
+        contour!(p, Makie.shared_attributes(p, Contour; drop = [:levels]), ϕ; levels = [0], overdraw = true)
     elseif to_value(N) == 3
         if to_value(is_nb)
             pts = @lift _active_node_coords($ϕ)

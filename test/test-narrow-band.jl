@@ -23,6 +23,11 @@ using LevelSetMethods: D⁺, D⁻, D⁰, D2⁰, D2, weno5⁻, weno5⁺
     # A wider band contains strictly more nodes.
     nb_wide = NarrowBandMeshField(ϕ; nlayers = 10)
     @test length(LSM.active_nodeindices(nb_wide)) > length(LSM.active_nodeindices(nb))
+
+    # The function constructor matches nesting MeshField then restricting.
+    nb_f = NarrowBandMeshField(x -> sqrt(x[1]^2 + x[2]^2) - 0.5, grid; nlayers)
+    @test LSM.active_nodeindices(nb_f) == LSM.active_nodeindices(nb)
+    @test all(I -> nb_f[I] == nb[I], LSM.active_nodeindices(nb_f))
 end
 
 @testset "Extrapolation outside of narrow band" begin

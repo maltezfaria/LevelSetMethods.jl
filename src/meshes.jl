@@ -240,3 +240,11 @@ function Base.show(io::IO, ::MIME"text/plain", g::CartesianGrid{N}) where {N}
     println(io, "CartesianGrid in ℝ$(_superscript(N))")
     return _show_fields(io, g)
 end
+
+function Base.show(io::IO, ::MIME"text/plain", c::CartesianCell{N}) where {N}
+    lc = "(" * join(round.(c.lc; sigdigits = 4), ", ") * ")"
+    hc = "(" * join(round.(c.hc; sigdigits = 4), ", ") * ")"
+    println(io, "CartesianCell in ℝ$(_superscript(N))")
+    println(io, "  ├─ lower corner: $lc")
+    return print(io, "  └─ upper corner: $hc")
+end

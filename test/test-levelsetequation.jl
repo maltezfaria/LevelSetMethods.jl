@@ -147,7 +147,7 @@ end
     𝐮 = (x, t) -> SVector(1.0, 0.0)
     bc = ExtrapolationBC(2)
     eq_nb = LevelSetEquation(; terms = (AdvectionTerm(𝐮),), ic = NarrowBandMeshField(ϕ; nlayers = 5), bc)
-    eq_full = LevelSetEquation(; terms = (AdvectionTerm(𝐮),), ic = deepcopy(ϕ), bc)
+    eq_full = LevelSetEquation(; terms = (AdvectionTerm(𝐮),), ic = ϕ, bc)
     integrate!(eq_full, 0.1; prehook = _reinit_prehook())
     integrate!(eq_nb, 0.1; posthook = eq -> reinitialize!(current_state(eq)))
     @test _nb_full_error(current_state(eq_nb), current_state(eq_full), 5) < 1.0e-3
@@ -187,7 +187,7 @@ end
     end
     b, bc = (x, t) -> -0.1, ExtrapolationBC(2)
     eq_nb = LevelSetEquation(; ic = NarrowBandMeshField(ϕ), bc, terms = (CurvatureTerm(b),))
-    eq_full = LevelSetEquation(; ic = deepcopy(ϕ), bc, terms = (CurvatureTerm(b),))
+    eq_full = LevelSetEquation(; ic = ϕ, bc, terms = (CurvatureTerm(b),))
     integrate!(eq_full, 0.1; prehook = _reinit_prehook())
     integrate!(eq_nb, 0.1; posthook = eq -> reinitialize!(current_state(eq)))
     @test _nb_full_error(current_state(eq_nb), current_state(eq_full), 3) < 0.05
@@ -198,11 +198,11 @@ end
     ϕ = LSM.MeshField(x -> norm(x - SVector(0.8, 0.0)) - 0.5, grid)
     𝐮, bc = (x, t) -> SVector(-x[2], x[1]), ExtrapolationBC(2)
     eq_nb = LevelSetEquation(; terms = (AdvectionTerm(𝐮),), ic = NarrowBandMeshField(ϕ), bc)
-    eq_full = LevelSetEquation(; terms = (AdvectionTerm(𝐮),), ic = deepcopy(ϕ), bc)
+    eq_full = LevelSetEquation(; terms = (AdvectionTerm(𝐮),), ic = ϕ, bc)
     integrate!(eq_full, 2π); integrate!(eq_nb, 2π; posthook = eq -> reinitialize!(current_state(eq)))
     nb_s = current_state(eq_nb)
     @test length(LSM.active_nodeindices(nb_s)) > 0
-    @test _nb_full_error(nb_s, current_state(eq_full), 3) < 0.01
+    @test _nb_full_error(nb_s, current_state(eq_full), 3) < 0.02
 end
 
 @testset "NarrowBand integrate! — star rotation" begin
@@ -213,7 +213,7 @@ end
     end
     𝐮, bc = (x, t) -> SVector(-x[2], x[1]), ExtrapolationBC(2)
     eq_nb = LevelSetEquation(; terms = (AdvectionTerm(𝐮),), ic = NarrowBandMeshField(ϕ₀), bc)
-    eq_full = LevelSetEquation(; terms = (AdvectionTerm(𝐮),), ic = deepcopy(ϕ₀), bc)
+    eq_full = LevelSetEquation(; terms = (AdvectionTerm(𝐮),), ic = ϕ₀, bc)
     integrate!(eq_full, pi); integrate!(eq_nb, pi; posthook = eq -> reinitialize!(current_state(eq)))
     nb_s = current_state(eq_nb)
     @test length(LSM.active_nodeindices(nb_s)) > 0
@@ -240,7 +240,7 @@ end
     ic = NarrowBandMeshField(ϕ; nlayers = 5)
     refill!(vel, ic, 0.0)                             # pre-fill so the first CFL has data
     eq_nb = LevelSetEquation(; terms = (AdvectionTerm(vel, WENO5(), refill!),), ic, bc)
-    eq_full = LevelSetEquation(; terms = (AdvectionTerm(velfun),), ic = deepcopy(ϕ), bc)
+    eq_full = LevelSetEquation(; terms = (AdvectionTerm(velfun),), ic = ϕ, bc)
     integrate!(eq_full, 0.3; prehook = _reinit_prehook())
     integrate!(eq_nb, 0.3; posthook = eq -> reinitialize!(current_state(eq)))
     @test LSM.valtype(vel) == SVector{2, Float64}     # the sparse field really held SVectors

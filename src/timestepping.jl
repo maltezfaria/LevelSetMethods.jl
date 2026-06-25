@@ -69,7 +69,7 @@ end
 """
     struct SemiImplicitI2OE
 
-Semi-implicit finite-volume scheme of the I2OE family (Mikula et al.) for
+Semi-implicit finite-volume scheme of the I2OE family ([mikula2010new](@cite)) for
 advection problems.
 
 ```jldoctest; output = true
@@ -103,6 +103,11 @@ function _integrate!(ls, ϕ::AbstractMeshField, integrator::TimeIntegrator, term
     α = cfl(integrator)
     while tc <= tf - eps(tc)
         prehook(ls)
+        # refresh state-dependent terms before estimating the CFL, so Δt reflects the speed
+        # actually used this step
+        for term in terms
+            update_term!(term, ϕ, tc)
+        end
         Δt = min(Δt_max, α * compute_cfl(terms, ϕ, tc), tf - tc)
         _advance!(integrator, ϕ, buffers, terms, tc, Δt)
         tc += Δt
