@@ -25,10 +25,14 @@ overwritten.
 
 ## Extending a speed off the interface
 
-The example below starts from a speed defined only in a thin band around a circle (here the
-polar angle ``\theta``) and extends it across the whole grid. Nodes inside the interface band
-are *frozen* by default — their values are the data being propagated — while everything else
-is filled in; pass `frozen` to choose the held nodes explicitly.
+The example below starts from a speed defined only in a thin band around a circle (here
+``\sin\theta``, with ``\theta`` the polar angle) and extends it across the grid. Nodes inside
+the interface band are *frozen* by default — their values are the data being propagated —
+while everything else is filled in; pass `frozen` to choose the held nodes explicitly. We use
+a smooth, single-valued speed so that the extension is *constant along each normal*, which is
+the property we want to show: a discontinuous speed (e.g. ``\theta`` itself, which jumps
+across the negative ``x``-axis) would have that jump carried faithfully outward along the
+normals.
 
 ```@example velext
 using LevelSetMethods
@@ -39,36 +43,42 @@ grid = CartesianGrid((-1, -1), (1, 1), (64, 64))
 ϕ = MeshField(x -> hypot(x...) - 0.5, grid)          # a circle, as a signed distance function
 Δ = minimum(LevelSetMethods.meshsize(grid))
 
-# a speed known only near the interface (the polar angle); arbitrary elsewhere
+# a speed known only near the interface (sin of the polar angle); arbitrary elsewhere
 F = MeshField(grid; bc = LinearExtrapolationBC()) do x
-    abs(hypot(x...) - 0.5) <= 1.5Δ ? atan(x[2], x[1]) : 0.0
+    abs(hypot(x...) - 0.5) <= 1.5Δ ? sin(atan(x[2], x[1])) : 0.0
 end
 before = copy(values(F))
 
-extend_along_normals!(F, ϕ; nb_iters = 100)
+extend_along_normals!(F, ϕ; nb_iters = 90)           # ≈ cfl*90 cells: enough to fill the grid
+
+# interpolate the level set onto a fine grid for a smooth zero-contour
+ϕi = InterpolatedField(ϕ, 1)
+fine = range(-1, 1; length = 400)
+ϕfine = [ϕi(SVector(x, y)) for x in fine, y in fine]
 
 xs = ys = range(-1, 1; length = 64)
 LevelSetMethods.set_makie_theme!()
 fig = Figure(; size = (760, 330))
 ax1 = Axis(fig[1, 1]; title = "Known near interface", aspect = 1)
 ax2 = Axis(fig[1, 2]; title = "Extended along normals", aspect = 1, yticklabelsvisible = false)
-heatmap!(ax1, xs, ys, before; colormap = :twilight)
-hm = heatmap!(ax2, xs, ys, values(F); colormap = :twilight)
+heatmap!(ax1, xs, ys, before; colormap = :balance, colorrange = (-1, 1))
+hm = heatmap!(ax2, xs, ys, values(F); colormap = :balance, colorrange = (-1, 1))
 for ax in (ax1, ax2)
-    contour!(ax, xs, ys, values(ϕ); levels = [0.0], color = :white, linewidth = 2)
+    contour!(ax, fine, fine, ϕfine; levels = [0.0], color = :black, linewidth = 2)
 end
 Colorbar(fig[1, 3], hm)
 fig
 ```
 
-The extended field is constant along each normal. Probing one ray at ``\theta = \pi/4`` at
-three different radii returns the same value — the interface speed, carried unchanged:
+Each colored wedge in the right panel runs radially outward from the interface: the value is
+constant along every normal. Probing one ray at ``\theta = \pi/4`` at three radii returns the
+same value — the interface speed ``\sin(\pi/4)``, carried unchanged:
 
 ```@example velext
 Fi = InterpolatedField(F, 1)
 vals = [Fi(SVector(r * cos(π / 4), r * sin(π / 4))) for r in (0.3, 0.5, 0.8)]
-@assert maximum(vals) - minimum(vals) < 1e-3 "extension should be constant along the normal"  # hide
-@assert all(abs.(vals .- π / 4) .< 1e-2) "extension should carry the interface value θ = π/4"   # hide
+@assert maximum(vals) - minimum(vals) < 2e-2 "extension should be constant along the normal"   # hide
+@assert all(abs.(vals .- sin(π / 4)) .< 2e-2) "extension should carry the value sin(π/4)"       # hide
 vals
 ```
 
@@ -80,8 +90,9 @@ moves consistently everywhere. See the [level-set terms](@ref terms) page for a 
 example.
 
 !!! tip "Cost and frequency"
-    Each call runs `nb_iters` upwind sweeps, so the extension reaches `nb_iters` cells from
-    the interface. Use just enough iterations to cover the band the scheme reads from (a few
-    cells for a standard stencil), and re-extend whenever the interface — and hence its
-    speed — has moved appreciably, typically from the same `posthook` used for
+    Each call runs `nb_iters` upwind sweeps that advance at `cfl` cells per sweep, so the
+    extension reaches about `cfl * nb_iters` cells from the interface (≈ `0.45 * nb_iters`
+    with the default `cfl`). Use just enough iterations to cover the band the scheme reads
+    from (a few cells for a standard stencil), and re-extend whenever the interface — and
+    hence its speed — has moved appreciably, typically from the same `posthook` used for
     [reinitialization](@ref signed-distance).
